@@ -1,0 +1,36 @@
+# Maven / Java
+**/target/
+**/*.class
+
+# IDEA
+**/.idea/
+**/*.iml
+
+# VS Code
+**/.vscode/
+
+# Logs
+**/logs/
+**/*.log
+**/*.log.*
+
+# Local config and secrets
+.env
+*.env
+**/application-dev.yml
+**/application-prod.yml
+**/application-local.yml
+**/*.local.yml
+
+# Node / Frontend
+**/node_modules/
+**/dist/
+**/.vite/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp

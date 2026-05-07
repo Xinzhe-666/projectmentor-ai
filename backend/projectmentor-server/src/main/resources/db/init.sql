@@ -37,3 +37,18 @@ CREATE TABLE IF NOT EXISTS pm_credit_log (
     remark VARCHAR(255) NULL COMMENT '备注',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='额度流水表';
+
+CREATE TABLE IF NOT EXISTS pm_project (
+                                          id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '项目ID',
+                                          user_id BIGINT NOT NULL COMMENT '用户ID',
+                                          name VARCHAR(100) NOT NULL COMMENT '项目名称',
+    github_url VARCHAR(255) NULL COMMENT 'GitHub地址',
+    description TEXT NULL COMMENT '项目描述',
+    project_type VARCHAR(50) NULL COMMENT '项目类型，例如 BACKEND/FRONTEND/AI/FULLSTACK',
+    tech_stack VARCHAR(255) NULL COMMENT '技术栈标签，逗号分隔',
+    status VARCHAR(30) DEFAULT 'PENDING' COMMENT '分析状态：PENDING/ANALYZING/FINISHED/FAILED',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX idx_user_id (user_id),
+    INDEX idx_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='项目表';

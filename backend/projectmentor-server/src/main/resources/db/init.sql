@@ -52,3 +52,15 @@ CREATE TABLE IF NOT EXISTS pm_project (
     INDEX idx_user_id (user_id),
     INDEX idx_status (status)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='项目表';
+
+CREATE TABLE IF NOT EXISTS pm_project_file (
+                                               id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '文件ID',
+                                               project_id BIGINT NOT NULL COMMENT '项目ID',
+                                               file_path VARCHAR(255) NOT NULL COMMENT '文件路径，例如 README.md / src/main/java/xxx/UserController.java',
+    file_type VARCHAR(50) NOT NULL COMMENT '文件类型，例如 README/POM/YML/JAVA/SQL/DOCKER/OTHER',
+    content LONGTEXT NOT NULL COMMENT '文件内容',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX idx_project_id (project_id),
+    INDEX idx_file_type (file_type)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='项目文件表';

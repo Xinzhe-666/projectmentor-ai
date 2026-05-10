@@ -36,3 +36,9 @@ projectmentor:
   jwt:
     secret: ${JWT_SECRET:projectmentor-ai-local-dev-secret-must-be-at-least-32-chars}
     expire-hours: 24
+
+  ai:
+    base-url: ${AI_BASE_URL:https://api.deepseek.com}
+    api-key: ${AI_API_KEY:}
+    model: ${AI_MODEL:deepseek-chat}
+    timeout-seconds: 60

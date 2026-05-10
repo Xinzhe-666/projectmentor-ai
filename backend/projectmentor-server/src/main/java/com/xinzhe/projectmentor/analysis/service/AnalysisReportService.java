@@ -31,6 +31,14 @@ public class AnalysisReportService {
 
     private final ObjectMapper objectMapper;
 
+    private final com.xinzhe.projectmentor.ai.LlmClient llmClient;
+
+    private final AuditPromptBuilder auditPromptBuilder;
+
+    private boolean isBlank(String text) {
+        return text == null || text.isBlank();
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public AnalysisReportVO generateReport(Long projectId) {
         Project project = checkProjectOwner(projectId);
@@ -65,15 +73,37 @@ public class AnalysisReportService {
         report.setSecurityScore(securityScore);
         report.setEngineeringScore(engineeringScore);
         report.setInterviewScore(interviewScore);
-        report.setSummary(buildSummary(project, totalScore, scanResult));
-        report.setStrengths(buildStrengths(scanResult));
-        report.setWeaknesses(buildWeaknesses(scanResult));
         report.setRiskPoints(toJson(scanResult.getRisks()));
         report.setEvidenceChain(toJson(scanResult.getEvidences()));
-        report.setSuggestions(toJson(scanResult.getSuggestions()));
-        report.setResumeBasic(buildResumeBasic(project, scanResult));
-        report.setResumeStandard(buildResumeStandard(project, scanResult));
-        report.setResumeAdvanced(buildResumeAdvanced(project, scanResult));
+
+        String fallbackSummary = buildSummary(project, totalScore, scanResult);
+        String fallbackStrengths = buildStrengths(scanResult);
+        String fallbackWeaknesses = buildWeaknesses(scanResult);
+        String fallbackSuggestions = toJson(scanResult.getSuggestions());
+        String fallbackResumeBasic = buildResumeBasic(project, scanResult);
+        String fallbackResumeStandard = buildResumeStandard(project, scanResult);
+        String fallbackResumeAdvanced = buildResumeAdvanced(project, scanResult);
+
+        try {
+            String prompt = auditPromptBuilder.build(project, scanResult);
+            com.xinzhe.projectmentor.ai.dto.AiAuditResult aiResult = llmClient.generateAuditReport(prompt);
+
+            report.setSummary(isBlank(aiResult.getSummary()) ? fallbackSummary : aiResult.getSummary());
+            report.setStrengths(isBlank(aiResult.getStrengths()) ? fallbackStrengths : aiResult.getStrengths());
+            report.setWeaknesses(isBlank(aiResult.getWeaknesses()) ? fallbackWeaknesses : aiResult.getWeaknesses());
+            report.setSuggestions(isBlank(aiResult.getSuggestions()) ? fallbackSuggestions : aiResult.getSuggestions());
+            report.setResumeBasic(isBlank(aiResult.getResumeBasic()) ? fallbackResumeBasic : aiResult.getResumeBasic());
+            report.setResumeStandard(isBlank(aiResult.getResumeStandard()) ? fallbackResumeStandard : aiResult.getResumeStandard());
+            report.setResumeAdvanced(isBlank(aiResult.getResumeAdvanced()) ? fallbackResumeAdvanced : aiResult.getResumeAdvanced());
+        } catch (Exception e) {
+            report.setSummary(fallbackSummary + "（AI 增强分析暂不可用，当前报告由规则扫描模块生成。）");
+            report.setStrengths(fallbackStrengths);
+            report.setWeaknesses(fallbackWeaknesses);
+            report.setSuggestions(fallbackSuggestions);
+            report.setResumeBasic(fallbackResumeBasic);
+            report.setResumeStandard(fallbackResumeStandard);
+            report.setResumeAdvanced(fallbackResumeAdvanced);
+        }
 
         analysisReportMapper.insert(report);
 

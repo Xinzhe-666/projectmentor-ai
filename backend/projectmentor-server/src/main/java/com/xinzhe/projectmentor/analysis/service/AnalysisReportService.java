@@ -22,6 +22,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class AnalysisReportService {
+    private final com.xinzhe.projectmentor.credit.service.CreditService creditService;
 
     private final AnalysisReportMapper analysisReportMapper;
 
@@ -42,75 +43,101 @@ public class AnalysisReportService {
     @Transactional(rollbackFor = Exception.class)
     public AnalysisReportVO generateReport(Long projectId) {
         Project project = checkProjectOwner(projectId);
+        Long userId = UserContext.getUserId();
 
-        RuleScanResultVO scanResult = projectRuleScanner.scanProject(projectId);
-
-        int authenticityScore = calculateAuthenticityScore(scanResult);
-        int readmeScore = calculateReadmeScore(scanResult);
-        int structureScore = calculateStructureScore(scanResult);
-        int engineeringScore = calculateEngineeringScore(scanResult);
-        int securityScore = calculateSecurityScore(scanResult);
-        int runnabilityScore = calculateRunnabilityScore(scanResult);
-        int interviewScore = calculateInterviewScore(scanResult);
-
-        int totalScore = calculateTotalScore(
-                runnabilityScore,
-                authenticityScore,
-                structureScore,
-                securityScore,
-                engineeringScore,
-                interviewScore,
-                readmeScore
-        );
-
-        AnalysisReport report = new AnalysisReport();
-        report.setProjectId(projectId);
-        report.setTotalScore(totalScore);
-        report.setRunnabilityScore(runnabilityScore);
-        report.setAuthenticityScore(authenticityScore);
-        report.setStructureScore(structureScore);
-        report.setReadmeScore(readmeScore);
-        report.setSecurityScore(securityScore);
-        report.setEngineeringScore(engineeringScore);
-        report.setInterviewScore(interviewScore);
-        report.setRiskPoints(toJson(scanResult.getRisks()));
-        report.setEvidenceChain(toJson(scanResult.getEvidences()));
-
-        String fallbackSummary = buildSummary(project, totalScore, scanResult);
-        String fallbackStrengths = buildStrengths(scanResult);
-        String fallbackWeaknesses = buildWeaknesses(scanResult);
-        String fallbackSuggestions = toJson(scanResult.getSuggestions());
-        String fallbackResumeBasic = buildResumeBasic(project, scanResult);
-        String fallbackResumeStandard = buildResumeStandard(project, scanResult);
-        String fallbackResumeAdvanced = buildResumeAdvanced(project, scanResult);
+        boolean creditConsumed = false;
 
         try {
-            String prompt = auditPromptBuilder.build(project, scanResult);
-            com.xinzhe.projectmentor.ai.dto.AiAuditResult aiResult = llmClient.generateAuditReport(prompt);
+            creditService.consumeCredits(
+                    userId,
+                    1,
+                    "GENERATE_ANALYSIS_REPORT",
+                    projectId,
+                    "生成项目审计报告消耗 1 点额度"
+            );
+            creditConsumed = true;
 
-            report.setSummary(isBlank(aiResult.getSummary()) ? fallbackSummary : aiResult.getSummary());
-            report.setStrengths(isBlank(aiResult.getStrengths()) ? fallbackStrengths : aiResult.getStrengths());
-            report.setWeaknesses(isBlank(aiResult.getWeaknesses()) ? fallbackWeaknesses : aiResult.getWeaknesses());
-            report.setSuggestions(isBlank(aiResult.getSuggestions()) ? fallbackSuggestions : aiResult.getSuggestions());
-            report.setResumeBasic(isBlank(aiResult.getResumeBasic()) ? fallbackResumeBasic : aiResult.getResumeBasic());
-            report.setResumeStandard(isBlank(aiResult.getResumeStandard()) ? fallbackResumeStandard : aiResult.getResumeStandard());
-            report.setResumeAdvanced(isBlank(aiResult.getResumeAdvanced()) ? fallbackResumeAdvanced : aiResult.getResumeAdvanced());
+            RuleScanResultVO scanResult = projectRuleScanner.scanProject(projectId);
+
+            int authenticityScore = calculateAuthenticityScore(scanResult);
+            int readmeScore = calculateReadmeScore(scanResult);
+            int structureScore = calculateStructureScore(scanResult);
+            int engineeringScore = calculateEngineeringScore(scanResult);
+            int securityScore = calculateSecurityScore(scanResult);
+            int runnabilityScore = calculateRunnabilityScore(scanResult);
+            int interviewScore = calculateInterviewScore(scanResult);
+
+            int totalScore = calculateTotalScore(
+                    runnabilityScore,
+                    authenticityScore,
+                    structureScore,
+                    securityScore,
+                    engineeringScore,
+                    interviewScore,
+                    readmeScore
+            );
+
+            AnalysisReport report = new AnalysisReport();
+            report.setProjectId(projectId);
+            report.setTotalScore(totalScore);
+            report.setRunnabilityScore(runnabilityScore);
+            report.setAuthenticityScore(authenticityScore);
+            report.setStructureScore(structureScore);
+            report.setReadmeScore(readmeScore);
+            report.setSecurityScore(securityScore);
+            report.setEngineeringScore(engineeringScore);
+            report.setInterviewScore(interviewScore);
+            report.setRiskPoints(toJson(scanResult.getRisks()));
+            report.setEvidenceChain(toJson(scanResult.getEvidences()));
+
+            String fallbackSummary = buildSummary(project, totalScore, scanResult);
+            String fallbackStrengths = buildStrengths(scanResult);
+            String fallbackWeaknesses = buildWeaknesses(scanResult);
+            String fallbackSuggestions = toJson(scanResult.getSuggestions());
+            String fallbackResumeBasic = buildResumeBasic(project, scanResult);
+            String fallbackResumeStandard = buildResumeStandard(project, scanResult);
+            String fallbackResumeAdvanced = buildResumeAdvanced(project, scanResult);
+
+            try {
+                String prompt = auditPromptBuilder.build(project, scanResult);
+                com.xinzhe.projectmentor.ai.dto.AiAuditResult aiResult = llmClient.generateAuditReport(prompt);
+
+                report.setSummary(isBlank(aiResult.getSummary()) ? fallbackSummary : aiResult.getSummary());
+                report.setStrengths(isBlank(aiResult.getStrengths()) ? fallbackStrengths : aiResult.getStrengths());
+                report.setWeaknesses(isBlank(aiResult.getWeaknesses()) ? fallbackWeaknesses : aiResult.getWeaknesses());
+                report.setSuggestions(isBlank(aiResult.getSuggestions()) ? fallbackSuggestions : aiResult.getSuggestions());
+                report.setResumeBasic(isBlank(aiResult.getResumeBasic()) ? fallbackResumeBasic : aiResult.getResumeBasic());
+                report.setResumeStandard(isBlank(aiResult.getResumeStandard()) ? fallbackResumeStandard : aiResult.getResumeStandard());
+                report.setResumeAdvanced(isBlank(aiResult.getResumeAdvanced()) ? fallbackResumeAdvanced : aiResult.getResumeAdvanced());
+            } catch (Exception e) {
+                report.setSummary(fallbackSummary + "（AI 增强分析暂不可用，当前报告由规则扫描模块生成。）");
+                report.setStrengths(fallbackStrengths);
+                report.setWeaknesses(fallbackWeaknesses);
+                report.setSuggestions(fallbackSuggestions);
+                report.setResumeBasic(fallbackResumeBasic);
+                report.setResumeStandard(fallbackResumeStandard);
+                report.setResumeAdvanced(fallbackResumeAdvanced);
+            }
+
+            analysisReportMapper.insert(report);
+
+            project.setStatus("FINISHED");
+            projectMapper.updateById(project);
+
+            return toVO(report);
         } catch (Exception e) {
-            report.setSummary(fallbackSummary + "（AI 增强分析暂不可用，当前报告由规则扫描模块生成。）");
-            report.setStrengths(fallbackStrengths);
-            report.setWeaknesses(fallbackWeaknesses);
-            report.setSuggestions(fallbackSuggestions);
-            report.setResumeBasic(fallbackResumeBasic);
-            report.setResumeStandard(fallbackResumeStandard);
-            report.setResumeAdvanced(fallbackResumeAdvanced);
+            if (creditConsumed) {
+                creditService.refundCredits(
+                        userId,
+                        1,
+                        "GENERATE_ANALYSIS_REPORT_REFUND",
+                        projectId,
+                        "项目审计报告生成失败，返还 1 点额度"
+                );
+            }
+
+            throw e;
         }
-
-        analysisReportMapper.insert(report);
-
-        project.setStatus("FINISHED");
-        projectMapper.updateById(project);
-
-        return toVO(report);
     }
 
     public List<AnalysisReportVO> listProjectReports(Long projectId) {

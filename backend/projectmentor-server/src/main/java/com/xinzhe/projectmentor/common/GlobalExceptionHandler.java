@@ -6,6 +6,7 @@ import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @Slf4j
 @RestControllerAdvice
@@ -47,6 +48,12 @@ public class GlobalExceptionHandler {
     public Result<Void> constraintViolationExceptionHandler(ConstraintViolationException e) {
         log.warn("Constraint violation exception: {}", e.getMessage());
         return Result.fail(ErrorCode.PARAM_ERROR.getCode(), e.getMessage());
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public Result<Void> maxUploadSizeExceededExceptionHandler(MaxUploadSizeExceededException e) {
+        log.warn("Upload size exceeded: {}", e.getMessage());
+        return Result.fail(ErrorCode.PARAM_ERROR.getCode(), "上传文件不能超过 10MB");
     }
 
     @ExceptionHandler(Exception.class)

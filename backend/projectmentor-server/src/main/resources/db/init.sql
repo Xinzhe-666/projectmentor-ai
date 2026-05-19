@@ -125,3 +125,21 @@ CREATE TABLE IF NOT EXISTS pm_interview_message (
                                                     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                                     INDEX idx_session_id (session_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='面试消息表';
+
+CREATE TABLE IF NOT EXISTS pm_analysis_task (
+                                                id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '分析任务ID',
+                                                user_id BIGINT NOT NULL COMMENT '用户ID',
+                                                project_id BIGINT NOT NULL COMMENT '项目ID',
+                                                task_type VARCHAR(50) NOT NULL COMMENT '任务类型，例如 FULL_ANALYSIS',
+                                                credit_cost INT DEFAULT 1 COMMENT '消耗额度',
+                                                status VARCHAR(30) DEFAULT 'PENDING' COMMENT '任务状态：PENDING/RUNNING/SUCCESS/FAILED',
+                                                progress INT DEFAULT 0 COMMENT '任务进度 0-100',
+                                                report_id BIGINT NULL COMMENT '生成的报告ID',
+                                                fail_reason TEXT NULL COMMENT '失败原因',
+                                                create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                                update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                                                finish_time DATETIME NULL COMMENT '完成时间',
+                                                INDEX idx_user_id (user_id),
+                                                INDEX idx_project_id (project_id),
+                                                INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='分析任务表';

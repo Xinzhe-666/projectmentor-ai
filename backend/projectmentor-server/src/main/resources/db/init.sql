@@ -101,3 +101,27 @@ CREATE TABLE IF NOT EXISTS pm_analysis_report
     INDEX idx_project_id (project_id)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4 COMMENT ='项目审计报告表';
+CREATE TABLE IF NOT EXISTS pm_interview_session (
+                                                    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '面试会话ID',
+                                                    user_id BIGINT NOT NULL COMMENT '用户ID',
+                                                    project_id BIGINT NOT NULL COMMENT '项目ID',
+                                                    mode VARCHAR(50) NOT NULL COMMENT '面试模式',
+                                                    status VARCHAR(30) DEFAULT 'RUNNING' COMMENT '状态：RUNNING/FINISHED',
+                                                    total_score INT NULL COMMENT '总评分',
+                                                    summary TEXT NULL COMMENT '面试总结',
+                                                    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                                    finish_time DATETIME NULL COMMENT '结束时间',
+                                                    INDEX idx_user_id (user_id),
+                                                    INDEX idx_project_id (project_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='面试会话表';
+
+CREATE TABLE IF NOT EXISTS pm_interview_message (
+                                                    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '面试消息ID',
+                                                    session_id BIGINT NOT NULL COMMENT '会话ID',
+                                                    role VARCHAR(20) NOT NULL COMMENT '角色：INTERVIEWER/USER/SYSTEM',
+                                                    content TEXT NOT NULL COMMENT '消息内容',
+                                                    score INT NULL COMMENT '用户回答评分',
+                                                    feedback TEXT NULL COMMENT '反馈',
+                                                    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                                    INDEX idx_session_id (session_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='面试消息表';

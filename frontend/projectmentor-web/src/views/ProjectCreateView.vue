@@ -2,12 +2,12 @@
   <section class="panel form-page">
     <div class="panel-title">
       <div>
-        <h2>新建项目</h2>
+        <h2>创建项目</h2>
         <p class="muted">先记录项目基础信息，后续再上传 README 或 ZIP。</p>
       </div>
     </div>
     <div class="panel-body">
-      <el-form :model="form" label-width="100px">
+      <el-form :model="form" label-width="110px">
         <el-form-item label="项目名称" required>
           <el-input v-model="form.name" placeholder="例如：AI 简历助手" />
         </el-form-item>
@@ -18,7 +18,7 @@
           <el-input v-model="form.description" type="textarea" :rows="4" placeholder="简要说明项目目标和核心功能" />
         </el-form-item>
         <el-form-item label="项目类型">
-          <el-select v-model="form.projectType" placeholder="请选择" clearable>
+          <el-select v-model="form.projectType" placeholder="请选择" clearable class="wide-control">
             <el-option label="后端" value="BACKEND" />
             <el-option label="前端" value="FRONTEND" />
             <el-option label="全栈" value="FULLSTACK" />
@@ -55,7 +55,7 @@ const form = reactive({
 })
 
 async function handleSubmit() {
-  if (!form.name) {
+  if (!form.name.trim()) {
     ElMessage.warning('请输入项目名称')
     return
   }
@@ -70,3 +70,9 @@ async function handleSubmit() {
   }
 }
 </script>
+
+<style scoped>
+.wide-control {
+  width: min(420px, 100%);
+}
+</style>

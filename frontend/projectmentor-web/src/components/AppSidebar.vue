@@ -11,37 +11,49 @@
     <el-menu :default-active="activePath" router class="side-menu">
       <el-menu-item index="/dashboard">
         <el-icon><DataBoard /></el-icon>
-        <span>工作台</span>
+        <span>Dashboard</span>
       </el-menu-item>
       <el-menu-item index="/projects">
         <el-icon><FolderOpened /></el-icon>
-        <span>项目管理</span>
+        <span>我的项目</span>
+      </el-menu-item>
+      <el-menu-item index="/projects/create">
+        <el-icon><CirclePlus /></el-icon>
+        <span>创建项目</span>
       </el-menu-item>
       <el-menu-item index="/hallucination">
         <el-icon><Warning /></el-icon>
-        <span>幻觉检测</span>
+        <span>AI 幻觉检测</span>
       </el-menu-item>
       <el-menu-item index="/interview">
         <el-icon><ChatDotRound /></el-icon>
-        <span>面试深挖</span>
+        <span>模拟面试</span>
       </el-menu-item>
       <el-menu-item index="/credits">
         <el-icon><Coin /></el-icon>
         <span>额度中心</span>
       </el-menu-item>
     </el-menu>
+
+    <div class="sidebar-footnote">
+      上传 README 与代码证据后，再生成报告，会得到更可信的面试风险判断。
+    </div>
   </aside>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { ChatDotRound, Coin, DataBoard, FolderOpened, Warning } from '@element-plus/icons-vue'
+import { ChatDotRound, CirclePlus, Coin, DataBoard, FolderOpened, Warning } from '@element-plus/icons-vue'
 
 const route = useRoute()
 
 const activePath = computed(() => {
-  if (route.path.startsWith('/projects')) {
+  if (route.path === '/projects/create') {
+    return '/projects/create'
+  }
+
+  if (route.path.startsWith('/projects/')) {
     return '/projects'
   }
 

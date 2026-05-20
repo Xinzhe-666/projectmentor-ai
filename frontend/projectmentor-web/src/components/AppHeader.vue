@@ -6,25 +6,24 @@
     </div>
 
     <div class="header-actions">
-      <el-tag effect="light" type="success">
-        剩余额度 {{ userStore.remainingCredits }}
-      </el-tag>
+      <el-tag effect="light" type="success">剩余额度 {{ userStore.remainingCredits }}</el-tag>
       <div class="user-pill">
         <el-avatar :size="32">{{ userInitial }}</el-avatar>
         <span>{{ userStore.userInfo?.username || '用户' }}</span>
       </div>
-      <el-button :icon="SwitchButton" @click="handleLogout">退出</el-button>
+      <el-button :icon="SwitchButton" @click="handleLogout">退出登录</el-button>
     </div>
   </header>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { SwitchButton } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 import { logout as logoutApi } from '@/api/auth'
+import { getMyCredits } from '@/api/credit'
 import { useUserStore } from '@/stores/user'
 
 const route = useRoute()
@@ -33,13 +32,13 @@ const userStore = useUserStore()
 
 const title = computed(() => {
   const titleMap: Record<string, string> = {
-    dashboard: '工作台',
-    projects: '项目库',
-    'project-create': '新建项目',
+    dashboard: 'Dashboard',
+    projects: '我的项目',
+    'project-create': '创建项目',
     'project-detail': '项目详情',
     'report-detail': '审计报告',
     hallucination: 'AI 幻觉检测',
-    interview: '面试深挖',
+    interview: '模拟面试',
     credits: '额度中心'
   }
 
@@ -47,6 +46,15 @@ const title = computed(() => {
 })
 
 const userInitial = computed(() => userStore.userInfo?.username?.slice(0, 1).toUpperCase() || 'U')
+
+async function refreshCredits() {
+  try {
+    const info = await getMyCredits()
+    userStore.updateCredits(info.remainingCredits)
+  } catch {
+    // Header 中的额度刷新失败不阻塞页面本身。
+  }
+}
 
 async function handleLogout() {
   try {
@@ -59,4 +67,6 @@ async function handleLogout() {
     router.push('/login')
   }
 }
+
+onMounted(refreshCredits)
 </script>

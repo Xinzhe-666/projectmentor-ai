@@ -16,9 +16,9 @@
       <div class="hero-overlay" />
       <div class="hero-content">
         <p class="eyebrow">AI Project Audit</p>
-        <h1>让你的 GitHub 项目经得起面试官深挖</h1>
+        <h1>ProjectMentor AI</h1>
         <p class="hero-subtitle">
-          AI 自动审计 README、代码结构、技术栈和面试风险，识别项目夸大与 AI 幻觉。
+          自动审计 README、代码结构、技术栈和面试风险，识别项目包装、AI 幻觉与证据缺口。
         </p>
         <div class="hero-actions">
           <el-button size="large" type="primary" :icon="ArrowRight" @click="goStart">立即开始</el-button>
@@ -54,7 +54,7 @@ const features = [
     icon: Search
   },
   {
-    title: 'README 夸大检测',
+    title: 'README 风险扫描',
     description: '识别高并发、微服务、RAG 等描述是否缺少证据。',
     icon: DocumentChecked
   },
@@ -65,17 +65,17 @@ const features = [
   },
   {
     title: '简历描述优化',
-    description: '把项目亮点改写成更可信、更面试友好的表述。',
+    description: '把项目亮点改写成更可信、更面试友好的表达。',
     icon: MagicStick
   },
   {
-    title: '面试深挖',
+    title: '模拟面试',
     description: '围绕项目细节持续追问，提前暴露薄弱点。',
     icon: ChatLineRound
   },
   {
     title: '额度系统',
-    description: '清晰记录 AI 审计与深挖能力的使用成本。',
+    description: '清晰记录 AI 审计与面试深挖能力的使用成本。',
     icon: Coin
   }
 ]
@@ -162,7 +162,7 @@ function goStart() {
   margin: 12px 0 18px;
   max-width: 640px;
   color: #111827;
-  font-size: clamp(42px, 6vw, 76px);
+  font-size: clamp(42px, 6vw, 72px);
   line-height: 1.04;
   letter-spacing: 0;
 }

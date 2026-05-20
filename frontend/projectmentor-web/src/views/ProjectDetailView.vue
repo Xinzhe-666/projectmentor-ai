@@ -6,20 +6,28 @@
           <h2>{{ project?.name || '项目详情' }}</h2>
           <p class="muted">{{ project?.description || '暂无项目描述' }}</p>
         </div>
-        <el-tag>{{ project?.status || 'PENDING' }}</el-tag>
+        <el-tag :type="statusTagType(project?.status)" effect="light">{{ project?.status || 'PENDING' }}</el-tag>
       </div>
       <div class="panel-body detail-grid">
         <div>
-          <span class="muted">GitHub</span>
-          <p>{{ project?.githubUrl || '-' }}</p>
+          <span class="muted">项目名称</span>
+          <p>{{ project?.name || '-' }}</p>
         </div>
         <div>
-          <span class="muted">项目类型</span>
-          <p>{{ project?.projectType || '-' }}</p>
+          <span class="muted">GitHub</span>
+          <p class="link-text">{{ project?.githubUrl || '-' }}</p>
+        </div>
+        <div>
+          <span class="muted">项目描述</span>
+          <p>{{ project?.description || '-' }}</p>
         </div>
         <div>
           <span class="muted">技术栈</span>
           <p>{{ project?.techStack || '-' }}</p>
+        </div>
+        <div>
+          <span class="muted">项目类型</span>
+          <p>{{ project?.projectType || '-' }}</p>
         </div>
         <div>
           <span class="muted">创建时间</span>
@@ -31,42 +39,62 @@
     <section class="panel">
       <div class="panel-title">
         <div>
-          <h3>README 与 ZIP 文件</h3>
-          <p class="muted">粘贴 README 或上传项目 ZIP，系统会保存白名单文本文件。</p>
+          <h3>README 保存</h3>
+          <p class="muted">粘贴 README.md 内容，作为后续扫描和报告生成的核心证据。</p>
         </div>
-        <el-upload :show-file-list="false" :before-upload="beforeZipUpload">
-          <el-button :icon="Upload" :loading="uploading">上传 ZIP</el-button>
-        </el-upload>
+        <el-button type="primary" :loading="savingReadme" @click="handleSaveReadme">保存 README</el-button>
       </div>
       <div class="panel-body readme-editor">
         <el-input
           v-model="readmeContent"
           type="textarea"
-          :rows="9"
+          :rows="10"
           placeholder="粘贴 README.md 内容"
         />
-        <div class="toolbar">
-          <el-button type="primary" :loading="savingReadme" @click="handleSaveReadme">保存 README</el-button>
-          <span class="muted">ZIP 上传后会自动刷新文件列表。</span>
-        </div>
       </div>
     </section>
 
-    <section v-if="uploadResult" class="panel">
+    <section class="panel">
       <div class="panel-title">
-        <h3>最近一次 ZIP 解析</h3>
-        <el-tag type="success">保存 {{ uploadResult.savedFileCount }} 个文件</el-tag>
+        <div>
+          <h3>ZIP 上传</h3>
+          <p class="muted">仅支持 .zip 文件，后端会解析并保存白名单文本文件。</p>
+        </div>
+        <el-upload accept=".zip" :show-file-list="false" :before-upload="beforeZipUpload">
+          <el-button :icon="Upload" :loading="uploading">上传 ZIP</el-button>
+        </el-upload>
       </div>
       <div class="panel-body">
-        <p class="muted">跳过 {{ uploadResult.skippedFileCount }} 个文件</p>
-        <el-alert
-          v-for="warning in uploadResult.warnings.slice(0, 6)"
-          :key="warning"
-          :title="warning"
-          type="warning"
-          show-icon
-          :closable="false"
-        />
+        <div v-if="uploadResult" class="upload-result">
+          <div class="score-grid">
+            <div class="metric-card">
+              <span>已保存文件</span>
+              <strong>{{ uploadResult.savedFileCount }}</strong>
+            </div>
+            <div class="metric-card">
+              <span>已跳过文件</span>
+              <strong>{{ uploadResult.skippedFileCount }}</strong>
+            </div>
+          </div>
+
+          <div v-if="uploadResult.warnings?.length" class="warning-list">
+            <el-alert
+              v-for="warning in uploadResult.warnings"
+              :key="warning"
+              :title="warning"
+              type="warning"
+              show-icon
+              :closable="false"
+            />
+          </div>
+
+          <el-table :data="uploadResult.files" stripe>
+            <el-table-column prop="filePath" label="文件路径" min-width="260" show-overflow-tooltip />
+            <el-table-column prop="fileType" label="类型" width="150" />
+            <el-table-column prop="contentLength" label="长度" width="120" />
+          </el-table>
+        </div>
+        <EmptyState v-else title="还没有上传结果" description="上传 ZIP 后，这里会展示保存数量、跳过数量、警告和文件列表。" />
       </div>
     </section>
 
@@ -76,35 +104,28 @@
           <h3>项目文件</h3>
           <p class="muted">当前项目已保存的 README 和解析文件。</p>
         </div>
-        <el-button :icon="Refresh" @click="loadFiles">刷新</el-button>
+        <el-button :icon="Refresh" :loading="fileLoading" @click="loadFiles">刷新</el-button>
       </div>
       <div class="panel-body">
-        <el-table :data="files" stripe>
-          <el-table-column prop="filePath" label="文件路径" min-width="260" show-overflow-tooltip />
+        <el-table v-if="files.length || fileLoading" v-loading="fileLoading" :data="files" stripe>
+          <el-table-column prop="filePath" label="文件路径" min-width="280" show-overflow-tooltip />
           <el-table-column prop="fileType" label="类型" width="150" />
           <el-table-column prop="contentLength" label="长度" width="120" />
           <el-table-column prop="updateTime" label="更新时间" min-width="180" />
         </el-table>
+        <EmptyState v-else title="暂无项目文件" description="保存 README 或上传 ZIP 后，文件会出现在这里。" />
       </div>
     </section>
 
     <section class="panel">
       <div class="panel-title">
         <div>
-          <h3>审计动作</h3>
-          <p class="muted">先做规则扫描，再启动异步 AI 审计报告。</p>
+          <h3>规则扫描</h3>
+          <p class="muted">先用规则检查 README 和代码证据，快速发现高风险描述。</p>
         </div>
-        <div class="toolbar">
-          <el-button :icon="Search" :loading="scanning" @click="handleScan">规则扫描</el-button>
-          <el-button type="primary" :icon="Cpu" :loading="analyzing" @click="handleStartAnalyze">
-            异步生成报告
-          </el-button>
-        </div>
+        <el-button :icon="Search" :loading="scanning" @click="handleScan">规则扫描</el-button>
       </div>
       <div class="panel-body">
-        <el-progress v-if="task" :percentage="task.progress || 0" :status="task.status === 'FAILED' ? 'exception' : undefined" />
-        <p v-if="task" class="muted">任务状态：{{ task.status }} {{ task.message || '' }}</p>
-
         <div v-if="scanResult" class="scan-result">
           <div class="score-grid">
             <div class="metric-card">
@@ -120,17 +141,45 @@
               <strong>{{ scanResult.mediumRiskCount }}</strong>
             </div>
             <div class="metric-card">
-              <span>文件数</span>
-              <strong>{{ scanResult.fileCount }}</strong>
+              <span>低风险</span>
+              <strong>{{ scanResult.lowRiskCount }}</strong>
             </div>
           </div>
 
-          <el-table :data="scanResult.risks" stripe class="risk-table">
-            <el-table-column prop="riskLevel" label="等级" width="100" />
-            <el-table-column prop="riskType" label="类型" width="170" />
-            <el-table-column prop="sourceFile" label="来源" min-width="180" />
-            <el-table-column prop="message" label="说明" min-width="260" show-overflow-tooltip />
-          </el-table>
+          <div class="subsection">
+            <h4>风险点</h4>
+            <RiskList :risks="scanResult.risks" />
+          </div>
+
+          <div class="subsection">
+            <h4>证据链</h4>
+            <EvidenceList :evidences="scanResult.evidences" />
+          </div>
+
+          <div class="subsection">
+            <h4>建议</h4>
+            <el-tag v-for="suggestion in scanResult.suggestions" :key="suggestion" class="suggestion-tag" effect="light">
+              {{ suggestion }}
+            </el-tag>
+          </div>
+        </div>
+        <EmptyState v-else title="尚未扫描" description="点击规则扫描后，这里会展示风险统计、风险点、证据链和建议。" />
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">
+        <div>
+          <h3>异步生成报告</h3>
+          <p class="muted">生成报告会消耗额度，任务运行中会每 1.5 秒刷新一次进度。</p>
+        </div>
+        <el-button type="primary" :icon="Cpu" :loading="analyzing" @click="handleStartAnalyze">开始生成报告</el-button>
+      </div>
+      <div class="panel-body async-panel">
+        <TaskProgress v-if="task" :task="task" />
+        <EmptyState v-else title="还没有分析任务" description="点击开始生成报告后，会展示任务状态和报告入口。" />
+        <div v-if="task?.status === 'SUCCESS' && task.reportId" class="toolbar">
+          <el-button type="primary" @click="router.push(`/reports/${task.reportId}`)">查看报告</el-button>
         </div>
       </div>
     </section>
@@ -143,8 +192,12 @@ import { useRoute, useRouter } from 'vue-router'
 import { Cpu, Refresh, Search, Upload } from '@element-plus/icons-vue'
 import { ElMessage, type UploadProps } from 'element-plus'
 
-import { getProjectDetail, listProjectFiles, saveReadme, uploadZip } from '@/api/project'
 import { getTask, scanProject, startAnalyze } from '@/api/analysis'
+import { getProjectDetail, listProjectFiles, saveReadme, uploadZip } from '@/api/project'
+import EmptyState from '@/components/EmptyState.vue'
+import EvidenceList from '@/components/EvidenceList.vue'
+import RiskList from '@/components/RiskList.vue'
+import TaskProgress from '@/components/TaskProgress.vue'
 import type { AnalysisTask, Project, ProjectFile, RuleScanResult, UploadZipResult } from '@/types/api'
 
 const route = useRoute()
@@ -152,6 +205,7 @@ const router = useRouter()
 const projectId = Number(route.params.id)
 
 const loading = ref(false)
+const fileLoading = ref(false)
 const savingReadme = ref(false)
 const uploading = ref(false)
 const scanning = ref(false)
@@ -164,6 +218,17 @@ const scanResult = ref<RuleScanResult>()
 const task = ref<AnalysisTask>()
 let pollTimer: number | undefined
 
+function statusTagType(status?: string) {
+  const statusMap: Record<string, 'info' | 'primary' | 'success' | 'danger' | 'warning'> = {
+    PENDING: 'info',
+    ANALYZING: 'primary',
+    FINISHED: 'success',
+    FAILED: 'danger'
+  }
+
+  return statusMap[status || 'PENDING'] || 'info'
+}
+
 async function loadProject() {
   loading.value = true
   try {
@@ -174,7 +239,16 @@ async function loadProject() {
 }
 
 async function loadFiles() {
-  files.value = await listProjectFiles(projectId)
+  fileLoading.value = true
+  try {
+    files.value = await listProjectFiles(projectId)
+    const readme = files.value.find((file) => /readme/i.test(file.filePath))
+    if (readme?.content && !readmeContent.value.trim()) {
+      readmeContent.value = readme.content
+    }
+  } finally {
+    fileLoading.value = false
+  }
 }
 
 async function handleSaveReadme() {
@@ -235,21 +309,23 @@ async function handleStartAnalyze() {
 function startPolling(taskId: number) {
   clearPolling()
   pollTimer = window.setInterval(async () => {
-    const latestTask = await getTask(taskId)
-    task.value = latestTask
+    try {
+      const latestTask = await getTask(taskId)
+      task.value = latestTask
 
-    if (latestTask.status === 'SUCCESS') {
-      clearPolling()
-      if (latestTask.reportId) {
-        router.push(`/reports/${latestTask.reportId}`)
+      if (latestTask.status === 'SUCCESS') {
+        clearPolling()
+        ElMessage.success('报告生成完成')
       }
-    }
 
-    if (latestTask.status === 'FAILED') {
+      if (latestTask.status === 'FAILED') {
+        clearPolling()
+        ElMessage.error(latestTask.failReason || '分析任务失败')
+      }
+    } catch {
       clearPolling()
-      ElMessage.error(latestTask.failReason || '分析任务失败')
     }
-  }, 2500)
+  }, 1500)
 }
 
 function clearPolling() {
@@ -270,34 +346,57 @@ onUnmounted(clearPolling)
 <style scoped>
 .detail-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
 }
 
 .detail-grid p {
   margin: 8px 0 0;
+  line-height: 1.7;
 }
 
-.readme-editor {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+.link-text {
+  overflow-wrap: anywhere;
+  color: var(--pm-primary);
 }
 
-.scan-result {
+.readme-editor,
+.upload-result,
+.scan-result,
+.async-panel {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  margin-top: 18px;
 }
 
-.risk-table {
-  margin-top: 4px;
+.warning-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.subsection h4 {
+  margin: 0 0 12px;
+}
+
+.suggestion-tag {
+  margin: 0 8px 8px 0;
+  max-width: 100%;
+  white-space: normal;
+  height: auto;
+  padding: 6px 10px;
+  line-height: 1.5;
 }
 
 @media (max-width: 860px) {
   .detail-grid {
     grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .detail-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

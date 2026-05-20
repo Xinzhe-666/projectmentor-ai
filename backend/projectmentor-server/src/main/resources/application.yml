@@ -46,4 +46,7 @@ projectmentor:
     base-url: ${AI_BASE_URL:https://api.deepseek.com}
     api-key: ${AI_API_KEY:}
     model: ${AI_MODEL:deepseek-chat}
+    enabled: ${AI_ENABLED:true}
+    max-prompt-chars: ${AI_MAX_PROMPT_CHARS:12000}
+    max-response-tokens: ${AI_MAX_RESPONSE_TOKENS:1600}
     timeout-seconds: 60

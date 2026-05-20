@@ -143,3 +143,37 @@ CREATE TABLE IF NOT EXISTS pm_analysis_task (
                                                 INDEX idx_project_id (project_id),
                                                 INDEX idx_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='分析任务表';
+
+CREATE TABLE IF NOT EXISTS pm_ai_call_log (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT 'AI调用日志ID',
+    user_id BIGINT NULL COMMENT '用户ID',
+    module VARCHAR(50) NOT NULL COMMENT '调用模块：REPORT/HALLUCINATION/INTERVIEW',
+    model VARCHAR(100) NULL COMMENT '模型名称',
+    success TINYINT NOT NULL COMMENT '是否成功',
+    prompt_chars INT NULL COMMENT 'Prompt字符数',
+    response_chars INT NULL COMMENT '响应字符数',
+    latency_ms BIGINT NULL COMMENT '耗时毫秒',
+    error_message TEXT NULL COMMENT '错误信息',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    INDEX idx_user_id (user_id),
+    INDEX idx_module (module),
+    INDEX idx_success (success)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI调用日志表';
+
+USE projectmentor_ai;
+
+CREATE TABLE IF NOT EXISTS pm_ai_call_log (
+                                              id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT 'AI调用日志ID',
+                                              user_id BIGINT NULL COMMENT '用户ID',
+                                              module VARCHAR(50) NOT NULL COMMENT '调用模块：REPORT/HALLUCINATION/INTERVIEW',
+                                              model VARCHAR(100) NULL COMMENT '模型名称',
+                                              success TINYINT NOT NULL COMMENT '是否成功',
+                                              prompt_chars INT NULL COMMENT 'Prompt字符数',
+                                              response_chars INT NULL COMMENT '响应字符数',
+                                              latency_ms BIGINT NULL COMMENT '耗时毫秒',
+                                              error_message TEXT NULL COMMENT '错误信息',
+                                              create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                              INDEX idx_user_id (user_id),
+                                              INDEX idx_module (module),
+                                              INDEX idx_success (success)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI调用日志表';

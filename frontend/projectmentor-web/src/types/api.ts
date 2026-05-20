@@ -142,6 +142,14 @@ export interface CreditLog {
   createTime?: string
 }
 
+export interface AiStatus {
+  enabled: boolean
+  configured: boolean
+  model: string
+  baseUrl: string
+  message: string
+}
+
 export interface HallucinationIssue {
   riskLevel: string
   issueType: string

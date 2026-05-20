@@ -74,21 +74,28 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ChatDotRound, Coin, MagicStick, Plus } from '@element-plus/icons-vue'
 
+import { getAiStatus } from '@/api/ai'
 import { getMyCredits } from '@/api/credit'
 import { listProjects } from '@/api/project'
 import EmptyState from '@/components/EmptyState.vue'
 import { useUserStore } from '@/stores/user'
-import type { Project } from '@/types/api'
+import type { AiStatus, Project } from '@/types/api'
 
 const router = useRouter()
 const userStore = useUserStore()
 
 const loading = ref(false)
 const projects = ref<Project[]>([])
+const aiStatus = ref<AiStatus | null>(null)
+
+const aiStatusLabel = computed(() =>
+  aiStatus.value?.enabled && aiStatus.value?.configured ? 'AI 增强已配置' : '规则版降级中'
+)
 
 const metrics = computed(() => [
   { label: '项目数量', value: projects.value.length },
   { label: '剩余额度', value: userStore.remainingCredits },
+  { label: 'AI 状态', value: aiStatusLabel.value },
   { label: '审计报告', value: '--' },
   { label: '面试会话', value: '--' }
 ])
@@ -140,8 +147,13 @@ function statusTagType(status?: string) {
 async function loadDashboard() {
   loading.value = true
   try {
-    const [projectList, creditInfo] = await Promise.all([listProjects(), getMyCredits()])
+    const [projectList, creditInfo, status] = await Promise.all([
+      listProjects(),
+      getMyCredits(),
+      getAiStatus().catch(() => null)
+    ])
     projects.value = projectList
+    aiStatus.value = status
     userStore.updateCredits(creditInfo.remainingCredits)
   } finally {
     loading.value = false

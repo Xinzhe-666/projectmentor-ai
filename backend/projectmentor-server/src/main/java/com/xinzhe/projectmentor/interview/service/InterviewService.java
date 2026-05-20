@@ -1,6 +1,9 @@
 package com.xinzhe.projectmentor.interview.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.xinzhe.projectmentor.ai.AiJsonUtil;
+import com.xinzhe.projectmentor.ai.LlmClient;
 import com.xinzhe.projectmentor.auth.interceptor.UserContext;
 import com.xinzhe.projectmentor.common.BusinessException;
 import com.xinzhe.projectmentor.common.ErrorCode;
@@ -17,6 +20,7 @@ import com.xinzhe.projectmentor.interview.vo.InterviewSessionVO;
 import com.xinzhe.projectmentor.project.entity.Project;
 import com.xinzhe.projectmentor.project.mapper.ProjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +30,7 @@ import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class InterviewService {
 
     private final InterviewSessionMapper interviewSessionMapper;
@@ -35,6 +40,12 @@ public class InterviewService {
     private final ProjectMapper projectMapper;
 
     private final ProjectFileMapper projectFileMapper;
+
+    private final LlmClient llmClient;
+
+    private final InterviewPromptBuilder interviewPromptBuilder;
+
+    private final AiJsonUtil aiJsonUtil;
 
     @Transactional(rollbackFor = Exception.class)
     public InterviewSessionVO startInterview(StartInterviewRequest request) {
@@ -51,7 +62,9 @@ public class InterviewService {
 
         interviewSessionMapper.insert(session);
 
-        String firstQuestion = buildFirstQuestion(project, mode);
+        List<ProjectFile> projectFiles = listProjectFiles(project.getId());
+        String ruleFirstQuestion = buildFirstQuestion(project, mode);
+        String firstQuestion = generateAiFirstQuestion(project, mode, projectFiles, ruleFirstQuestion);
 
         InterviewMessage message = new InterviewMessage();
         message.setSessionId(session.getId());
@@ -73,20 +86,34 @@ public class InterviewService {
         }
 
         Project project = projectMapper.selectById(session.getProjectId());
+        List<ProjectFile> projectFiles = listProjectFiles(session.getProjectId());
+        List<InterviewMessage> history = listSessionMessages(sessionId);
 
         InterviewMessage userMessage = new InterviewMessage();
         userMessage.setSessionId(sessionId);
         userMessage.setRole("USER");
         userMessage.setContent(request.getAnswer());
 
-        AnswerEvaluation evaluation = evaluateAnswer(request.getAnswer());
+        AnswerEvaluation ruleEvaluation = evaluateAnswer(request.getAnswer());
+        String ruleFollowUpQuestion = buildFollowUpQuestion(project, session.getMode(), request.getAnswer(), ruleEvaluation);
+        AnswerEvaluation evaluation = enhanceEvaluationWithAi(
+                project,
+                session.getMode(),
+                request.getAnswer(),
+                ruleEvaluation,
+                ruleFollowUpQuestion,
+                projectFiles,
+                history
+        );
 
         userMessage.setScore(evaluation.score());
         userMessage.setFeedback(evaluation.feedback());
 
         interviewMessageMapper.insert(userMessage);
 
-        String followUpQuestion = buildFollowUpQuestion(project, session.getMode(), request.getAnswer(), evaluation);
+        String followUpQuestion = isBlank(evaluation.followUpQuestion())
+                ? ruleFollowUpQuestion
+                : evaluation.followUpQuestion();
 
         InterviewMessage interviewerMessage = new InterviewMessage();
         interviewerMessage.setSessionId(sessionId);
@@ -103,12 +130,7 @@ public class InterviewService {
         InterviewSession session = checkSessionOwner(sessionId, userId);
         Project project = projectMapper.selectById(session.getProjectId());
 
-        List<InterviewMessage> messages = interviewMessageMapper.selectList(
-                new LambdaQueryWrapper<InterviewMessage>()
-                        .eq(InterviewMessage::getSessionId, sessionId)
-                        .orderByAsc(InterviewMessage::getCreateTime)
-                        .orderByAsc(InterviewMessage::getId)
-        );
+        List<InterviewMessage> messages = listSessionMessages(sessionId);
 
         return InterviewSessionVO.builder()
                 .id(session.getId())
@@ -236,7 +258,7 @@ public class InterviewService {
             feedback = "回答偏空泛，抗追问能力较弱。建议用“背景-职责-实现-难点-结果”的结构重新组织。";
         }
 
-        return new AnswerEvaluation(score, feedback);
+        return new AnswerEvaluation(score, feedback, null);
     }
 
     private String buildFollowUpQuestion(Project project, String mode, String answer, AnswerEvaluation evaluation) {
@@ -259,6 +281,136 @@ public class InterviewService {
         }
 
         return "如果面试官质疑这个项目是 AI 帮你生成的，你会如何证明自己理解了项目核心代码和设计思路？";
+    }
+
+    private String generateAiFirstQuestion(Project project,
+                                           String mode,
+                                           List<ProjectFile> projectFiles,
+                                           String ruleFirstQuestion) {
+        try {
+            String content = llmClient.chat(
+                    "INTERVIEW",
+                    interviewPromptBuilder.buildSystemPrompt(),
+                    interviewPromptBuilder.buildFirstQuestionPrompt(project, mode, projectFiles)
+            );
+
+            JsonNode root = aiJsonUtil.safeReadTree(content);
+            String question = aiJsonUtil.getText(root, "question");
+            if (isBlank(question)) {
+                question = stripCodeFence(content);
+            }
+
+            return normalizeQuestion(question, ruleFirstQuestion);
+        } catch (Exception e) {
+            log.info("AI first interview question unavailable, fallback to rule question: {}", e.getMessage());
+            return ruleFirstQuestion;
+        }
+    }
+
+    private AnswerEvaluation enhanceEvaluationWithAi(Project project,
+                                                     String mode,
+                                                     String answer,
+                                                     AnswerEvaluation ruleEvaluation,
+                                                     String ruleFollowUpQuestion,
+                                                     List<ProjectFile> projectFiles,
+                                                     List<InterviewMessage> history) {
+        try {
+            String content = llmClient.chat(
+                    "INTERVIEW",
+                    interviewPromptBuilder.buildSystemPrompt(),
+                    interviewPromptBuilder.buildEvaluationPrompt(
+                            project,
+                            mode,
+                            answer,
+                            ruleEvaluation.score(),
+                            ruleEvaluation.feedback(),
+                            ruleFollowUpQuestion,
+                            projectFiles,
+                            history
+                    )
+            );
+
+            AnswerEvaluation aiEvaluation = parseAiEvaluation(content, ruleFollowUpQuestion);
+            return aiEvaluation == null ? new AnswerEvaluation(
+                    ruleEvaluation.score(),
+                    ruleEvaluation.feedback(),
+                    ruleFollowUpQuestion
+            ) : aiEvaluation;
+        } catch (Exception e) {
+            log.info("AI interview evaluation unavailable, fallback to rule evaluation: {}", e.getMessage());
+            return new AnswerEvaluation(ruleEvaluation.score(), ruleEvaluation.feedback(), ruleFollowUpQuestion);
+        }
+    }
+
+    private AnswerEvaluation parseAiEvaluation(String content, String ruleFollowUpQuestion) {
+        JsonNode root = aiJsonUtil.safeReadTree(content);
+        if (root == null || !root.isObject()) {
+            return null;
+        }
+
+        Integer score = getScore(root, "score");
+        String feedback = aiJsonUtil.getText(root, "feedback");
+        String followUpQuestion = normalizeQuestion(
+                aiJsonUtil.getText(root, "followUpQuestion"),
+                ruleFollowUpQuestion
+        );
+
+        if (score == null || isBlank(feedback) || isBlank(followUpQuestion)) {
+            return null;
+        }
+
+        return new AnswerEvaluation(score, feedback, followUpQuestion);
+    }
+
+    private Integer getScore(JsonNode root, String fieldName) {
+        JsonNode node = root.get(fieldName);
+        if (node == null || node.isNull()) {
+            return null;
+        }
+
+        int score;
+        if (node.isInt()) {
+            score = node.asInt();
+        } else if (node.isTextual()) {
+            try {
+                score = Integer.parseInt(node.asText());
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        } else {
+            return null;
+        }
+
+        if (score < 0 || score > 100) {
+            return null;
+        }
+
+        return score;
+    }
+
+    private String normalizeQuestion(String question, String fallback) {
+        if (isBlank(question)) {
+            return fallback;
+        }
+
+        String normalized = question.trim();
+        if (normalized.length() > 600) {
+            return fallback;
+        }
+
+        return normalized;
+    }
+
+    private String stripCodeFence(String content) {
+        if (content == null) {
+            return "";
+        }
+
+        return content
+                .replace("```json", "")
+                .replace("```JSON", "")
+                .replace("```", "")
+                .trim();
     }
 
     private int calculateTotalScore(List<InterviewMessage> userMessages) {
@@ -304,6 +456,27 @@ public class InterviewService {
         return Math.max(0, Math.min(100, score));
     }
 
+    private List<ProjectFile> listProjectFiles(Long projectId) {
+        return projectFileMapper.selectList(
+                new LambdaQueryWrapper<ProjectFile>()
+                        .eq(ProjectFile::getProjectId, projectId)
+                        .orderByAsc(ProjectFile::getFilePath)
+        );
+    }
+
+    private List<InterviewMessage> listSessionMessages(Long sessionId) {
+        return interviewMessageMapper.selectList(
+                new LambdaQueryWrapper<InterviewMessage>()
+                        .eq(InterviewMessage::getSessionId, sessionId)
+                        .orderByAsc(InterviewMessage::getCreateTime)
+                        .orderByAsc(InterviewMessage::getId)
+        );
+    }
+
+    private boolean isBlank(String text) {
+        return text == null || text.isBlank();
+    }
+
     private Long getCurrentUserId() {
         Long userId = UserContext.getUserId();
 
@@ -325,6 +498,6 @@ public class InterviewService {
                 .build();
     }
 
-    private record AnswerEvaluation(int score, String feedback) {
+    private record AnswerEvaluation(int score, String feedback, String followUpQuestion) {
     }
 }

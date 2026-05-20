@@ -1,6 +1,9 @@
 package com.xinzhe.projectmentor.hallucination.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.xinzhe.projectmentor.ai.AiJsonUtil;
+import com.xinzhe.projectmentor.ai.LlmClient;
 import com.xinzhe.projectmentor.auth.interceptor.UserContext;
 import com.xinzhe.projectmentor.common.BusinessException;
 import com.xinzhe.projectmentor.common.ErrorCode;
@@ -12,19 +15,29 @@ import com.xinzhe.projectmentor.hallucination.vo.HallucinationIssueVO;
 import com.xinzhe.projectmentor.project.entity.Project;
 import com.xinzhe.projectmentor.project.mapper.ProjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class HallucinationCheckService {
 
     private final ProjectMapper projectMapper;
 
     private final ProjectFileMapper projectFileMapper;
+
+    private final LlmClient llmClient;
+
+    private final HallucinationPromptBuilder hallucinationPromptBuilder;
+
+    private final AiJsonUtil aiJsonUtil;
 
     public HallucinationCheckResultVO check(HallucinationCheckRequest request) {
         String aiAnswer = request.getAiAnswer();
@@ -62,7 +75,7 @@ public class HallucinationCheckService {
 
         String riskLevel = determineRiskLevel(highCount, mediumCount, issues.size());
 
-        return HallucinationCheckResultVO.builder()
+        HallucinationCheckResultVO ruleResult = HallucinationCheckResultVO.builder()
                 .credibilityScore(credibilityScore)
                 .objectivityScore(objectivityScore)
                 .riskLevel(riskLevel)
@@ -74,6 +87,8 @@ public class HallucinationCheckService {
                 .unsafeResumeStatements(unsafeStatements)
                 .saferRewrite(buildSaferRewrite(issues, request.getProjectId() != null))
                 .build();
+
+        return enhanceWithAi(aiAnswer, projectFiles, ruleResult);
     }
 
     private void checkProjectOwner(Long projectId) {
@@ -392,6 +407,233 @@ public class HallucinationCheckService {
 
     private int clamp(int score) {
         return Math.max(0, Math.min(100, score));
+    }
+
+    private HallucinationCheckResultVO enhanceWithAi(String aiAnswer,
+                                                    List<ProjectFile> projectFiles,
+                                                    HallucinationCheckResultVO ruleResult) {
+        try {
+            String content = llmClient.chat(
+                    "HALLUCINATION",
+                    hallucinationPromptBuilder.buildSystemPrompt(),
+                    hallucinationPromptBuilder.buildUserPrompt(aiAnswer, projectFiles, ruleResult)
+            );
+
+            HallucinationCheckResultVO aiResult = parseAiResult(content, ruleResult);
+            return aiResult == null ? ruleResult : aiResult;
+        } catch (Exception e) {
+            log.info("AI hallucination enhancement unavailable, fallback to rule result: {}", e.getMessage());
+            return ruleResult;
+        }
+    }
+
+    private HallucinationCheckResultVO parseAiResult(String content, HallucinationCheckResultVO ruleResult) {
+        JsonNode root = aiJsonUtil.safeReadTree(content);
+        if (root == null || !root.isObject()) {
+            return null;
+        }
+
+        Integer credibilityScore = getScore(root, "credibilityScore");
+        Integer objectivityScore = getScore(root, "objectivityScore");
+        String riskLevel = normalizeRiskLevel(aiJsonUtil.getText(root, "riskLevel"));
+        List<HallucinationIssueVO> aiIssues = parseIssues(root.get("issues"));
+
+        if (credibilityScore == null || objectivityScore == null || riskLevel == null || aiIssues == null) {
+            return null;
+        }
+
+        List<HallucinationIssueVO> mergedIssues = mergeIssues(ruleResult.getIssues(), aiIssues);
+        List<String> mergedUnsafeStatements = mergeStrings(
+                ruleResult.getUnsafeResumeStatements(),
+                parseStringArray(root.get("unsafeResumeStatements"))
+        );
+
+        int ruleHighCount = countByRiskLevel(ruleResult.getIssues(), "HIGH");
+        if (ruleHighCount > 0) {
+            credibilityScore = Math.min(credibilityScore, ruleResult.getCredibilityScore());
+            objectivityScore = Math.min(objectivityScore, ruleResult.getObjectivityScore());
+        }
+
+        String finalRiskLevel = maxRiskLevel(riskLevel, ruleResult.getRiskLevel());
+        if (countByRiskLevel(mergedIssues, "HIGH") > 0) {
+            finalRiskLevel = maxRiskLevel(finalRiskLevel, "HIGH");
+        }
+
+        String saferRewrite = aiJsonUtil.getText(root, "saferRewrite");
+        if (saferRewrite.isBlank()) {
+            saferRewrite = ruleResult.getSaferRewrite();
+        }
+
+        return HallucinationCheckResultVO.builder()
+                .credibilityScore(clamp(credibilityScore))
+                .objectivityScore(clamp(objectivityScore))
+                .riskLevel(finalRiskLevel)
+                .overEncouragementRisk(hasIssueType(mergedIssues, "OVER_ENCOURAGEMENT"))
+                .missingEvidenceRisk(hasIssueType(mergedIssues, "MISSING_EVIDENCE")
+                        || hasIssueType(mergedIssues, "TECH_OVERCLAIM"))
+                .resumeRisk(hasIssueType(mergedIssues, "RESUME_RISK") || !mergedUnsafeStatements.isEmpty())
+                .issueCount(mergedIssues.size())
+                .issues(mergedIssues)
+                .unsafeResumeStatements(mergedUnsafeStatements)
+                .saferRewrite(saferRewrite)
+                .build();
+    }
+
+    private Integer getScore(JsonNode root, String fieldName) {
+        JsonNode node = root.get(fieldName);
+        if (node == null || node.isNull()) {
+            return null;
+        }
+
+        int score;
+        if (node.isInt()) {
+            score = node.asInt();
+        } else if (node.isTextual()) {
+            try {
+                score = Integer.parseInt(node.asText());
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        } else {
+            return null;
+        }
+
+        if (score < 0 || score > 100) {
+            return null;
+        }
+
+        return score;
+    }
+
+    private List<HallucinationIssueVO> parseIssues(JsonNode issuesNode) {
+        if (issuesNode == null || !issuesNode.isArray()) {
+            return null;
+        }
+
+        List<HallucinationIssueVO> issues = new ArrayList<>();
+        for (JsonNode node : issuesNode) {
+            if (!node.isObject()) {
+                continue;
+            }
+
+            String riskLevel = normalizeRiskLevel(aiJsonUtil.getText(node, "riskLevel"));
+            String issueType = aiJsonUtil.getText(node, "issueType");
+            String message = aiJsonUtil.getText(node, "message");
+
+            if (riskLevel == null || issueType.isBlank() || message.isBlank()) {
+                continue;
+            }
+
+            issues.add(HallucinationIssueVO.builder()
+                    .riskLevel(riskLevel)
+                    .issueType(issueType)
+                    .matchedText(aiJsonUtil.getText(node, "matchedText"))
+                    .message(message)
+                    .evidence(aiJsonUtil.getText(node, "evidence"))
+                    .suggestion(aiJsonUtil.getText(node, "suggestion"))
+                    .build());
+        }
+
+        return issues;
+    }
+
+    private List<String> parseStringArray(JsonNode node) {
+        List<String> values = new ArrayList<>();
+        if (node == null || !node.isArray()) {
+            return values;
+        }
+
+        for (JsonNode item : node) {
+            String value = item.isTextual() ? item.asText() : item.toString();
+            if (!value.isBlank()) {
+                values.add(value);
+            }
+        }
+
+        return values;
+    }
+
+    private List<HallucinationIssueVO> mergeIssues(List<HallucinationIssueVO> ruleIssues,
+                                                   List<HallucinationIssueVO> aiIssues) {
+        List<HallucinationIssueVO> merged = new ArrayList<>();
+        Set<String> keys = new LinkedHashSet<>();
+
+        addIssues(aiIssues, merged, keys);
+        addIssues(ruleIssues, merged, keys);
+
+        return merged;
+    }
+
+    private void addIssues(List<HallucinationIssueVO> source,
+                           List<HallucinationIssueVO> target,
+                           Set<String> keys) {
+        if (source == null) {
+            return;
+        }
+
+        for (HallucinationIssueVO issue : source) {
+            String key = normalize(issue.getRiskLevel()) + "|"
+                    + normalize(issue.getIssueType()) + "|"
+                    + normalize(issue.getMatchedText()) + "|"
+                    + normalize(issue.getMessage());
+            if (keys.add(key)) {
+                target.add(issue);
+            }
+        }
+    }
+
+    private List<String> mergeStrings(List<String> ruleValues, List<String> aiValues) {
+        Set<String> merged = new LinkedHashSet<>();
+        if (aiValues != null) {
+            aiValues.stream()
+                    .filter(value -> value != null && !value.isBlank())
+                    .forEach(merged::add);
+        }
+        if (ruleValues != null) {
+            ruleValues.stream()
+                    .filter(value -> value != null && !value.isBlank())
+                    .forEach(merged::add);
+        }
+        return new ArrayList<>(merged);
+    }
+
+    private String normalizeRiskLevel(String riskLevel) {
+        if (riskLevel == null) {
+            return null;
+        }
+
+        String normalized = riskLevel.trim().toUpperCase(Locale.ROOT);
+        return switch (normalized) {
+            case "LOW", "MEDIUM", "HIGH" -> normalized;
+            default -> null;
+        };
+    }
+
+    private String maxRiskLevel(String left, String right) {
+        String normalizedLeft = normalizeRiskLevel(left);
+        String normalizedRight = normalizeRiskLevel(right);
+
+        if (normalizedLeft == null) {
+            return normalizedRight == null ? "LOW" : normalizedRight;
+        }
+
+        if (normalizedRight == null) {
+            return normalizedLeft;
+        }
+
+        return riskRank(normalizedLeft) >= riskRank(normalizedRight) ? normalizedLeft : normalizedRight;
+    }
+
+    private int riskRank(String riskLevel) {
+        return switch (riskLevel) {
+            case "HIGH" -> 3;
+            case "MEDIUM" -> 2;
+            default -> 1;
+        };
+    }
+
+    private String normalize(String value) {
+        return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
     }
 
     private String buildSaferRewrite(List<HallucinationIssueVO> issues, boolean hasProjectContext) {

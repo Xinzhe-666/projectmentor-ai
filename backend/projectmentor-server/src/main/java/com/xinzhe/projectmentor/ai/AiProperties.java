@@ -15,5 +15,11 @@ public class AiProperties {
 
     private String model;
 
+    private Boolean enabled = true;
+
+    private Integer maxPromptChars = 12000;
+
+    private Integer maxResponseTokens = 1600;
+
     private Integer timeoutSeconds;
 }

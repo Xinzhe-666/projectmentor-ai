@@ -53,7 +53,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public Result<Void> maxUploadSizeExceededExceptionHandler(MaxUploadSizeExceededException e) {
         log.warn("Upload size exceeded: {}", e.getMessage());
-        return Result.fail(ErrorCode.PARAM_ERROR.getCode(), "上传文件不能超过 10MB");
+        return Result.fail(ErrorCode.PARAM_ERROR.getCode(), "ZIP 文件过大，当前最大支持 50MB。");
     }
 
     @ExceptionHandler(Exception.class)

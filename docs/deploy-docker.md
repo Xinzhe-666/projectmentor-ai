@@ -108,7 +108,7 @@ try_files $uri $uri/ /index.html;
 Nginx 已设置：
 
 ```nginx
-client_max_body_size 20m;
+client_max_body_size 60m;
 ```
 
-后端 Spring Boot multipart 配置为 10MB。如果需要上传更大的 ZIP，请同时调整 Nginx 和后端 multipart 限制。
+后端 Spring Boot multipart 文件限制为 50MB，请求限制为 60MB。ZIP 上传会自动过滤常见依赖、构建和 IDE 目录，但仍建议单个 ZIP 不超过 50MB。

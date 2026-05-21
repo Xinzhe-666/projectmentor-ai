@@ -54,6 +54,7 @@ export interface UploadZipResult {
   skippedFileCount: number
   files: ParsedProjectFile[]
   warnings: string[]
+  skippedByReason: Record<string, number>
 }
 
 export interface RuleScanRisk {

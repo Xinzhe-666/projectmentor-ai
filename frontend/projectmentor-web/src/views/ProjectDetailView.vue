@@ -58,7 +58,7 @@
       <div class="panel-title">
         <div>
           <h3>ZIP 上传</h3>
-          <p class="muted">仅支持 .zip 文件，后端会解析并保存白名单文本文件。</p>
+          <p class="muted">支持直接上传项目 ZIP，系统会自动过滤 .git、target、node_modules、dist 等无关目录。建议 ZIP 不超过 50MB。</p>
         </div>
         <el-upload accept=".zip" :show-file-list="false" :before-upload="beforeZipUpload">
           <el-button :icon="Upload" :loading="uploading">上传 ZIP</el-button>
@@ -75,6 +75,17 @@
               <span>已跳过文件</span>
               <strong>{{ uploadResult.skippedFileCount }}</strong>
             </div>
+          </div>
+
+          <div v-if="skipReasonEntries.length" class="skip-reason-list">
+            <el-tag
+              v-for="item in skipReasonEntries"
+              :key="item.reason"
+              effect="light"
+              type="info"
+            >
+              {{ item.label }}：{{ item.count }}
+            </el-tag>
           </div>
 
           <div v-if="uploadResult.warnings?.length" class="warning-list">
@@ -94,7 +105,7 @@
             <el-table-column prop="contentLength" label="长度" width="120" />
           </el-table>
         </div>
-        <EmptyState v-else title="还没有上传结果" description="上传 ZIP 后，这里会展示保存数量、跳过数量、警告和文件列表。" />
+        <EmptyState v-else title="还没有上传结果" description="上传 ZIP 后，这里会展示保存数量、跳过原因、警告和文件列表。" />
       </div>
     </section>
 
@@ -187,7 +198,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Cpu, Refresh, Search, Upload } from '@element-plus/icons-vue'
 import { ElMessage, type UploadProps } from 'element-plus'
@@ -217,6 +228,31 @@ const uploadResult = ref<UploadZipResult>()
 const scanResult = ref<RuleScanResult>()
 const task = ref<AnalysisTask>()
 let pollTimer: number | undefined
+
+const MAX_ZIP_SIZE_BYTES = 50 * 1024 * 1024
+
+const skipReasonLabels: Record<string, string> = {
+  FILTERED_DIRECTORY: '过滤目录',
+  NOT_WHITELIST: '非白名单',
+  BINARY_FILE: '二进制文件',
+  FILE_TOO_LARGE: '单文件过大',
+  VALID_FILE_LIMIT: '文件数上限',
+  TOTAL_TEXT_LIMIT: '文本总量上限',
+  DANGEROUS_PATH: '危险路径',
+  ENTRY_LIMIT: 'Entry 数上限'
+}
+
+const skipReasonEntries = computed(() => {
+  const skippedByReason = uploadResult.value?.skippedByReason || {}
+
+  return Object.entries(skippedByReason)
+    .filter(([, count]) => count > 0)
+    .map(([reason, count]) => ({
+      reason,
+      label: skipReasonLabels[reason] || reason,
+      count
+    }))
+})
 
 function statusTagType(status?: string) {
   const statusMap: Record<string, 'info' | 'primary' | 'success' | 'danger' | 'warning'> = {
@@ -270,6 +306,11 @@ async function handleSaveReadme() {
 const beforeZipUpload: UploadProps['beforeUpload'] = async (rawFile) => {
   if (!rawFile.name.toLowerCase().endsWith('.zip')) {
     ElMessage.warning('请上传 .zip 文件')
+    return false
+  }
+
+  if (rawFile.size > MAX_ZIP_SIZE_BYTES) {
+    ElMessage.error('ZIP 文件过大，当前最大支持 50MB。')
     return false
   }
 
@@ -373,6 +414,19 @@ onUnmounted(clearPolling)
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.skip-reason-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.skip-reason-list .el-tag {
+  height: auto;
+  padding: 6px 10px;
+  line-height: 1.5;
+  white-space: normal;
 }
 
 .subsection h4 {

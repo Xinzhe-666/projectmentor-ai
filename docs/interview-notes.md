@@ -71,12 +71,12 @@ AI 服务可能没有配置 Key、调用失败、返回格式不稳定，或者�
 
 ZIP 上传做了几类限制：
 
-- 文件大小限制为 10MB。
+- ZIP 文件本身最大支持 50MB。
 - 只允许 `.md`、`.xml`、`.yml`、`.yaml`、`.properties`、`.java`、`.sql`、`.json`、`Dockerfile`、`.gitignore` 等文本文件。
-- 跳过 `.git`、`target`、`node_modules`、`dist`、`build` 等目录。
+- 跳过 `.git`、`target`、`node_modules`、`dist`、`build`、`.idea`、`.vscode`、`logs` 等目录。
 - 拦截绝对路径、盘符路径、`..` 路径和空字节。
 - 跳过图片、Office 文档、压缩包、可执行文件、音视频等二进制文件。
-- 单个文本文件限制为 300KB，避免异常大文件影响解析。
+- 单个文本文件限制为 500KB，最多保存 150 个有效文件，累计保存文本最多 8MB，最多扫描 3000 个 ZIP entry。
 
 ## 异步任务怎么做
 

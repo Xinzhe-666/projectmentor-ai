@@ -4,6 +4,7 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.util.List;
+import java.util.Map;
 
 @Data
 @Builder
@@ -18,4 +19,6 @@ public class UploadZipResultVO {
     private List<ParsedProjectFileVO> files;
 
     private List<String> warnings;
+
+    private Map<String, Integer> skippedByReason;
 }

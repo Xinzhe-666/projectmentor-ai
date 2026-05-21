@@ -17,6 +17,12 @@ docker compose up -d --build
 http://localhost
 ```
 
+Cloudflare Tunnel 临时试用方式：
+
+- 如果只是想把本机运行的项目临时发给同学试用，可以先启动本地后端和前端，再用 Cloudflare Tunnel 暴露前端开发服务。
+- 该方式会生成一个 `https://*.trycloudflare.com` 临时链接，适合短时间演示，不适合长期正式运营。
+- 详细步骤见 [cloudflare-tunnel-demo.md](cloudflare-tunnel-demo.md)。
+
 本地开发方式：
 
 - 后端：进入 `backend/projectmentor-server`，执行 `mvn spring-boot:run`。
@@ -50,12 +56,12 @@ http://localhost
 ## 4. 上传 ZIP
 
 1. 在项目详情页选择上传 ZIP。
-2. 直接上传从 GitHub、IDEA 或项目文件夹压缩出来的项目 ZIP。
+2. 直接上传从 GitHub、IDEA 或项目文件夹压缩出来的普通项目 ZIP。
 3. 查看解析结果，包括保存文件数、跳过文件数、跳过原因和警告信息。
 
 演示重点：
 
-- ZIP 当前最大支持 50MB。
+- ZIP 上传当前支持普通项目 ZIP，最大 50MB。
 - 系统会自动过滤 `.git`、`target`、`node_modules`、`dist`、`build` 等目录。
 - 系统只解析核心文本文件，不保存二进制文件。
 - 会过滤危险路径，并限制单文件大小、保存文本总量和 ZIP entry 数。

@@ -6,13 +6,56 @@
         <div class="report-summary">
           <div class="report-summary-top">
             <p class="eyebrow">Audit Report #{{ report?.id || reportId }}</p>
-            <el-button class="report-print-button no-print" type="primary" :icon="Printer" @click="handlePrint">
-              打印 / 保存为 PDF
-            </el-button>
+            <div class="report-actions no-print">
+              <el-button
+                :type="shareInfo?.enabled ? 'default' : 'primary'"
+                :icon="shareInfo?.enabled ? Refresh : Link"
+                :loading="shareLoading"
+                @click="handleCreateShare"
+              >
+                {{ shareInfo?.enabled ? '刷新分享链接' : '生成分享链接' }}
+              </el-button>
+              <el-button
+                v-if="shareInfo?.enabled && fullShareUrl"
+                :icon="CopyDocument"
+                @click="handleCopyShare"
+              >
+                复制分享链接
+              </el-button>
+              <el-button
+                v-if="shareInfo?.enabled"
+                type="danger"
+                plain
+                :icon="Close"
+                :loading="shareLoading"
+                @click="handleDisableShare"
+              >
+                关闭分享
+              </el-button>
+              <el-button class="report-print-button" type="primary" :icon="Printer" @click="handlePrint">
+                打印 / 保存为 PDF
+              </el-button>
+            </div>
           </div>
           <h2>{{ report?.summary || '报告摘要生成中' }}</h2>
           <p class="muted">项目 ID：{{ report?.projectId || '-' }} · 生成时间：{{ report?.createTime || '-' }}</p>
         </div>
+      </div>
+    </section>
+
+    <section v-if="shareInfo?.enabled && fullShareUrl" class="panel no-print">
+      <div class="panel-title">
+        <div>
+          <h3>只读分享链接</h3>
+          <p class="muted">公开访问仅展示脱敏后的报告内容，不包含用户信息、额度流水、AI 调用日志或项目源码。</p>
+        </div>
+      </div>
+      <div class="panel-body share-link-row">
+        <el-input :model-value="fullShareUrl" readonly>
+          <template #append>
+            <el-button :icon="CopyDocument" @click="handleCopyShare">复制</el-button>
+          </template>
+        </el-input>
       </div>
     </section>
 
@@ -110,20 +153,34 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { Printer } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import { Close, CopyDocument, Link, Printer, Refresh } from '@element-plus/icons-vue'
 
 import { getReportDetail } from '@/api/analysis'
+import { createReportShare, disableReportShare, getReportShare } from '@/api/share'
 import EvidenceList from '@/components/EvidenceList.vue'
 import MarkdownBlock from '@/components/MarkdownBlock.vue'
 import RadarScoreChart from '@/components/RadarScoreChart.vue'
 import RiskList from '@/components/RiskList.vue'
 import ScoreRing from '@/components/ScoreRing.vue'
-import type { AnalysisReport } from '@/types/api'
+import type { AnalysisReport, ReportShare } from '@/types/api'
 
 const route = useRoute()
 const reportId = Number(route.params.id)
 const loading = ref(false)
+const shareLoading = ref(false)
 const report = ref<AnalysisReport>()
+const shareInfo = ref<ReportShare>()
+
+const fullShareUrl = computed(() => {
+  const token = shareInfo.value?.shareToken
+
+  if (!shareInfo.value?.enabled || !token) {
+    return ''
+  }
+
+  return `${window.location.origin}/share/reports/${token}`
+})
 
 const radarScores = computed(() => ({
   runnabilityScore: report.value?.runnabilityScore,
@@ -162,11 +219,63 @@ async function loadReport() {
   }
 }
 
+async function loadShareInfo() {
+  shareLoading.value = true
+  try {
+    shareInfo.value = await getReportShare(reportId)
+  } finally {
+    shareLoading.value = false
+  }
+}
+
+async function handleCreateShare() {
+  const wasEnabled = Boolean(shareInfo.value?.enabled)
+  shareLoading.value = true
+
+  try {
+    shareInfo.value = await createReportShare(reportId)
+    ElMessage.success(wasEnabled ? '分享链接已刷新' : '分享链接已生成')
+  } finally {
+    shareLoading.value = false
+  }
+}
+
+async function handleCopyShare() {
+  if (!fullShareUrl.value) {
+    return
+  }
+
+  try {
+    await navigator.clipboard.writeText(fullShareUrl.value)
+    ElMessage.success('分享链接已复制')
+  } catch {
+    ElMessage.error('复制失败，请手动复制链接')
+  }
+}
+
+async function handleDisableShare() {
+  shareLoading.value = true
+
+  try {
+    await disableReportShare(reportId)
+    shareInfo.value = {
+      reportId,
+      enabled: false
+    }
+    ElMessage.success('分享链接已关闭')
+  } finally {
+    shareLoading.value = false
+  }
+}
+
 function handlePrint() {
   window.print()
 }
 
-onMounted(loadReport)
+onMounted(() => {
+  loadReport()
+  loadShareInfo()
+})
 </script>
 
 <style scoped>
@@ -188,8 +297,19 @@ onMounted(loadReport)
   gap: 12px;
 }
 
+.report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .report-print-button {
   flex: 0 0 auto;
+}
+
+.share-link-row {
+  display: block;
 }
 
 .report-summary h2 {
@@ -263,6 +383,11 @@ onMounted(loadReport)
 
   .report-summary-top {
     flex-direction: column;
+  }
+
+  .report-actions {
+    justify-content: flex-start;
+    width: 100%;
   }
 }
 

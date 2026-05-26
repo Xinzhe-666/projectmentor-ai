@@ -101,6 +101,21 @@ CREATE TABLE IF NOT EXISTS pm_analysis_report
     INDEX idx_project_id (project_id)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4 COMMENT ='项目审计报告表';
+CREATE TABLE IF NOT EXISTS pm_report_share (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '分享记录ID',
+    user_id BIGINT NOT NULL COMMENT '用户ID',
+    report_id BIGINT NOT NULL COMMENT '报告ID',
+    share_token VARCHAR(128) NOT NULL COMMENT '分享Token',
+    enabled TINYINT NOT NULL DEFAULT 1 COMMENT '是否启用',
+    expire_time DATETIME NULL COMMENT '过期时间',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY uk_share_token (share_token),
+    UNIQUE KEY uk_report_id (report_id),
+    INDEX idx_user_id (user_id),
+    INDEX idx_enabled (enabled)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='报告分享表';
+
 CREATE TABLE IF NOT EXISTS pm_interview_session (
                                                     id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '面试会话ID',
                                                     user_id BIGINT NOT NULL COMMENT '用户ID',

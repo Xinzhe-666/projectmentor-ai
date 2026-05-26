@@ -20,6 +20,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/health",
                         "/api/auth/register",
                         "/api/auth/login",
+                        "/api/share/reports/**",
                         "/doc.html",
                         "/webjars/**",
                         "/v3/api-docs/**",

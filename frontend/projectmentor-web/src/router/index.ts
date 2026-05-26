@@ -10,6 +10,7 @@ const ProjectListView = () => import('@/views/ProjectListView.vue')
 const ProjectCreateView = () => import('@/views/ProjectCreateView.vue')
 const ProjectDetailView = () => import('@/views/ProjectDetailView.vue')
 const ReportDetailView = () => import('@/views/ReportDetailView.vue')
+const PublicReportView = () => import('@/views/PublicReportView.vue')
 const HallucinationCheckView = () => import('@/views/HallucinationCheckView.vue')
 const InterviewView = () => import('@/views/InterviewView.vue')
 const CreditView = () => import('@/views/CreditView.vue')
@@ -31,6 +32,11 @@ const router = createRouter({
       path: '/register',
       name: 'register',
       component: RegisterView
+    },
+    {
+      path: '/share/reports/:token',
+      name: 'public-report',
+      component: PublicReportView
     },
     {
       path: '/dashboard',

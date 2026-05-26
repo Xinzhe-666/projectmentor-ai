@@ -124,6 +124,38 @@ export interface AnalysisReport {
   createTime?: string
 }
 
+export interface ReportShare {
+  reportId: number
+  shareToken?: string
+  shareUrl?: string
+  enabled: boolean
+  expireTime?: string
+}
+
+export interface PublicReport {
+  projectName: string
+  projectType?: string
+  techStack?: string
+  totalScore?: number
+  runnabilityScore?: number
+  authenticityScore?: number
+  structureScore?: number
+  readmeScore?: number
+  securityScore?: number
+  engineeringScore?: number
+  interviewScore?: number
+  summary?: string
+  strengths?: string
+  weaknesses?: string
+  riskPoints?: string
+  evidenceChain?: string
+  suggestions?: string
+  resumeBasic?: string
+  resumeStandard?: string
+  resumeAdvanced?: string
+  createTime?: string
+}
+
 export interface CreditInfo {
   userId: number
   planType: string

@@ -6,7 +6,7 @@ import { useUserStore } from '@/stores/user'
 import type { ApiResult } from '@/types/api'
 
 const TOKEN_KEY = 'projectmentor_token'
-const configuredBaseURL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:8080')
+const configuredBaseURL = import.meta.env.VITE_API_BASE_URL || '/api'
 
 const service = axios.create({
   baseURL: configuredBaseURL === '/api' ? '' : configuredBaseURL,

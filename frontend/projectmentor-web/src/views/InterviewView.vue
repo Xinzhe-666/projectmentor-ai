@@ -1,6 +1,6 @@
 <template>
   <div class="page-stack">
-    <section class="panel">
+    <section class="panel interview-controls print-hidden">
       <div class="panel-title">
         <div>
           <h2>模拟面试</h2>
@@ -50,9 +50,12 @@
           <h3>{{ session.projectName || `项目 ${session.projectId}` }}</h3>
           <p class="muted">模式：{{ modeLabel(session.mode) }} · 状态：{{ session.status }}</p>
         </div>
-        <el-tag v-if="session.totalScore !== undefined" type="success" effect="light">
-          总分 {{ session.totalScore }}
-        </el-tag>
+        <div class="interview-title-actions">
+          <el-tag v-if="session.totalScore !== undefined" type="success" effect="light">
+            总分 {{ session.totalScore }}
+          </el-tag>
+          <el-button :icon="Printer" class="print-hidden" @click="handlePrint">打印 / 保存复盘</el-button>
+        </div>
       </div>
       <div class="panel-body page-stack">
         <div class="message-list">
@@ -75,8 +78,9 @@
           :rows="4"
           :disabled="session.status === 'FINISHED'"
           placeholder="输入你的回答"
+          class="answer-editor print-hidden"
         />
-        <div class="toolbar">
+        <div class="toolbar answer-toolbar print-hidden">
           <el-button
             type="primary"
             :loading="submitting"
@@ -112,6 +116,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Printer } from '@element-plus/icons-vue'
 
 import { finishInterview, startInterview, submitAnswer } from '@/api/interview'
 import { listProjects } from '@/api/project'
@@ -168,6 +173,10 @@ function messageClass(role: string) {
   }
 
   return 'interviewer'
+}
+
+function handlePrint() {
+  window.print()
 }
 
 async function loadProjects() {
@@ -239,6 +248,14 @@ onMounted(loadProjects)
   width: min(420px, 100%);
 }
 
+.interview-title-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .message-content {
   line-height: 1.75;
   white-space: pre-wrap;
@@ -270,6 +287,110 @@ onMounted(loadProjects)
 @media (max-width: 620px) {
   .interview-summary {
     grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  :global(body) {
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  :global(.app-header),
+  :global(.app-sidebar),
+  :global(.print-hidden),
+  :global(.el-overlay),
+  :global(.el-loading-mask),
+  :global(.el-message),
+  :global(.el-notification),
+  :global(.el-popper) {
+    display: none !important;
+  }
+
+  :global(.shell),
+  :global(.shell-main),
+  :global(.page-container) {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  :global(.page-stack) {
+    gap: 14px !important;
+  }
+
+  :global(.panel),
+  :global(.section-card),
+  .summary-text,
+  :global(.metric-card),
+  :global(.chat-message) {
+    background: #ffffff !important;
+    color: #111827 !important;
+    box-shadow: none !important;
+  }
+
+  :global(.panel) {
+    border: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  :global(.panel-title) {
+    padding: 0 0 12px !important;
+    border-bottom: 1px solid #cbd5e1 !important;
+  }
+
+  :global(.panel-body) {
+    padding: 16px 0 0 !important;
+  }
+
+  :global(.message-list) {
+    max-height: none !important;
+    overflow: visible !important;
+    padding-right: 0 !important;
+  }
+
+  :global(.chat-message) {
+    max-width: 100% !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    border-color: #cbd5e1 !important;
+  }
+
+  :global(.chat-message.user),
+  :global(.chat-message.interviewer),
+  :global(.chat-message.system) {
+    align-self: stretch !important;
+    background: #ffffff !important;
+    text-align: left !important;
+  }
+
+  :global(.chat-role) {
+    color: #1f2937 !important;
+  }
+
+  :global(.el-tag) {
+    border-color: #cbd5e1 !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  :global(.muted) {
+    color: #374151 !important;
+  }
+
+  .interview-summary,
+  .summary-text,
+  :global(.metric-card) {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .interview-summary {
+    grid-template-columns: 150px minmax(0, 1fr);
   }
 }
 </style>

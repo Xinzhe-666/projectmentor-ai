@@ -71,6 +71,8 @@ export interface RuleScanEvidence {
   conclusion: string
   sourceFile?: string
   detail?: string
+  evidence?: string
+  suggestion?: string
   riskLevel?: string
 }
 

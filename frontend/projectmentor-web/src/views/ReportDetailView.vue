@@ -1,45 +1,77 @@
 <template>
   <div class="page-stack report-print-root" v-loading="loading">
-    <section class="panel">
+    <section class="panel report-cover">
       <div class="panel-body report-hero">
-        <ScoreRing :score="report?.totalScore ?? 0" title="项目总分" />
-        <div class="report-summary">
-          <div class="report-summary-top">
-            <p class="eyebrow">Audit Report #{{ report?.id || reportId }}</p>
-            <div class="report-actions no-print">
-              <el-button
-                :type="shareInfo?.enabled ? 'default' : 'primary'"
-                :icon="shareInfo?.enabled ? Refresh : Link"
-                :loading="shareLoading"
-                @click="handleCreateShare"
-              >
-                {{ shareInfo?.enabled ? '刷新分享链接' : '生成分享链接' }}
-              </el-button>
-              <el-button
-                v-if="shareInfo?.enabled && fullShareUrl"
-                :icon="CopyDocument"
-                @click="handleCopyShare"
-              >
-                复制分享链接
-              </el-button>
-              <el-button
-                v-if="shareInfo?.enabled"
-                type="danger"
-                plain
-                :icon="Close"
-                :loading="shareLoading"
-                @click="handleDisableShare"
-              >
-                关闭分享
-              </el-button>
-              <el-button class="report-print-button" type="primary" :icon="Printer" @click="handlePrint">
-                打印 / 保存为 PDF
-              </el-button>
-            </div>
+        <div class="report-identity">
+          <p class="eyebrow">ProjectMentor AI Audit Report</p>
+          <h1>{{ reportProjectName }}</h1>
+          <div class="report-meta-grid">
+            <span>
+              报告编号
+              <strong>#{{ report?.id || reportId }}</strong>
+            </span>
+            <span>
+              项目编号
+              <strong>#{{ report?.projectId || '-' }}</strong>
+            </span>
+            <span>
+              技术栈
+              <strong>{{ reportTechStack }}</strong>
+            </span>
+            <span>
+              生成时间
+              <strong>{{ report?.createTime || '-' }}</strong>
+            </span>
           </div>
-          <h2>{{ report?.summary || '报告摘要生成中' }}</h2>
-          <p class="muted">项目 ID：{{ report?.projectId || '-' }} · 生成时间：{{ report?.createTime || '-' }}</p>
+          <p class="report-notice">
+            基于规则扫描与 AI 增强生成，仅供项目复盘和面试准备参考。
+          </p>
         </div>
+        <div class="report-score-card">
+          <ScoreRing :score="report?.totalScore ?? 0" title="总分" />
+        </div>
+      </div>
+      <div class="report-actions no-print">
+        <el-button class="report-print-button" type="primary" :icon="Printer" @click="handlePrint">
+          打印 / 保存为 PDF
+        </el-button>
+        <el-button
+          :type="shareInfo?.enabled ? 'default' : 'primary'"
+          :icon="shareInfo?.enabled ? Refresh : Link"
+          :loading="shareLoading"
+          @click="handleCreateShare"
+        >
+          {{ shareInfo?.enabled ? '刷新分享链接' : '生成分享链接' }}
+        </el-button>
+        <el-button
+          v-if="shareInfo?.enabled && fullShareUrl"
+          :icon="CopyDocument"
+          @click="handleCopyShare"
+        >
+          复制分享链接
+        </el-button>
+        <el-button
+          v-if="shareInfo?.enabled"
+          type="danger"
+          plain
+          :icon="Close"
+          :loading="shareLoading"
+          @click="handleDisableShare"
+        >
+          关闭分享
+        </el-button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">
+        <div>
+          <h3>报告摘要</h3>
+          <p class="muted">先看整体判断，再进入风险点、证据链和简历表达建议。</p>
+        </div>
+      </div>
+      <div class="panel-body">
+        <p class="report-summary-text">{{ report?.summary || '报告摘要生成中' }}</p>
       </div>
     </section>
 
@@ -99,7 +131,10 @@
 
     <section class="panel">
       <div class="panel-title">
-        <h3>风险点</h3>
+        <div>
+          <h3>风险点</h3>
+          <p class="muted">按 HIGH / MEDIUM / LOW 区分优先级，逐条查看风险类型、证据和建议。</p>
+        </div>
       </div>
       <div class="panel-body">
         <RiskList :risks="report?.riskPoints" />
@@ -108,7 +143,10 @@
 
     <section class="panel">
       <div class="panel-title">
-        <h3>证据链</h3>
+        <div>
+          <h3>证据链</h3>
+          <p class="muted">重点关注 sourceFile、evidence 和 suggestion，判断结论来自哪里。</p>
+        </div>
       </div>
       <div class="panel-body">
         <EvidenceList :evidences="report?.evidenceChain" />
@@ -117,32 +155,19 @@
 
     <section class="panel">
       <div class="panel-title">
-        <h3>简历描述</h3>
+        <div>
+          <h3>简历描述</h3>
+          <p class="muted">三版文案同时展开，便于按岗位和面试准备程度复制调整。</p>
+        </div>
       </div>
       <div class="panel-body">
-        <el-tabs model-value="basic">
-          <el-tab-pane label="基础版" name="basic">
-            <MarkdownBlock :content="report?.resumeBasic" />
-          </el-tab-pane>
-          <el-tab-pane label="标准版" name="standard">
-            <MarkdownBlock :content="report?.resumeStandard" />
-          </el-tab-pane>
-          <el-tab-pane label="进阶版" name="advanced">
-            <MarkdownBlock :content="report?.resumeAdvanced" />
-          </el-tab-pane>
-        </el-tabs>
-        <div class="resume-print-sections print-only">
-          <article>
-            <h4>基础版</h4>
-            <MarkdownBlock :content="report?.resumeBasic" />
-          </article>
-          <article>
-            <h4>标准版</h4>
-            <MarkdownBlock :content="report?.resumeStandard" />
-          </article>
-          <article>
-            <h4>进阶版</h4>
-            <MarkdownBlock :content="report?.resumeAdvanced" />
+        <div class="resume-copy-grid">
+          <article v-for="section in resumeSections" :key="section.title" class="resume-copy-card">
+            <div class="resume-copy-head">
+              <h4>{{ section.title }}</h4>
+              <span>{{ section.description }}</span>
+            </div>
+            <MarkdownBlock :content="section.content" />
           </article>
         </div>
       </div>
@@ -157,20 +182,36 @@ import { ElMessage } from 'element-plus'
 import { Close, CopyDocument, Link, Printer, Refresh } from '@element-plus/icons-vue'
 
 import { getReportDetail } from '@/api/analysis'
+import { getProjectDetail } from '@/api/project'
 import { createReportShare, disableReportShare, getReportShare } from '@/api/share'
 import EvidenceList from '@/components/EvidenceList.vue'
 import MarkdownBlock from '@/components/MarkdownBlock.vue'
 import RadarScoreChart from '@/components/RadarScoreChart.vue'
 import RiskList from '@/components/RiskList.vue'
 import ScoreRing from '@/components/ScoreRing.vue'
-import type { AnalysisReport, ReportShare } from '@/types/api'
+import type { AnalysisReport, Project, ReportShare } from '@/types/api'
 
 const route = useRoute()
 const reportId = Number(route.params.id)
 const loading = ref(false)
 const shareLoading = ref(false)
 const report = ref<AnalysisReport>()
+const project = ref<Project>()
 const shareInfo = ref<ReportShare>()
+
+const reportProjectName = computed(() => {
+  if (project.value?.name) {
+    return project.value.name
+  }
+
+  if (report.value?.projectId) {
+    return `项目 #${report.value.projectId}`
+  }
+
+  return '项目报告'
+})
+
+const reportTechStack = computed(() => project.value?.techStack || '未填写')
 
 const fullShareUrl = computed(() => {
   const token = shareInfo.value?.shareToken
@@ -202,6 +243,24 @@ const scoreRows = computed(() => [
   { label: '面试价值', value: report.value?.interviewScore }
 ])
 
+const resumeSections = computed(() => [
+  {
+    title: '基础版',
+    description: '适合保守描述，先保证可解释。',
+    content: report.value?.resumeBasic
+  },
+  {
+    title: '标准版',
+    description: '适合简历主体，兼顾亮点和边界。',
+    content: report.value?.resumeStandard
+  },
+  {
+    title: '进阶版',
+    description: '适合面试延展，强调证据和实现理解。',
+    content: report.value?.resumeAdvanced
+  }
+])
+
 function formatScore(value?: number) {
   if (!Number.isFinite(value)) {
     return '-'
@@ -214,6 +273,15 @@ async function loadReport() {
   loading.value = true
   try {
     report.value = await getReportDetail(reportId)
+    project.value = undefined
+
+    if (report.value.projectId) {
+      try {
+        project.value = await getProjectDetail(report.value.projectId)
+      } catch {
+        project.value = undefined
+      }
+    }
   } finally {
     loading.value = false
   }
@@ -283,18 +351,64 @@ onMounted(() => {
   display: none;
 }
 
+.report-cover {
+  overflow: hidden;
+}
+
 .report-hero {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 24px;
   align-items: center;
 }
 
-.report-summary-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+.report-identity h1 {
+  margin: 8px 0 16px;
+  color: var(--pm-ink);
+  font-size: 30px;
+  line-height: 1.2;
+}
+
+.report-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.report-meta-grid span {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(223, 230, 240, 0.9);
+  border-radius: 8px;
+  background: #fbfdff;
+  color: var(--pm-muted);
+  font-size: 12px;
+}
+
+.report-meta-grid strong {
+  display: block;
+  margin-top: 5px;
+  color: #344054;
+  font-size: 14px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.report-notice {
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(31, 111, 235, 0.18);
+  border-radius: 8px;
+  background: #eef6ff;
+  color: #245089;
+  line-height: 1.7;
+}
+
+.report-score-card {
+  padding: 12px;
+  border: 1px solid rgba(223, 230, 240, 0.9);
+  border-radius: 8px;
+  background: #ffffff;
 }
 
 .report-actions {
@@ -302,6 +416,9 @@ onMounted(() => {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 10px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--pm-border);
+  background: #fbfdff;
 }
 
 .report-print-button {
@@ -312,10 +429,11 @@ onMounted(() => {
   display: block;
 }
 
-.report-summary h2 {
-  margin: 8px 0 10px;
-  font-size: 28px;
-  line-height: 1.35;
+.report-summary-text {
+  margin: 0;
+  color: #344054;
+  font-size: 17px;
+  line-height: 1.85;
 }
 
 .report-content-grid {
@@ -337,12 +455,12 @@ onMounted(() => {
 }
 
 .print-score-list,
-.resume-print-sections {
+.resume-copy-grid {
   gap: 12px;
 }
 
 .print-score-list article,
-.resume-print-sections article {
+.resume-copy-card {
   min-width: 0;
   padding: 14px;
   border: 1px solid var(--pm-border);
@@ -366,12 +484,34 @@ onMounted(() => {
   font-size: 18px;
 }
 
-.resume-print-sections h4 {
-  margin: 0 0 10px;
+.resume-copy-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.resume-copy-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.resume-copy-head h4 {
+  margin: 0;
+  color: var(--pm-ink);
+}
+
+.resume-copy-head span {
+  display: block;
+  margin-top: 6px;
+  color: var(--pm-muted);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 @media (max-width: 920px) {
-  .report-content-grid {
+  .report-meta-grid,
+  .report-content-grid,
+  .resume-copy-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -381,13 +521,13 @@ onMounted(() => {
     grid-template-columns: 1fr;
   }
 
-  .report-summary-top {
-    flex-direction: column;
-  }
-
   .report-actions {
     justify-content: flex-start;
     width: 100%;
+  }
+
+  .report-identity h1 {
+    font-size: 24px;
   }
 }
 
@@ -454,13 +594,13 @@ onMounted(() => {
   .report-hero,
   .report-content-grid,
   .print-score-list,
-  .resume-print-sections {
+  .resume-copy-grid {
     display: grid !important;
     grid-template-columns: 1fr;
     gap: 10px;
   }
 
-  .report-summary h2 {
+  .report-identity h1 {
     color: #111827;
     font-size: 22px;
   }
@@ -474,7 +614,7 @@ onMounted(() => {
 
   .report-content-grid article,
   .print-score-list article,
-  .resume-print-sections article,
+  .resume-copy-card,
   :deep(.risk-card),
   :deep(.evidence-card),
   :deep(.empty-state),
@@ -490,10 +630,6 @@ onMounted(() => {
     min-height: 280px;
     break-inside: avoid;
     page-break-inside: avoid;
-  }
-
-  :deep(.el-tabs) {
-    display: none !important;
   }
 
   :deep(.markdown-body),

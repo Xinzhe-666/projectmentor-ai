@@ -3,21 +3,32 @@
     <template v-if="items.length">
       <article v-for="(risk, index) in items" :key="`${risk.riskType || 'risk'}-${index}`" class="risk-card">
         <div class="risk-card-head">
-          <el-tag :class="riskLevelClass(risk.riskLevel)" effect="light">
-            {{ risk.riskLevel || 'INFO' }}
-          </el-tag>
-          <strong>{{ risk.riskType || '风险点' }}</strong>
+          <span :class="['risk-level-badge', riskLevelClass(risk.riskLevel)]">
+            {{ normalizedRiskLevel(risk.riskLevel) }}
+          </span>
+          <div class="risk-title">
+            <span>风险类型</span>
+            <strong>{{ risk.riskType || '风险点' }}</strong>
+          </div>
           <span v-if="risk.keyword" class="risk-keyword">{{ risk.keyword }}</span>
         </div>
-        <p>{{ risk.message || '-' }}</p>
-        <dl>
+        <p v-if="risk.message" class="risk-message">{{ risk.message }}</p>
+        <dl class="risk-fields">
+          <div v-if="risk.sourceFile">
+            <dt>来源文件</dt>
+            <dd class="source-file">{{ risk.sourceFile }}</dd>
+          </div>
           <template v-if="risk.evidence">
-            <dt>证据</dt>
-            <dd>{{ risk.evidence }}</dd>
+            <div>
+              <dt>证据</dt>
+              <dd>{{ risk.evidence }}</dd>
+            </div>
           </template>
           <template v-if="risk.suggestion">
-            <dt>建议</dt>
-            <dd>{{ risk.suggestion }}</dd>
+            <div>
+              <dt>建议</dt>
+              <dd>{{ risk.suggestion }}</dd>
+            </div>
           </template>
         </dl>
       </article>
@@ -71,13 +82,17 @@ function parseRiskInput(value: RiskInput): { items: RuleScanRisk[]; raw: string 
 }
 
 function riskLevelClass(level?: string) {
-  const normalized = (level || 'INFO').toUpperCase()
+  const normalized = normalizedRiskLevel(level)
   return {
     'risk-high': normalized === 'HIGH',
     'risk-medium': normalized === 'MEDIUM',
     'risk-low': normalized === 'LOW',
     'risk-info': normalized === 'INFO'
   }
+}
+
+function normalizedRiskLevel(level?: string) {
+  return (level || 'INFO').toUpperCase()
 }
 </script>
 
@@ -89,47 +104,127 @@ function riskLevelClass(level?: string) {
 }
 
 .risk-card {
-  padding: 16px;
+  padding: 18px;
   border: 1px solid var(--pm-border);
   border-radius: 8px;
   background: #fbfdff;
+  box-shadow: 0 8px 22px rgba(28, 43, 68, 0.04);
 }
 
 .risk-card-head {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-start;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
-.risk-card p {
-  margin: 12px 0;
-  line-height: 1.75;
-}
-
-.risk-keyword {
-  padding: 2px 8px;
+.risk-level-badge {
+  min-width: 78px;
+  padding: 5px 10px;
+  border: 1px solid transparent;
   border-radius: 999px;
-  background: #eef4ff;
-  color: #1f6feb;
   font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
 }
 
-.risk-card dl {
-  display: grid;
-  gap: 6px;
-  margin: 0;
+.risk-title {
+  min-width: 0;
 }
 
-.risk-card dt {
+.risk-title span {
+  display: block;
   color: var(--pm-muted);
   font-size: 12px;
   font-weight: 700;
 }
 
-.risk-card dd {
+.risk-title strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--pm-ink);
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.risk-message {
+  margin: 14px 0 12px;
+  color: #344054;
+  line-height: 1.75;
+}
+
+.risk-keyword {
+  margin-top: 2px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #1f6feb;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.risk-fields {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.risk-fields div {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(223, 230, 240, 0.74);
+}
+
+.risk-fields dt {
+  color: var(--pm-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.risk-fields dd {
   margin: 0;
   color: #344054;
   line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.source-file {
+  color: var(--pm-primary);
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+}
+
+.risk-high {
+  border-color: rgba(239, 68, 68, 0.26);
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--risk-high);
+}
+
+.risk-medium {
+  border-color: rgba(245, 158, 11, 0.28);
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--risk-medium);
+}
+
+.risk-low {
+  border-color: rgba(14, 165, 233, 0.24);
+  background: rgba(14, 165, 233, 0.1);
+  color: var(--risk-low);
+}
+
+.risk-info {
+  border-color: rgba(100, 116, 139, 0.24);
+  background: rgba(100, 116, 139, 0.1);
+  color: var(--risk-info);
+}
+
+@media (max-width: 620px) {
+  .risk-fields div {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
 }
 </style>

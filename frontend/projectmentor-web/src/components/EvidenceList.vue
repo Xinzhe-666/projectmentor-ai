@@ -3,13 +3,28 @@
     <template v-if="items.length">
       <article v-for="(evidence, index) in items" :key="`${evidence.sourceFile || 'evidence'}-${index}`" class="evidence-card">
         <div class="evidence-card-head">
-          <el-tag :class="riskLevelClass(evidence.riskLevel)" effect="light">
-            {{ evidence.riskLevel || 'INFO' }}
-          </el-tag>
-          <strong>{{ evidence.conclusion || '证据结论' }}</strong>
+          <span :class="['evidence-level-badge', riskLevelClass(evidence.riskLevel)]">
+            {{ normalizedRiskLevel(evidence.riskLevel) }}
+          </span>
+          <div class="evidence-title">
+            <span>结论</span>
+            <strong>{{ evidence.conclusion || '证据结论' }}</strong>
+          </div>
         </div>
-        <p v-if="evidence.sourceFile" class="source-file">{{ evidence.sourceFile }}</p>
-        <p>{{ evidence.detail || '-' }}</p>
+        <dl class="evidence-fields">
+          <div v-if="evidence.sourceFile">
+            <dt>sourceFile</dt>
+            <dd class="source-file">{{ evidence.sourceFile }}</dd>
+          </div>
+          <div>
+            <dt>evidence</dt>
+            <dd>{{ evidence.evidence || evidence.detail || '-' }}</dd>
+          </div>
+          <div v-if="evidence.suggestion">
+            <dt>suggestion</dt>
+            <dd>{{ evidence.suggestion }}</dd>
+          </div>
+        </dl>
       </article>
     </template>
 
@@ -61,13 +76,17 @@ function parseEvidenceInput(value: EvidenceInput): { items: RuleScanEvidence[]; 
 }
 
 function riskLevelClass(level?: string) {
-  const normalized = (level || 'INFO').toUpperCase()
+  const normalized = normalizedRiskLevel(level)
   return {
     'risk-high': normalized === 'HIGH',
     'risk-medium': normalized === 'MEDIUM',
     'risk-low': normalized === 'LOW',
     'risk-info': normalized === 'INFO'
   }
+}
+
+function normalizedRiskLevel(level?: string) {
+  return (level || 'INFO').toUpperCase()
 }
 </script>
 
@@ -79,26 +98,111 @@ function riskLevelClass(level?: string) {
 }
 
 .evidence-card {
-  padding: 16px;
+  padding: 18px;
   border: 1px solid var(--pm-border);
   border-radius: 8px;
   background: #fbfdff;
+  box-shadow: 0 8px 22px rgba(28, 43, 68, 0.04);
 }
 
 .evidence-card-head {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-start;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
-.evidence-card p {
-  margin: 10px 0 0;
-  line-height: 1.75;
+.evidence-level-badge {
+  min-width: 78px;
+  padding: 5px 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+}
+
+.evidence-title {
+  min-width: 0;
+}
+
+.evidence-title span {
+  display: block;
+  color: var(--pm-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.evidence-title strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--pm-ink);
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.evidence-fields {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0 0;
+}
+
+.evidence-fields div {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(223, 230, 240, 0.74);
+}
+
+.evidence-fields dt {
+  color: var(--pm-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.evidence-fields dd {
+  margin: 0;
+  color: #344054;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
 }
 
 .source-file {
   color: var(--pm-primary);
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
   font-size: 13px;
+}
+
+.risk-high {
+  border-color: rgba(239, 68, 68, 0.26);
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--risk-high);
+}
+
+.risk-medium {
+  border-color: rgba(245, 158, 11, 0.28);
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--risk-medium);
+}
+
+.risk-low {
+  border-color: rgba(14, 165, 233, 0.24);
+  background: rgba(14, 165, 233, 0.1);
+  color: var(--risk-low);
+}
+
+.risk-info {
+  border-color: rgba(100, 116, 139, 0.24);
+  background: rgba(100, 116, 139, 0.1);
+  color: var(--risk-info);
+}
+
+@media (max-width: 620px) {
+  .evidence-fields div {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
 }
 </style>

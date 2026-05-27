@@ -56,9 +56,12 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      AI_ENABLED: ${AI_ENABLED:-true}
       AI_BASE_URL: ${AI_BASE_URL:-https://api.deepseek.com}
       AI_API_KEY: ${AI_API_KEY:-}
       AI_MODEL: ${AI_MODEL:-deepseek-chat}
+      AI_MAX_PROMPT_CHARS: ${AI_MAX_PROMPT_CHARS:-12000}
+      AI_MAX_RESPONSE_TOKENS: ${AI_MAX_RESPONSE_TOKENS:-1600}
     expose:
       - "8080"
     healthcheck:

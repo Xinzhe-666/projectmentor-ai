@@ -10,12 +10,17 @@
 **/.vscode/
 
 # Logs
+logs/
+*.log
+*.log.*
 **/logs/
 **/*.log
 **/*.log.*
 
 # Local config and secrets
 .env
+*.env.local
+.env.*.local
 **/.env
 **/.env.local
 **/.env.*.local

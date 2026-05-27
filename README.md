@@ -139,15 +139,24 @@ http://localhost
 
 说明见 [docs/cloudflare-tunnel-demo.md](docs/cloudflare-tunnel-demo.md)。
 
+## 部署与试用文档
+
+- Docker Compose 本地部署：[docs/deploy-docker.md](docs/deploy-docker.md)
+- Cloudflare Tunnel 临时试用：[docs/cloudflare-tunnel-demo.md](docs/cloudflare-tunnel-demo.md)
+- VPS 试用版部署：[docs/server-deploy-vps.md](docs/server-deploy-vps.md)
+
 ## 环境变量说明
 
 | 变量 | 说明 |
 | --- | --- |
 | `MYSQL_ROOT_PASSWORD` | MySQL root 密码，Docker Compose 启动时必填 |
 | `JWT_SECRET` | JWT 签名密钥，请使用足够长的随机字符串 |
+| `AI_ENABLED` | 是否启用 AI 增强；未配置 Key 或调用失败时仍会 fallback 到规则版报告 |
 | `AI_BASE_URL` | OpenAI-compatible API 地址，例如 DeepSeek 或其他兼容接口 |
 | `AI_API_KEY` | AI 服务密钥，可留空；留空时使用规则版报告 |
 | `AI_MODEL` | AI 模型名称，例如 `deepseek-chat` |
+| `AI_MAX_PROMPT_CHARS` | AI 提示词最大字符数，默认 `12000` |
+| `AI_MAX_RESPONSE_TOKENS` | AI 响应 token 上限，默认 `1600` |
 
 不要提交真实 `.env` 文件或真实密钥。仓库中只保留 `.env.example`。
 
@@ -212,5 +221,6 @@ http://localhost
 - [演示指南](docs/demo-guide.md)
 - [Docker 部署说明](docs/deploy-docker.md)
 - [Cloudflare Tunnel 临时试用](docs/cloudflare-tunnel-demo.md)
+- [VPS 试用版部署](docs/server-deploy-vps.md)
 - [面试准备与简历写法](docs/interview-preparation.md)
 - [Roadmap](docs/roadmap.md)

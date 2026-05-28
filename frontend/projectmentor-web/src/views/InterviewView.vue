@@ -54,7 +54,7 @@
           <el-tag v-if="session.totalScore !== undefined" type="success" effect="light">
             总分 {{ session.totalScore }}
           </el-tag>
-          <el-button :icon="Printer" class="print-hidden" @click="handlePrint">打印 / 保存复盘</el-button>
+          <el-button :icon="Printer" class="print-hidden" @click="handlePrint">打印 / 浏览器另存为 PDF</el-button>
         </div>
       </div>
       <div class="panel-body page-stack">
@@ -176,7 +176,8 @@ function messageClass(role: string) {
 }
 
 function handlePrint() {
-  window.print()
+  ElMessage.info('将打开浏览器打印窗口。如需保存 PDF，请在打印窗口的目标打印机中选择“另存为 PDF”。')
+  window.setTimeout(() => window.print(), 100)
 }
 
 async function loadProjects() {

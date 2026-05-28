@@ -58,11 +58,14 @@
       <div class="panel-title">
         <div>
           <h3>ZIP 上传</h3>
-          <p class="muted">支持直接上传项目 ZIP，系统会自动过滤 .git、target、node_modules、dist 等无关目录。建议 ZIP 不超过 200MB。</p>
+          <p class="muted">支持直接上传普通项目 ZIP，当前最大支持 200MB。系统会自动过滤 .git、target、node_modules、dist、build 等无关目录。大文件上传可能需要数分钟，请不要刷新页面。</p>
         </div>
-        <el-upload accept=".zip" :show-file-list="false" :before-upload="beforeZipUpload">
-          <el-button :icon="Upload" :loading="uploading">上传 ZIP</el-button>
-        </el-upload>
+        <div class="zip-upload-actions">
+          <el-upload accept=".zip" :show-file-list="false" :before-upload="beforeZipUpload">
+            <el-button :icon="Upload" :loading="uploading">上传 ZIP</el-button>
+          </el-upload>
+          <p class="muted upload-tip">大 ZIP 上传较慢是正常现象，建议删除 node_modules、target、.git 后再压缩，可显著提升速度。</p>
+        </div>
       </div>
       <div class="panel-body">
         <div v-if="uploadResult" class="upload-result">
@@ -410,6 +413,21 @@ onUnmounted(clearPolling)
   gap: 16px;
 }
 
+.zip-upload-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: 360px;
+}
+
+.upload-tip {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: right;
+}
+
 .warning-list {
   display: flex;
   flex-direction: column;
@@ -451,6 +469,15 @@ onUnmounted(clearPolling)
 @media (max-width: 620px) {
   .detail-grid {
     grid-template-columns: 1fr;
+  }
+
+  .zip-upload-actions {
+    align-items: flex-start;
+    max-width: none;
+  }
+
+  .upload-tip {
+    text-align: left;
   }
 }
 </style>

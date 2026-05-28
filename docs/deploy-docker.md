@@ -109,6 +109,13 @@ Nginx 已设置：
 
 ```nginx
 client_max_body_size 220m;
+client_body_timeout 900s;
+client_header_timeout 60s;
+send_timeout 900s;
+proxy_connect_timeout 60s;
+proxy_send_timeout 900s;
+proxy_read_timeout 900s;
+proxy_request_buffering off;
 ```
 
-后端 Spring Boot multipart 文件限制为 200MB，请求限制为 220MB。ZIP 上传会自动过滤常见依赖、构建和 IDE 目录，但仍建议单个 ZIP 不超过 200MB。
+后端 Spring Boot multipart 文件限制为 200MB，请求限制为 220MB。ZIP 上传会自动过滤常见依赖、构建和 IDE 目录；大文件上传可能需要数分钟，请不要刷新页面。仍建议删除 `node_modules`、`target`、`.git` 后再压缩，可显著提升上传速度。

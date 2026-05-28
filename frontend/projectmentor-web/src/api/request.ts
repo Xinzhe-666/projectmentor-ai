@@ -48,9 +48,14 @@ service.interceptors.response.use(
     return response.data
   },
   (error) => {
-    const message = error?.response?.data?.message || error.message || '网络异常，请稍后重试'
+    const requestUrl = String(error?.config?.url || '')
+    const isTimeout = error?.code === 'ECONNABORTED' || String(error?.message || '').toLowerCase().includes('timeout')
+    const isZipUploadTimeout = isTimeout && requestUrl.includes('/upload-zip')
+    const message = isZipUploadTimeout
+      ? 'ZIP 上传超时，请检查网络或尝试删除无关依赖目录后重新上传。'
+      : error?.response?.data?.message || error.message || '网络异常，请稍后重试'
     ElMessage.error(message)
-    return Promise.reject(error)
+    return Promise.reject(isZipUploadTimeout ? new Error(message) : error)
   }
 )
 

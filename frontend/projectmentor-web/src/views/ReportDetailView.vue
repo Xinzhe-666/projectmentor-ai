@@ -33,7 +33,7 @@
       </div>
       <div class="report-actions no-print">
         <el-button class="report-print-button" type="primary" :icon="Printer" @click="handlePrint">
-          打印 / 保存为 PDF
+          打印 / 浏览器另存为 PDF
         </el-button>
         <el-button
           :type="shareInfo?.enabled ? 'default' : 'primary'"
@@ -377,7 +377,8 @@ async function handleDisableShare() {
 }
 
 function handlePrint() {
-  window.print()
+  ElMessage.info('将打开浏览器打印窗口。如需保存 PDF，请在打印窗口的目标打印机中选择“另存为 PDF”。')
+  window.setTimeout(() => window.print(), 100)
 }
 
 onMounted(() => {

@@ -121,6 +121,10 @@ docker compose logs -f nginx
 
 当前普通项目 ZIP 最大支持 200MB，nginx 请求体限制为 220MB。建议删除 `target`、`node_modules`、`dist`、`build` 等目录后重新压缩。
 
+### 上传大 ZIP 超时
+
+当前 nginx 已为大文件上传设置 `client_body_timeout 900s`、`send_timeout 900s`、`proxy_send_timeout 900s`、`proxy_read_timeout 900s`，并对 `/api/` 关闭 `proxy_request_buffering`。如果网络较慢，大文件上传可能需要数分钟，请不要刷新页面；建议删除 `node_modules`、`target`、`.git` 后再压缩，可显著提升速度。
+
 ### 前端刷新 404
 
 当前 nginx 配置使用 `try_files $uri $uri/ /index.html;` 支持 Vue Router history 模式。如果刷新仍 404，确认挂载的 `deploy/nginx/nginx.conf` 是否生效，并重启 nginx 容器。

@@ -10,7 +10,7 @@ public class StartInterviewRequest {
     private Long projectId;
 
     /**
-     * HR_REALITY / TECH_DEEP_DIVE / PRESSURE / HUAWEI_BACKEND / AI_PROJECT
+     * HR_REALITY / TECH_DEEP_DIVE / PRESSURE / JAVA_BACKEND / AI_PROJECT
      */
     private String mode;
 }

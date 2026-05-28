@@ -95,10 +95,11 @@ public class InterviewService {
         userMessage.setContent(request.getAnswer());
 
         AnswerEvaluation ruleEvaluation = evaluateAnswer(request.getAnswer());
-        String ruleFollowUpQuestion = buildFollowUpQuestion(project, session.getMode(), request.getAnswer(), ruleEvaluation);
+        String mode = normalizeMode(session.getMode());
+        String ruleFollowUpQuestion = buildFollowUpQuestion(project, mode, request.getAnswer(), ruleEvaluation);
         AnswerEvaluation evaluation = enhanceEvaluationWithAi(
                 project,
-                session.getMode(),
+                mode,
                 request.getAnswer(),
                 ruleEvaluation,
                 ruleFollowUpQuestion,
@@ -136,7 +137,7 @@ public class InterviewService {
                 .id(session.getId())
                 .projectId(session.getProjectId())
                 .projectName(project == null ? null : project.getName())
-                .mode(session.getMode())
+                .mode(normalizeMode(session.getMode()))
                 .status(session.getStatus())
                 .totalScore(session.getTotalScore())
                 .summary(session.getSummary())
@@ -214,14 +215,19 @@ public class InterviewService {
             return "TECH_DEEP_DIVE";
         }
 
-        return mode.toUpperCase(Locale.ROOT);
+        String normalizedMode = mode.toUpperCase(Locale.ROOT);
+        if ("HUAWEI_BACKEND".equals(normalizedMode)) {
+            return "JAVA_BACKEND";
+        }
+
+        return normalizedMode;
     }
 
     private String buildFirstQuestion(Project project, String mode) {
         return switch (mode) {
             case "HR_REALITY" -> "请你先用 1 分钟介绍一下项目“" + project.getName() + "”。重点说明：这个项目是不是你独立完成的？你具体负责了哪些部分？AI 在里面帮了你什么？";
             case "PRESSURE" -> "我看你的项目 README 里可能有一些包装化表述。请你证明一下：这个项目哪些功能是真实实现的？哪些只是计划或描述？";
-            case "HUAWEI_BACKEND" -> "如果你在华为后端实习中接手一个类似项目，你会如何快速看懂它的 Controller、Service、Mapper 和数据库表结构？";
+            case "JAVA_BACKEND" -> "如果你作为 Java 后端实习生接手一个类似项目，你会如何快速看懂它的 Controller、Service、Mapper 和数据库表结构？";
             case "AI_PROJECT" -> "你这个项目里哪些地方真正体现了 AI 能力？只是调用大模型 API，还是有规则扫描、证据链或 RAG 等真实逻辑？";
             default -> "请你介绍一下项目“" + project.getName() + "”的核心业务流程、技术栈选择，以及你认为最能体现后端能力的部分。";
         };

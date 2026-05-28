@@ -117,9 +117,9 @@ docker compose logs -f nginx
 
 分享接口只开放 `/api/share/reports/**` 的只读公开访问，普通报告详情仍需要登录。
 
-### 上传 ZIP 超过 50MB
+### 上传 ZIP 超过 200MB
 
-当前普通项目 ZIP 最大支持 50MB，nginx 请求体限制为 60MB。建议删除 `target`、`node_modules`、`dist`、`build` 等目录后重新压缩。
+当前普通项目 ZIP 最大支持 200MB，nginx 请求体限制为 220MB。建议删除 `target`、`node_modules`、`dist`、`build` 等目录后重新压缩。
 
 ### 前端刷新 404
 

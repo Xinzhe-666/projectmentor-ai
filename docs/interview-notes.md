@@ -71,7 +71,7 @@ AI 服务可能没有配置 Key、调用失败、返回格式不稳定，或者�
 
 ZIP 上传做了几类限制：
 
-- ZIP 文件本身最大支持 50MB。
+- ZIP 文件本身最大支持 200MB。
 - 只允许 `.md`、`.xml`、`.yml`、`.yaml`、`.properties`、`.java`、`.sql`、`.json`、`Dockerfile`、`.gitignore` 等文本文件。
 - 跳过 `.git`、`target`、`node_modules`、`dist`、`build`、`.idea`、`.vscode`、`logs` 等目录。
 - 拦截绝对路径、盘符路径、`..` 路径和空字节。

@@ -83,7 +83,7 @@ Cloudflare Tunnel 临时试用方式：
 
 演示重点：
 
-- ZIP 上传当前支持普通项目 ZIP，最大 50MB。
+- ZIP 上传当前支持普通项目 ZIP，最大 200MB。
 - 系统会自动过滤 `.git`、`target`、`node_modules`、`dist`、`build` 等目录。
 - 系统只解析核心文本文件，不保存二进制文件。
 - 会过滤危险路径，并限制单文件大小、保存文本总量和 ZIP entry 数。

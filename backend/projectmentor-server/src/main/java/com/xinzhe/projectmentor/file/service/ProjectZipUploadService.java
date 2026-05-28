@@ -36,7 +36,7 @@ import java.util.zip.ZipInputStream;
 @RequiredArgsConstructor
 public class ProjectZipUploadService {
 
-    private static final long MAX_ZIP_SIZE_BYTES = 50L * 1024 * 1024;
+    private static final long MAX_ZIP_SIZE_BYTES = 200L * 1024 * 1024;
 
     private static final int MAX_VALID_FILE_COUNT = 150;
 
@@ -209,7 +209,7 @@ public class ProjectZipUploadService {
         }
 
         if (file.getSize() > MAX_ZIP_SIZE_BYTES) {
-            throw new BusinessException(ErrorCode.PARAM_ERROR, "ZIP 文件超过 50MB，请删除无关依赖目录后重试");
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "ZIP 文件超过 200MB，请删除无关依赖目录后重试");
         }
     }
 

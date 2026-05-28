@@ -313,12 +313,52 @@ async function handleCopyShare() {
     return
   }
 
-  try {
-    await navigator.clipboard.writeText(fullShareUrl.value)
+  const copied = await copyText(fullShareUrl.value)
+  if (copied) {
     ElMessage.success('分享链接已复制')
-  } catch {
-    ElMessage.error('复制失败，请手动复制链接')
+    return
   }
+
+  ElMessage.error('复制失败，请手动选中链接复制')
+}
+
+async function copyText(text: string) {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+      return true
+    }
+  } catch {
+    // HTTP 公网 IP 场景可能没有 Clipboard 权限，继续走 textarea fallback。
+  }
+
+  return fallbackCopyText(text)
+}
+
+function fallbackCopyText(text: string) {
+  const textarea = document.createElement('textarea')
+  textarea.value = text
+  textarea.setAttribute('readonly', '')
+  textarea.style.position = 'fixed'
+  textarea.style.top = '-9999px'
+  textarea.style.left = '-9999px'
+  textarea.style.opacity = '0'
+
+  document.body.appendChild(textarea)
+  textarea.focus()
+  textarea.select()
+  textarea.setSelectionRange(0, textarea.value.length)
+
+  let copied = false
+  try {
+    copied = document.execCommand('copy')
+  } catch {
+    copied = false
+  } finally {
+    document.body.removeChild(textarea)
+  }
+
+  return copied
 }
 
 async function handleDisableShare() {

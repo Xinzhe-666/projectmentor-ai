@@ -27,10 +27,10 @@
           </el-form-item>
           <el-form-item label="模式">
             <el-select v-model="form.mode" class="wide-control">
-              <el-option label="HR 真实度" value="HR_REALITY" />
+              <el-option label="HR 真实性" value="HR_REALITY" />
               <el-option label="技术深挖" value="TECH_DEEP_DIVE" />
               <el-option label="压力面试" value="PRESSURE" />
-              <el-option label="华为后端" value="HUAWEI_BACKEND" />
+              <el-option label="Java 后端" value="JAVA_BACKEND" />
               <el-option label="AI 项目" value="AI_PROJECT" />
             </el-select>
           </el-form-item>
@@ -142,10 +142,10 @@ const form = reactive<{
 const messages = computed(() => session.value?.messages || [])
 
 const modeMap: Record<string, string> = {
-  HR_REALITY: 'HR 真实度',
+  HR_REALITY: 'HR 真实性',
   TECH_DEEP_DIVE: '技术深挖',
   PRESSURE: '压力面试',
-  HUAWEI_BACKEND: '华为后端',
+  JAVA_BACKEND: 'Java 后端',
   AI_PROJECT: 'AI 项目'
 }
 

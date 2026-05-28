@@ -58,7 +58,7 @@
       <div class="panel-title">
         <div>
           <h3>ZIP 上传</h3>
-          <p class="muted">支持直接上传项目 ZIP，系统会自动过滤 .git、target、node_modules、dist 等无关目录。建议 ZIP 不超过 50MB。</p>
+          <p class="muted">支持直接上传项目 ZIP，系统会自动过滤 .git、target、node_modules、dist 等无关目录。建议 ZIP 不超过 200MB。</p>
         </div>
         <el-upload accept=".zip" :show-file-list="false" :before-upload="beforeZipUpload">
           <el-button :icon="Upload" :loading="uploading">上传 ZIP</el-button>
@@ -229,7 +229,7 @@ const scanResult = ref<RuleScanResult>()
 const task = ref<AnalysisTask>()
 let pollTimer: number | undefined
 
-const MAX_ZIP_SIZE_BYTES = 50 * 1024 * 1024
+const MAX_ZIP_SIZE_BYTES = 200 * 1024 * 1024
 
 const skipReasonLabels: Record<string, string> = {
   FILTERED_DIRECTORY: '过滤目录',
@@ -310,7 +310,7 @@ const beforeZipUpload: UploadProps['beforeUpload'] = async (rawFile) => {
   }
 
   if (rawFile.size > MAX_ZIP_SIZE_BYTES) {
-    ElMessage.error('ZIP 文件过大，当前最大支持 50MB。')
+    ElMessage.error('ZIP 文件过大，当前最大支持 200MB。')
     return false
   }
 

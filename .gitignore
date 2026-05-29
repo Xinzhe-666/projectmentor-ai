@@ -34,6 +34,8 @@ logs/
 **/node_modules/
 **/dist/
 **/.vite/
+frontend/projectmentor-web/public/donate/wechat.png
+frontend/projectmentor-web/public/donate/alipay.png
 
 # OS
 .DS_Store

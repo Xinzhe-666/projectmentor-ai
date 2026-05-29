@@ -6,6 +6,8 @@
     </div>
 
     <div class="header-actions">
+      <el-button :icon="Message" @click="feedbackVisible = true">反馈</el-button>
+      <el-button :icon="Coffee" @click="donateVisible = true">喝咖啡</el-button>
       <el-tag effect="light" type="success">剩余额度 {{ userStore.remainingCredits }}</el-tag>
       <div class="user-pill">
         <el-avatar :size="32">{{ userInitial }}</el-avatar>
@@ -14,21 +16,28 @@
       <el-button :icon="SwitchButton" @click="handleLogout">退出登录</el-button>
     </div>
   </header>
+
+  <DonateDialog v-model="donateVisible" />
+  <FeedbackDialog v-model="feedbackVisible" />
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { SwitchButton } from '@element-plus/icons-vue'
+import { Coffee, Message, SwitchButton } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 import { logout as logoutApi } from '@/api/auth'
+import DonateDialog from '@/components/DonateDialog.vue'
+import FeedbackDialog from '@/components/FeedbackDialog.vue'
 import { getMyCredits } from '@/api/credit'
 import { useUserStore } from '@/stores/user'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
+const donateVisible = ref(false)
+const feedbackVisible = ref(false)
 
 const title = computed(() => {
   const titleMap: Record<string, string> = {

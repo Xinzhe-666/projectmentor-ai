@@ -41,6 +41,11 @@
 - 面试复盘支持通过浏览器打印窗口另存为 PDF。
 - 审计报告支持随机 token 只读分享链接。
 - 报告页和公开分享页完成视觉打磨，让风险点、证据链和建议更适合面试前复盘使用。
+- V4.1-10 完成首页体验收口：首页补充产品定位、适合人群、核心流程、试用能力和试用版边界。
+- V4.1-10 增加试用提示：首页与 Dashboard 均提醒不要上传真实商业机密、真实密钥或公司内部代码，AI 结论仅供学习、项目复盘和面试准备参考。
+- V4.1-10 增加“请作者喝咖啡”入口：仅展示 `/donate/wechat.png` 和 `/donate/alipay.png` 本地二维码路径，自愿支持，不影响功能使用，不是支付系统。
+- V4.1-10 增加轻量反馈入口：复制反馈模板并跳转 GitHub Issues，不新增数据库表，不做正式工单系统。
+- V4.1-10 明确真实收款码图片不提交到 GitHub，本地部署时可放在 `frontend/projectmentor-web/public/donate/`。
 - V4.1-9 完成上线安全收口：MySQL 和 Redis 不映射公网端口，生产环境只开放 `22`、`80`、`443`，`.env` 和真实密钥不提交，`AI_API_KEY`、`JWT_SECRET`、`MYSQL_ROOT_PASSWORD` 均通过环境变量配置。
 - V4.1-9 固化轻量部署流程：2 核 2G 服务器可以运行项目，但不建议在服务器执行 `docker compose build frontend`、`docker compose up -d --build` 或 `npm run build`；前端更新走本地 `npm.cmd run build`、压缩 `dist.zip`、上传服务器、清空旧静态文件、`docker cp` 覆盖、重启 `frontend` 和 `nginx`。
 - 后端 Java 代码更新时，低配服务器可执行 `docker compose build backend` 和 `docker compose up -d backend`，如服务器卡顿，后续升级为 GitHub Actions 构建镜像。
@@ -59,7 +64,7 @@
 计划目标：
 
 - 补充管理员后台，用于查看用户、额度、任务和报告状态。
-- 增加用户反馈入口，收集风险识别是否准确、报告建议是否有用。
+- 在 V4.1-10 轻量反馈入口基础上，扩展更正式的反馈管理能力，收集风险识别是否准确、报告建议是否有用。
 - 基于反馈优化规则库、文案和面试追问。
 - 让当前额度系统从接口原型扩展到更清晰的管理页面。
 

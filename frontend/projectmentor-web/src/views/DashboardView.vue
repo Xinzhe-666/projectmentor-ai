@@ -13,6 +13,14 @@
       </div>
     </section>
 
+    <el-alert
+      title="试用提示"
+      type="warning"
+      show-icon
+      :closable="false"
+      description="请勿上传真实商业机密、真实密钥或公司内部代码。ProjectMentor AI 会基于你提供的 README 和项目文件生成辅助分析，结论仅供学习、项目复盘和面试准备参考。"
+    />
+
     <section class="metric-grid" v-loading="loading">
       <div class="metric-card" v-for="metric in metrics" :key="metric.label">
         <span>{{ metric.label }}</span>

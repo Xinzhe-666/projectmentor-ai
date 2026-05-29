@@ -41,6 +41,9 @@
 - 面试复盘支持通过浏览器打印窗口另存为 PDF。
 - 审计报告支持随机 token 只读分享链接。
 - 报告页和公开分享页完成视觉打磨，让风险点、证据链和建议更适合面试前复盘使用。
+- V4.1-9 完成上线安全收口：MySQL 和 Redis 不映射公网端口，生产环境只开放 `22`、`80`、`443`，`.env` 和真实密钥不提交，`AI_API_KEY`、`JWT_SECRET`、`MYSQL_ROOT_PASSWORD` 均通过环境变量配置。
+- V4.1-9 固化轻量部署流程：2 核 2G 服务器可以运行项目，但不建议在服务器执行 `docker compose build frontend`、`docker compose up -d --build` 或 `npm run build`；前端更新走本地 `npm.cmd run build`、压缩 `dist.zip`、上传服务器、清空旧静态文件、`docker cp` 覆盖、重启 `frontend` 和 `nginx`。
+- 后端 Java 代码更新时，低配服务器可执行 `docker compose build backend` 和 `docker compose up -d backend`，如服务器卡顿，后续升级为 GitHub Actions 构建镜像。
 
 ## V4.2 RAG 项目问答
 

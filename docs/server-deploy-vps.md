@@ -7,8 +7,19 @@
 - 一台 Ubuntu 服务器。
 - 已安装 Git。
 - 已安装 Docker 和 Docker Compose。
-- 服务器防火墙开放 80 端口。
-- 可选开放 443 端口，用于后续配置 HTTPS。
+- 服务器防火墙开放 `22` 和 `80`。
+- 可选开放 `443`，用于后续配置 HTTPS。
+- 不要在云防火墙开放 `3306`、`6379`。
+
+## 低配服务器部署建议
+
+2 核 2G 服务器可以运行 ProjectMentor AI 试用环境，但不适合每次在服务器上构建前端。服务器上不建议执行 `docker compose build frontend`，不建议执行 `docker compose up -d --build`，也不建议执行 `npm run build`。前端更新推荐在本地构建 `dist`，压缩为 `dist.zip` 后上传服务器覆盖。
+
+Docker Compose 的正常启动能力仍然保留；本地开发、完整验证或资源充足服务器仍可使用完整构建流程。低配服务器日常启动或重启优先使用：
+
+```bash
+docker compose up -d
+```
 
 ## 部署步骤
 
@@ -29,7 +40,7 @@ AI_API_KEY=可留空；留空时使用规则版 fallback
 启动服务：
 
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
 ## 查看状态
@@ -46,12 +57,42 @@ docker compose logs -f nginx
 http://服务器IP
 ```
 
-## 更新项目
+## 前端轻量更新流程
+
+本地 Windows PowerShell：
+
+```powershell
+cd C:\Users\LiXin\Desktop\projectmentor-ai\frontend\projectmentor-web
+npm.cmd run build
+Remove-Item -Force dist.zip -ErrorAction SilentlyContinue
+Compress-Archive -Path dist* -DestinationPath dist.zip -Force
+scp dist.zip root@服务器IP:/opt/projectmentor-ai/frontend-dist.zip
+```
+
+服务器：
+
+```bash
+cd /opt/projectmentor-ai
+rm -rf /tmp/projectmentor-frontend-dist
+mkdir -p /tmp/projectmentor-frontend-dist
+unzip -o frontend-dist.zip -d /tmp/projectmentor-frontend-dist
+docker exec projectmentor-frontend-assets sh -c "rm -rf /usr/share/nginx/html/*"
+docker cp /tmp/projectmentor-frontend-dist/. projectmentor-frontend-assets:/usr/share/nginx/html/
+docker compose restart frontend nginx
+docker compose ps
+```
+
+## 后端更新流程
+
+如果修改 Java 后端代码，低配服务器可以构建但会较慢：
 
 ```bash
 git pull
-docker compose up -d --build
+docker compose build backend
+docker compose up -d backend
 ```
+
+如果服务器构建明显卡顿，后续可升级为 GitHub Actions 构建镜像，再由服务器拉取镜像部署。
 
 ## 停止服务
 
@@ -132,7 +173,10 @@ docker compose logs -f nginx
 ## 安全提醒
 
 - 不要提交 `.env`。
+- MySQL 和 Redis 不映射公网端口，只在 Docker Compose 内部网络中被后端通过 `mysql`、`redis` 服务名访问。
+- 生产环境只开放 `22`、`80`、`443`；云防火墙不应开放 `3306`、`6379`。
 - `JWT_SECRET` 必须换成长随机字符串，长度至少 32 个字符。
 - `AI_API_KEY` 只放在后端 `.env`，不要写进前端代码或公开文档。
+- `AI_API_KEY`、`JWT_SECRET`、`MYSQL_ROOT_PASSWORD` 必须通过环境变量配置，不要写入代码或公开文档。
 - 试用版不承诺商业级稳定性。
 - 不要公开服务器 SSH 密码，也不要把服务器登录信息发到聊天记录、公开材料或仓库中。

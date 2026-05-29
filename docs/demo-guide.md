@@ -23,6 +23,7 @@
 - Cloudflare Tunnel 只适合临时试用和短时间演示，生成的是临时链接，不适合作为正式部署方式。
 - 公开分享页只展示脱敏后的只读报告内容，不展示 userId、邮箱、源码内容、AI 调用日志或额度流水。
 - 审计报告分享链接是只读链接，后端使用随机 token 访问公开报告，用户可以在报告详情页关闭分享。
+- 2 核 2G 轻量服务器可以运行演示环境，但不适合每次在服务器构建前端；不要在服务器执行 `docker compose build frontend`、`docker compose up -d --build` 或 `npm run build`，前端更新走本地构建后上传覆盖。
 
 ## 1. 启动项目
 
@@ -32,6 +33,8 @@ Docker Compose 方式：
 cp .env.example .env
 docker compose up -d --build
 ```
+
+该命令适合本地或资源充足环境的完整 Compose 演示。低配服务器日常更新请使用下方前端轻量更新流程。
 
 启动后访问：
 
@@ -49,6 +52,46 @@ Cloudflare Tunnel 临时试用方式：
 
 - 后端：进入 `backend/projectmentor-server`，执行 `mvn spring-boot:run`。
 - 前端：进入 `frontend/projectmentor-web`，执行 `npm install` 和 `npm run dev`。
+
+服务器试用环境前端轻量更新：
+
+本地 Windows PowerShell：
+
+```powershell
+cd C:\Users\LiXin\Desktop\projectmentor-ai\frontend\projectmentor-web
+npm.cmd run build
+Remove-Item -Force dist.zip -ErrorAction SilentlyContinue
+Compress-Archive -Path dist* -DestinationPath dist.zip -Force
+scp dist.zip root@服务器IP:/opt/projectmentor-ai/frontend-dist.zip
+```
+
+服务器：
+
+```bash
+cd /opt/projectmentor-ai
+rm -rf /tmp/projectmentor-frontend-dist
+mkdir -p /tmp/projectmentor-frontend-dist
+unzip -o frontend-dist.zip -d /tmp/projectmentor-frontend-dist
+docker exec projectmentor-frontend-assets sh -c "rm -rf /usr/share/nginx/html/*"
+docker cp /tmp/projectmentor-frontend-dist/. projectmentor-frontend-assets:/usr/share/nginx/html/
+docker compose restart frontend nginx
+docker compose ps
+```
+
+后端如果修改 Java 代码，低配服务器可以执行以下命令，但可能较慢：
+
+```bash
+docker compose build backend
+docker compose up -d backend
+```
+
+如服务器卡顿，后续可升级为 GitHub Actions 构建镜像。
+
+公网试用安全边界：
+
+- MySQL 和 Redis 不映射公网端口，只允许后端在 Docker Compose 内部网络中通过 `mysql`、`redis` 服务名访问。
+- 生产环境只开放 `22`、`80`、`443`；云防火墙不应开放 `3306`、`6379`。
+- `.env` 不提交；`AI_API_KEY`、`JWT_SECRET`、`MYSQL_ROOT_PASSWORD` 必须通过环境变量配置。
 
 ## 2. 注册登录
 

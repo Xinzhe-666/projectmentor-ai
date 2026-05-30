@@ -71,6 +71,11 @@ export interface ProjectQaResponse {
   suggestedFollowUps: string[]
 }
 
+export interface ProjectQaHistoryRecord extends ProjectQaResponse {
+  id: number
+  createTime: string
+}
+
 export interface RuleScanRisk {
   riskLevel: string
   riskType: string

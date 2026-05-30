@@ -1,7 +1,9 @@
 package com.xinzhe.projectmentor.qa.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.xinzhe.projectmentor.ai.AiProperties;
 import com.xinzhe.projectmentor.ai.LlmClient;
@@ -15,6 +17,7 @@ import com.xinzhe.projectmentor.project.mapper.ProjectMapper;
 import com.xinzhe.projectmentor.qa.entity.ProjectQaRecord;
 import com.xinzhe.projectmentor.qa.mapper.ProjectQaRecordMapper;
 import com.xinzhe.projectmentor.qa.vo.ProjectQaEvidenceVO;
+import com.xinzhe.projectmentor.qa.vo.ProjectQaHistoryVO;
 import com.xinzhe.projectmentor.qa.vo.ProjectQaResponseVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +46,14 @@ public class ProjectQaService {
     private static final int MAX_SNIPPET_CHARS = 500;
 
     private static final int DEFAULT_MAX_PROMPT_CHARS = 12000;
+
+    private static final int DEFAULT_HISTORY_LIMIT = 20;
+
+    private static final TypeReference<List<ProjectQaEvidenceVO>> EVIDENCE_LIST_TYPE = new TypeReference<>() {
+    };
+
+    private static final TypeReference<List<String>> FOLLOW_UP_LIST_TYPE = new TypeReference<>() {
+    };
 
     private static final String NO_EVIDENCE_ANSWER = "当前项目文件中没有找到与该问题明显相关的证据。建议先上传 README 或项目 ZIP，或者换一个更具体的问题。";
 
@@ -138,6 +149,43 @@ public class ProjectQaService {
                 .evidences(evidences)
                 .suggestedFollowUps(suggestedFollowUps)
                 .build();
+    }
+
+    public List<ProjectQaHistoryVO> listHistory(Long projectId) {
+        Long userId = getCurrentUserId();
+        checkProjectOwner(projectId, userId);
+
+        List<ProjectQaRecord> records = projectQaRecordMapper.selectList(
+                new LambdaQueryWrapper<ProjectQaRecord>()
+                        .eq(ProjectQaRecord::getUserId, userId)
+                        .eq(ProjectQaRecord::getProjectId, projectId)
+                        .eq(ProjectQaRecord::getDeleted, 0)
+                        .orderByDesc(ProjectQaRecord::getCreateTime)
+                        .last("LIMIT " + DEFAULT_HISTORY_LIMIT)
+        );
+
+        return records.stream()
+                .map(this::toHistoryVO)
+                .toList();
+    }
+
+    public void deleteHistory(Long projectId, Long recordId) {
+        Long userId = getCurrentUserId();
+        checkProjectOwner(projectId, userId);
+
+        int updated = projectQaRecordMapper.update(
+                null,
+                new LambdaUpdateWrapper<ProjectQaRecord>()
+                        .eq(ProjectQaRecord::getId, recordId)
+                        .eq(ProjectQaRecord::getUserId, userId)
+                        .eq(ProjectQaRecord::getProjectId, projectId)
+                        .eq(ProjectQaRecord::getDeleted, 0)
+                        .set(ProjectQaRecord::getDeleted, 1)
+        );
+
+        if (updated == 0) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "问答记录不存在或无权限删除");
+        }
     }
 
     private Long getCurrentUserId() {
@@ -605,6 +653,32 @@ public class ProjectQaService {
             projectQaRecordMapper.insert(record);
         } catch (Exception e) {
             log.warn("Failed to save project QA record: projectId={}, message={}", projectId, e.getMessage());
+        }
+    }
+
+    private ProjectQaHistoryVO toHistoryVO(ProjectQaRecord record) {
+        return ProjectQaHistoryVO.builder()
+                .id(record.getId())
+                .question(record.getQuestion())
+                .answer(record.getAnswer())
+                .aiUsed(record.getAiUsed() != null && record.getAiUsed() == 1)
+                .evidences(parseJsonList(record.getEvidenceJson(), EVIDENCE_LIST_TYPE))
+                .suggestedFollowUps(parseJsonList(record.getSuggestedFollowUpsJson(), FOLLOW_UP_LIST_TYPE))
+                .createTime(record.getCreateTime())
+                .build();
+    }
+
+    private <T> List<T> parseJsonList(String json, TypeReference<List<T>> typeReference) {
+        if (json == null || json.isBlank()) {
+            return List.of();
+        }
+
+        try {
+            List<T> values = objectMapper.readValue(json, typeReference);
+            return values == null ? List.of() : values;
+        } catch (Exception e) {
+            log.warn("Failed to parse project QA history json: {}", e.getMessage());
+            return List.of();
         }
     }
 

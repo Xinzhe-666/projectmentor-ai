@@ -63,6 +63,15 @@ public class ProjectQaService {
 
     private static final Pattern CHINESE_TEXT_PATTERN = Pattern.compile("[\\u4e00-\\u9fa5]{2,}");
 
+    private static final Set<String> IMPLEMENTATION_PATH_KEYWORDS = Set.of(
+            "controller", "service", "config", "util", "interceptor", "filter", "mapper", "entity"
+    );
+
+    private static final Set<String> CONFIG_PATH_KEYWORDS = Set.of(
+            "application.yml", "application.yaml", "application.properties", "pom.xml",
+            "package.json", "dockerfile", "docker-compose.yml", "docker-compose.yaml", ".sql"
+    );
+
     private static final Set<String> STOP_WORDS = Set.of(
             "the", "and", "where", "what", "how", "why", "is", "are", "was", "were",
             "in", "on", "to", "for", "of", "with", "project", "code", "file", "files",
@@ -121,6 +130,7 @@ public class ProjectQaService {
         List<ScoredFile> scoredFiles = scoreFiles(files, keywords);
         List<ProjectQaEvidenceVO> evidences = buildEvidences(scoredFiles, keywords);
         List<String> suggestedFollowUps = buildSuggestedFollowUps(keywords, evidences);
+        EvidenceAssessment assessment = buildEvidenceAssessment(normalizedQuestion, evidences, scoredFiles);
 
         boolean aiUsed = false;
         String answer;
@@ -148,6 +158,12 @@ public class ProjectQaService {
                 .aiUsed(aiUsed)
                 .evidences(evidences)
                 .suggestedFollowUps(suggestedFollowUps)
+                .evidenceLevel(assessment.evidenceLevel())
+                .evidenceLevelText(assessment.evidenceLevelText())
+                .evidenceSummary(assessment.evidenceSummary())
+                .interviewAnswer(assessment.interviewAnswer())
+                .resumeRisk(assessment.resumeRisk())
+                .confidenceScore(assessment.confidenceScore())
                 .build();
     }
 
@@ -545,9 +561,10 @@ public class ProjectQaService {
                 你只能根据用户提供的证据片段回答，不允许编造不存在的功能。
                 如果证据不足，必须明确说：“当前上传文件中没有找到足够证据。”
                 如果只有 README 描述、但缺少代码或配置证据，必须明确说：“README 中有描述，但当前上传代码证据不足。”
-                回答必须包含：直接回答、证据依据、面试讲法、可能被追问的问题。
+                回答必须包含：直接回答、证据依据、面试讲法、简历风险提示、可能被追问的问题。
                 不允许夸大为高并发、分布式、企业级生产系统，除非证据明确支持。
                 不允许把没有证据的猜测说成事实。
+                不允许把证据不足的问题包装成已经完整实现。
                 当前能力只是基于已上传文件的轻量检索增强问答，不要描述成成熟向量检索或成熟 RAG 系统。
                 """;
 
@@ -632,6 +649,208 @@ public class ProjectQaService {
         return false;
     }
 
+    private EvidenceAssessment buildEvidenceAssessment(String question,
+                                                       List<ProjectQaEvidenceVO> evidences,
+                                                       List<ScoredFile> scoredFiles) {
+        EvidenceStats stats = buildEvidenceStats(evidences, scoredFiles);
+        String keyFiles = summarizeEvidencePaths(evidences);
+
+        String evidenceLevel;
+        int confidenceScore;
+
+        if (stats.evidenceCount() == 0 || stats.contentHitCount() == 0) {
+            evidenceLevel = "NONE";
+            confidenceScore = clamp(18 + stats.evidenceCount() * 3, 0, 30);
+        } else if (stats.readmeOnly() || stats.implementationEvidenceCount() == 0 && stats.configEvidenceCount() == 0) {
+            evidenceLevel = "WEAK";
+            confidenceScore = clamp(36 + stats.evidenceCount() * 4 + stats.contentHitCount() * 3, 31, 55);
+        } else if (stats.implementationEvidenceCount() >= 3 && stats.pathAndContentHitCount() >= 2) {
+            evidenceLevel = "STRONG";
+            confidenceScore = clamp(78 + stats.implementationEvidenceCount() * 4 + stats.pathAndContentHitCount() * 3, 76, 95);
+        } else if (stats.implementationEvidenceCount() >= 1
+                || stats.hasReadmeEvidence() && stats.configEvidenceCount() > 0 && stats.contentHitCount() >= 2) {
+            evidenceLevel = "MEDIUM";
+            confidenceScore = clamp(58 + stats.implementationEvidenceCount() * 5
+                    + stats.configEvidenceCount() * 3 + stats.contentHitCount() * 2, 56, 75);
+        } else {
+            evidenceLevel = "WEAK";
+            confidenceScore = clamp(35 + stats.evidenceCount() * 4, 31, 55);
+        }
+
+        String evidenceLevelText = evidenceLevelText(evidenceLevel);
+        String evidenceSummary = buildEvidenceSummary(evidenceLevel, stats);
+        String interviewAnswer = buildInterviewAnswer(question, evidenceLevel, keyFiles);
+        String resumeRisk = buildResumeRisk(evidenceLevel, stats);
+
+        return new EvidenceAssessment(
+                evidenceLevel,
+                evidenceLevelText,
+                evidenceSummary,
+                interviewAnswer,
+                resumeRisk,
+                confidenceScore
+        );
+    }
+
+    private EvidenceStats buildEvidenceStats(List<ProjectQaEvidenceVO> evidences, List<ScoredFile> scoredFiles) {
+        int evidenceCount = evidences == null ? 0 : evidences.size();
+        if (evidenceCount == 0) {
+            return new EvidenceStats(0, 0, 0, 0, false, false, 0);
+        }
+
+        int reasonContentHitCount = 0;
+        int reasonPathAndContentHitCount = 0;
+        int implementationEvidenceCount = 0;
+        int configEvidenceCount = 0;
+        boolean hasReadmeEvidence = false;
+        Set<String> evidencePaths = new LinkedHashSet<>();
+
+        for (ProjectQaEvidenceVO evidence : evidences) {
+            String path = safe(evidence.getFilePath()).toLowerCase(Locale.ROOT);
+            String reason = safe(evidence.getReason());
+            evidencePaths.add(path);
+
+            if (isReadmePath(path)) {
+                hasReadmeEvidence = true;
+            }
+            if (isImplementationPath(path)) {
+                implementationEvidenceCount++;
+            }
+            if (isConfigPath(path)) {
+                configEvidenceCount++;
+            }
+            if (reason.contains("文件内容命中")) {
+                reasonContentHitCount++;
+            }
+            if (reason.contains("文件路径命中") && reason.contains("文件内容命中")) {
+                reasonPathAndContentHitCount++;
+            }
+        }
+
+        int scoredContentHitCount = 0;
+        int scoredPathAndContentHitCount = 0;
+        if (scoredFiles != null && !scoredFiles.isEmpty()) {
+            for (ScoredFile scoredFile : scoredFiles) {
+                String path = safe(scoredFile.file().getFilePath()).toLowerCase(Locale.ROOT);
+                if (!evidencePaths.contains(path)) {
+                    continue;
+                }
+                if (!scoredFile.contentHits().isEmpty()) {
+                    scoredContentHitCount++;
+                }
+                if (!scoredFile.pathHits().isEmpty() && !scoredFile.contentHits().isEmpty()) {
+                    scoredPathAndContentHitCount++;
+                }
+            }
+        }
+
+        int contentHitCount = Math.max(reasonContentHitCount, scoredContentHitCount);
+        int pathAndContentHitCount = Math.max(reasonPathAndContentHitCount, scoredPathAndContentHitCount);
+        boolean readmeOnly = hasReadmeEvidence && implementationEvidenceCount == 0 && configEvidenceCount == 0;
+
+        return new EvidenceStats(
+                evidenceCount,
+                contentHitCount,
+                pathAndContentHitCount,
+                implementationEvidenceCount,
+                hasReadmeEvidence,
+                readmeOnly,
+                configEvidenceCount
+        );
+    }
+
+    private String evidenceLevelText(String evidenceLevel) {
+        return switch (evidenceLevel) {
+            case "STRONG" -> "强证据";
+            case "MEDIUM" -> "中等证据";
+            case "WEAK" -> "弱证据";
+            default -> "证据不足";
+        };
+    }
+
+    private String buildEvidenceSummary(String evidenceLevel, EvidenceStats stats) {
+        if ("NONE".equals(evidenceLevel)) {
+            if (stats.evidenceCount() == 0) {
+                return "当前上传文件中没有找到明显相关证据，无法支撑完整回答。";
+            }
+            return "找到了少量文件线索，但当前证据片段没有命中核心问题关键词，证据仍不足。";
+        }
+
+        if ("WEAK".equals(evidenceLevel)) {
+            if (stats.readmeOnly()) {
+                return "当前证据主要来自 README 描述，缺少代码、配置或实现链路支撑。";
+            }
+            return "当前证据较少或较泛，尚不足以证明完整实现链路。";
+        }
+
+        if ("MEDIUM".equals(evidenceLevel)) {
+            return "当前找到 " + stats.evidenceCount() + " 条证据，包含 "
+                    + stats.implementationEvidenceCount() + " 个代码实现文件线索，可以支撑部分回答，但链路仍需结合代码继续复盘。";
+        }
+
+        return "当前找到 " + stats.evidenceCount() + " 条证据，包含多个关键代码文件，且路径和内容均有命中，能较好支撑本次回答。";
+    }
+
+    private String buildInterviewAnswer(String question, String evidenceLevel, String keyFiles) {
+        String filesText = keyFiles.isBlank() ? "当前上传材料" : keyFiles;
+
+        return switch (evidenceLevel) {
+            case "STRONG" -> "面试中可以先直接回答问题，再结合 " + filesText
+                    + " 说明入口、核心逻辑和边界。注意只讲当前代码能证明的部分，不扩展成没有证据的生产级能力。";
+            case "MEDIUM" -> "面试中可以说这个点在 " + filesText
+                    + " 中有实现或配置线索，然后说明自己理解的流程。遇到细节追问时，要回到文件路径和片段讲，不要说成完整闭环已经充分证明。";
+            case "WEAK" -> "面试中建议保守表达：当前材料只找到 " + filesText
+                    + " 这类线索，可以作为说明或初步实现参考，但不要把它包装成独立设计或完整能力。";
+            default -> "面试中建议先说明当前上传文件中没有找到足够证据，不能确认该点已经完整实现。可以补充 README、核心代码或演示截图后再展开说明。";
+        };
+    }
+
+    private String buildResumeRisk(String evidenceLevel, EvidenceStats stats) {
+        if ("NONE".equals(evidenceLevel)) {
+            return "当前证据不足，不建议写进简历，也不建议在面试中主动夸大这个点。";
+        }
+        if ("WEAK".equals(evidenceLevel)) {
+            if (stats.readmeOnly()) {
+                return "README 有描述，但当前上传代码证据不足，需要补充实现或演示截图后再考虑写进简历。";
+            }
+            return "不建议夸大为独立设计；如果写进简历，需要用更保守的表述，并准备补充代码证据。";
+        }
+        if ("MEDIUM".equals(evidenceLevel)) {
+            return "可以谨慎写，但需要能讲清楚实现细节、文件位置和当前证据边界。";
+        }
+        return "可以写，但仍要按当前证据范围描述，并准备被追问接口入口、核心逻辑和异常边界。";
+    }
+
+    private String summarizeEvidencePaths(List<ProjectQaEvidenceVO> evidences) {
+        if (evidences == null || evidences.isEmpty()) {
+            return "";
+        }
+
+        return evidences.stream()
+                .map(evidence -> safe(evidence.getFilePath()))
+                .filter(path -> !path.isBlank())
+                .distinct()
+                .limit(3)
+                .reduce((left, right) -> left + "、" + right)
+                .orElse("");
+    }
+
+    private boolean isReadmePath(String pathLower) {
+        return pathLower.contains("readme");
+    }
+
+    private boolean isImplementationPath(String pathLower) {
+        return IMPLEMENTATION_PATH_KEYWORDS.stream().anyMatch(pathLower::contains);
+    }
+
+    private boolean isConfigPath(String pathLower) {
+        return CONFIG_PATH_KEYWORDS.stream().anyMatch(pathLower::contains);
+    }
+
+    private int clamp(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
     private void saveRecord(Long userId,
                             Long projectId,
                             String question,
@@ -657,14 +876,24 @@ public class ProjectQaService {
     }
 
     private ProjectQaHistoryVO toHistoryVO(ProjectQaRecord record) {
+        List<ProjectQaEvidenceVO> evidences = parseJsonList(record.getEvidenceJson(), EVIDENCE_LIST_TYPE);
+        List<String> suggestedFollowUps = parseJsonList(record.getSuggestedFollowUpsJson(), FOLLOW_UP_LIST_TYPE);
+        EvidenceAssessment assessment = buildEvidenceAssessment(record.getQuestion(), evidences, List.of());
+
         return ProjectQaHistoryVO.builder()
                 .id(record.getId())
                 .question(record.getQuestion())
                 .answer(record.getAnswer())
                 .aiUsed(record.getAiUsed() != null && record.getAiUsed() == 1)
-                .evidences(parseJsonList(record.getEvidenceJson(), EVIDENCE_LIST_TYPE))
-                .suggestedFollowUps(parseJsonList(record.getSuggestedFollowUpsJson(), FOLLOW_UP_LIST_TYPE))
+                .evidences(evidences)
+                .suggestedFollowUps(suggestedFollowUps)
                 .createTime(record.getCreateTime())
+                .evidenceLevel(assessment.evidenceLevel())
+                .evidenceLevelText(assessment.evidenceLevelText())
+                .evidenceSummary(assessment.evidenceSummary())
+                .interviewAnswer(assessment.interviewAnswer())
+                .resumeRisk(assessment.resumeRisk())
+                .confidenceScore(assessment.confidenceScore())
                 .build();
     }
 
@@ -716,5 +945,22 @@ public class ProjectQaService {
                               List<String> pathHits,
                               List<String> contentHits,
                               String roleReason) {
+    }
+
+    private record EvidenceAssessment(String evidenceLevel,
+                                      String evidenceLevelText,
+                                      String evidenceSummary,
+                                      String interviewAnswer,
+                                      String resumeRisk,
+                                      Integer confidenceScore) {
+    }
+
+    private record EvidenceStats(int evidenceCount,
+                                 int contentHitCount,
+                                 int pathAndContentHitCount,
+                                 int implementationEvidenceCount,
+                                 boolean hasReadmeEvidence,
+                                 boolean readmeOnly,
+                                 int configEvidenceCount) {
     }
 }

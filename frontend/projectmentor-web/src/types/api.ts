@@ -69,6 +69,12 @@ export interface ProjectQaResponse {
   aiUsed: boolean
   evidences: ProjectQaEvidence[]
   suggestedFollowUps: string[]
+  evidenceLevel?: 'STRONG' | 'MEDIUM' | 'WEAK' | 'NONE' | string
+  evidenceLevelText?: string
+  evidenceSummary?: string
+  interviewAnswer?: string
+  resumeRisk?: string
+  confidenceScore?: number
 }
 
 export interface ProjectQaHistoryRecord extends ProjectQaResponse {

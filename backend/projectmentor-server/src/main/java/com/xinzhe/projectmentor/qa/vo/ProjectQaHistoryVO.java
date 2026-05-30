@@ -23,4 +23,16 @@ public class ProjectQaHistoryVO {
     private List<String> suggestedFollowUps;
 
     private LocalDateTime createTime;
+
+    private String evidenceLevel;
+
+    private String evidenceLevelText;
+
+    private String evidenceSummary;
+
+    private String interviewAnswer;
+
+    private String resumeRisk;
+
+    private Integer confidenceScore;
 }

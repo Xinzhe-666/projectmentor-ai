@@ -18,4 +18,16 @@ public class ProjectQaResponseVO {
     private List<ProjectQaEvidenceVO> evidences;
 
     private List<String> suggestedFollowUps;
+
+    private String evidenceLevel;
+
+    private String evidenceLevelText;
+
+    private String evidenceSummary;
+
+    private String interviewAnswer;
+
+    private String resumeRisk;
+
+    private Integer confidenceScore;
 }

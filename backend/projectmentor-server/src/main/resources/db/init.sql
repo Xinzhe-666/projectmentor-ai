@@ -75,6 +75,24 @@ CREATE TABLE IF NOT EXISTS pm_project_file
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4 COMMENT ='项目文件表';
 
+CREATE TABLE IF NOT EXISTS pm_project_qa_record
+(
+    id                       BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+    user_id                  BIGINT        NOT NULL COMMENT '用户ID',
+    project_id               BIGINT        NOT NULL COMMENT '项目ID',
+    question                 VARCHAR(1000) NOT NULL COMMENT '问题',
+    answer                   TEXT NULL COMMENT '回答',
+    ai_used                  TINYINT       NOT NULL DEFAULT 0 COMMENT '是否使用AI',
+    evidence_json            TEXT NULL COMMENT '证据JSON',
+    suggested_follow_ups_json TEXT NULL COMMENT '建议追问JSON',
+    create_time              DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time              DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    deleted                  TINYINT       NOT NULL DEFAULT 0 COMMENT '逻辑删除',
+    INDEX idx_user_project (user_id, project_id),
+    INDEX idx_create_time (create_time)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4 COMMENT ='项目问答记录表';
+
 CREATE TABLE IF NOT EXISTS pm_analysis_report
 (
     id                 BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '报告ID',
@@ -162,7 +180,7 @@ CREATE TABLE IF NOT EXISTS pm_analysis_task (
 CREATE TABLE IF NOT EXISTS pm_ai_call_log (
     id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT 'AI调用日志ID',
     user_id BIGINT NULL COMMENT '用户ID',
-    module VARCHAR(50) NOT NULL COMMENT '调用模块：REPORT/HALLUCINATION/INTERVIEW',
+    module VARCHAR(50) NOT NULL COMMENT '调用模块：REPORT/HALLUCINATION/INTERVIEW/PROJECT_QA',
     model VARCHAR(100) NULL COMMENT '模型名称',
     success TINYINT NOT NULL COMMENT '是否成功',
     prompt_chars INT NULL COMMENT 'Prompt字符数',
@@ -180,7 +198,7 @@ USE projectmentor_ai;
 CREATE TABLE IF NOT EXISTS pm_ai_call_log (
                                               id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT 'AI调用日志ID',
                                               user_id BIGINT NULL COMMENT '用户ID',
-                                              module VARCHAR(50) NOT NULL COMMENT '调用模块：REPORT/HALLUCINATION/INTERVIEW',
+                                              module VARCHAR(50) NOT NULL COMMENT '调用模块：REPORT/HALLUCINATION/INTERVIEW/PROJECT_QA',
                                               model VARCHAR(100) NULL COMMENT '模型名称',
                                               success TINYINT NOT NULL COMMENT '是否成功',
                                               prompt_chars INT NULL COMMENT 'Prompt字符数',

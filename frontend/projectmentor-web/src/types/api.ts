@@ -57,6 +57,20 @@ export interface UploadZipResult {
   skippedByReason: Record<string, number>
 }
 
+export interface ProjectQaEvidence {
+  filePath: string
+  reason: string
+  snippet: string
+}
+
+export interface ProjectQaResponse {
+  question: string
+  answer: string
+  aiUsed: boolean
+  evidences: ProjectQaEvidence[]
+  suggestedFollowUps: string[]
+}
+
 export interface RuleScanRisk {
   riskLevel: string
   riskType: string

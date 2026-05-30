@@ -100,6 +100,28 @@ docker compose up -d backend
 docker compose down
 ```
 
+## 数据库变更
+
+V4.2-1 新增项目问答记录表 `pm_project_qa_record`。全新部署会在 MySQL 初始化时执行 `init.sql`；已有数据库不会自动重放初始化脚本，需要手动执行下面的 SQL：
+
+```sql
+CREATE TABLE IF NOT EXISTS pm_project_qa_record (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+    user_id BIGINT NOT NULL COMMENT '用户ID',
+    project_id BIGINT NOT NULL COMMENT '项目ID',
+    question VARCHAR(1000) NOT NULL COMMENT '问题',
+    answer TEXT NULL COMMENT '回答',
+    ai_used TINYINT NOT NULL DEFAULT 0 COMMENT '是否使用AI',
+    evidence_json TEXT NULL COMMENT '证据JSON',
+    suggested_follow_ups_json TEXT NULL COMMENT '建议追问JSON',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',
+    INDEX idx_user_project (user_id, project_id),
+    INDEX idx_create_time (create_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='项目问答记录表';
+```
+
 ## 重置数据库
 
 ```bash

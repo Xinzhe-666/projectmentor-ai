@@ -197,6 +197,8 @@
         </div>
       </div>
     </section>
+
+    <ProjectQaPanel :project-id="projectId" :has-project-files="files.length > 0" />
   </div>
 </template>
 
@@ -210,6 +212,7 @@ import { getTask, scanProject, startAnalyze } from '@/api/analysis'
 import { getProjectDetail, listProjectFiles, saveReadme, uploadZip } from '@/api/project'
 import EmptyState from '@/components/EmptyState.vue'
 import EvidenceList from '@/components/EvidenceList.vue'
+import ProjectQaPanel from '@/components/ProjectQaPanel.vue'
 import RiskList from '@/components/RiskList.vue'
 import TaskProgress from '@/components/TaskProgress.vue'
 import type { AnalysisTask, Project, ProjectFile, RuleScanResult, UploadZipResult } from '@/types/api'

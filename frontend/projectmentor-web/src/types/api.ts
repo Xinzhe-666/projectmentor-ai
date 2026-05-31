@@ -304,3 +304,41 @@ export interface AdminRecentQa {
   aiUsed: boolean
   createTime?: string
 }
+
+export interface AdminCreditUser {
+  userId: number
+  email: string
+  nickname?: string
+  creditBalance: number
+  createTime?: string
+}
+
+export interface AdminCreditTransaction {
+  id: number
+  changeAmount: number
+  type: string
+  reason?: string
+  createTime?: string
+}
+
+export interface AdminCreditUserDetail {
+  userId: number
+  email: string
+  nickname?: string
+  creditBalance: number
+  recentTransactions: AdminCreditTransaction[]
+}
+
+export interface AdminGrantCreditPayload {
+  userId: number
+  amount: number
+  reason: string
+}
+
+export interface AdminGrantCreditResult {
+  userId: number
+  email: string
+  grantedAmount: number
+  newBalance: number
+  transactionId: number
+}

@@ -31,6 +31,40 @@
         </div>
       </section>
 
+      <section class="panel">
+        <div class="panel-title">
+          <div>
+            <h3>额度管理</h3>
+            <p class="muted">搜索用户、查看余额，并为指定用户发放额度。</p>
+          </div>
+        </div>
+        <div class="panel-body admin-credit-panel">
+          <div class="admin-credit-toolbar">
+            <el-input
+              v-model="creditKeyword"
+              clearable
+              placeholder="输入邮箱 / 昵称 / 用户 ID"
+              @keyup.enter="loadCreditUsers"
+            />
+            <el-button type="primary" :loading="creditLoading" @click="loadCreditUsers">搜索</el-button>
+          </div>
+
+          <el-table :data="creditUsers" stripe v-loading="creditLoading" empty-text="暂无用户记录">
+            <el-table-column prop="userId" label="用户 ID" width="100" />
+            <el-table-column prop="email" label="邮箱" min-width="190" show-overflow-tooltip />
+            <el-table-column prop="nickname" label="昵称" min-width="130" show-overflow-tooltip />
+            <el-table-column prop="creditBalance" label="当前额度" width="120" />
+            <el-table-column prop="createTime" label="注册时间" min-width="170" />
+            <el-table-column label="操作" width="190" fixed="right">
+              <template #default="{ row }">
+                <el-button text type="primary" @click="openGrantDialog(row)">发放额度</el-button>
+                <el-button text @click="openDetailDialog(row)">查看流水</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+      </section>
+
       <section class="admin-table-grid" v-loading="loading">
         <article class="panel">
           <div class="panel-title">
@@ -117,6 +151,66 @@
           </div>
         </article>
       </section>
+
+      <el-dialog v-model="creditDialogVisible" title="额度发放" width="720px">
+        <div v-if="selectedCreditUser" class="credit-dialog-stack">
+          <div class="credit-user-summary">
+            <span>用户 ID：{{ selectedCreditUser.userId }}</span>
+            <span>邮箱：{{ selectedCreditUser.email }}</span>
+            <span>昵称：{{ selectedCreditUser.nickname || '-' }}</span>
+            <span>当前额度：{{ creditDetail?.creditBalance ?? selectedCreditUser.creditBalance }}</span>
+          </div>
+
+          <el-form label-width="92px" @submit.prevent>
+            <el-form-item label="发放额度">
+              <el-input-number
+                v-model="creditForm.amount"
+                :min="1"
+                :max="10000"
+                :step="1"
+                step-strictly
+                controls-position="right"
+              />
+            </el-form-item>
+            <el-form-item label="发放原因">
+              <el-input
+                v-model="creditForm.reason"
+                type="textarea"
+                :rows="3"
+                maxlength="200"
+                show-word-limit
+                placeholder="例如：测试用户补充额度"
+              />
+            </el-form-item>
+          </el-form>
+
+          <div class="credit-log-block">
+            <h4>最近流水</h4>
+            <el-table
+              :data="creditDetail?.recentTransactions || []"
+              size="small"
+              stripe
+              empty-text="暂无额度流水"
+            >
+              <el-table-column prop="changeAmount" label="变动额度" width="100">
+                <template #default="{ row }">
+                  <el-tag :type="row.changeAmount > 0 ? 'success' : 'warning'" effect="light">
+                    {{ row.changeAmount > 0 ? `+${row.changeAmount}` : row.changeAmount }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="type" label="类型" width="140" show-overflow-tooltip />
+              <el-table-column prop="reason" label="原因" min-width="220" show-overflow-tooltip />
+              <el-table-column prop="createTime" label="时间" min-width="170" />
+            </el-table>
+          </div>
+        </div>
+
+        <template #footer>
+          <el-button @click="creditDialogVisible = false">取消</el-button>
+          <el-button type="primary" :loading="grantLoading" @click="handleGrantCredit">确认发放</el-button>
+        </template>
+      </el-dialog>
     </template>
 
     <section v-else class="panel" v-loading="loading">
@@ -130,16 +224,22 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { ElMessage } from 'element-plus'
 
 import {
+  getAdminCreditUserDetail,
   getAdminMe,
   getAdminRecentProjects,
   getAdminRecentQa,
   getAdminRecentReports,
   getAdminRecentUsers,
-  getAdminStats
+  getAdminStats,
+  grantAdminCredit,
+  searchAdminCreditUsers
 } from '@/api/admin'
 import type {
+  AdminCreditUser,
+  AdminCreditUserDetail,
   AdminMe,
   AdminRecentProject,
   AdminRecentQa,
@@ -156,6 +256,17 @@ const recentUsers = ref<AdminRecentUser[]>([])
 const recentProjects = ref<AdminRecentProject[]>([])
 const recentReports = ref<AdminRecentReport[]>([])
 const recentQa = ref<AdminRecentQa[]>([])
+const creditKeyword = ref('')
+const creditUsers = ref<AdminCreditUser[]>([])
+const creditLoading = ref(false)
+const creditDialogVisible = ref(false)
+const selectedCreditUser = ref<AdminCreditUser | null>(null)
+const creditDetail = ref<AdminCreditUserDetail | null>(null)
+const grantLoading = ref(false)
+const creditForm = ref({
+  amount: 1,
+  reason: ''
+})
 
 const isAdmin = computed(() => Boolean(adminMe.value?.admin))
 
@@ -205,11 +316,85 @@ async function loadAdminDashboard() {
     recentProjects.value = projects
     recentReports.value = reports
     recentQa.value = qa
+    await loadCreditUsers()
   } catch {
     checked.value = true
     adminMe.value = { admin: false }
   } finally {
     loading.value = false
+  }
+}
+
+async function loadCreditUsers() {
+  if (!isAdmin.value) {
+    return
+  }
+
+  creditLoading.value = true
+  try {
+    creditUsers.value = await searchAdminCreditUsers(creditKeyword.value)
+  } finally {
+    creditLoading.value = false
+  }
+}
+
+async function openGrantDialog(user: AdminCreditUser) {
+  selectedCreditUser.value = user
+  creditForm.value = {
+    amount: 1,
+    reason: ''
+  }
+  creditDialogVisible.value = true
+  await loadCreditDetail(user.userId)
+}
+
+async function openDetailDialog(user: AdminCreditUser) {
+  selectedCreditUser.value = user
+  creditForm.value = {
+    amount: 1,
+    reason: ''
+  }
+  creditDialogVisible.value = true
+  await loadCreditDetail(user.userId)
+}
+
+async function loadCreditDetail(userId: number) {
+  creditDetail.value = await getAdminCreditUserDetail(userId)
+}
+
+async function handleGrantCredit() {
+  if (!selectedCreditUser.value) {
+    return
+  }
+
+  if (!Number.isInteger(creditForm.value.amount) || creditForm.value.amount <= 0) {
+    ElMessage.warning('发放额度必须为正整数')
+    return
+  }
+
+  const reason = creditForm.value.reason.trim()
+  if (reason.length < 2) {
+    ElMessage.warning('请填写至少 2 个字符的发放原因')
+    return
+  }
+
+  grantLoading.value = true
+  try {
+    const result = await grantAdminCredit({
+      userId: selectedCreditUser.value.userId,
+      amount: creditForm.value.amount,
+      reason
+    })
+    ElMessage.success('额度已发放')
+    selectedCreditUser.value.creditBalance = result.newBalance
+    await Promise.all([
+      loadCreditDetail(selectedCreditUser.value.userId),
+      loadCreditUsers()
+    ])
+    creditForm.value.amount = 1
+    creditForm.value.reason = ''
+  } finally {
+    grantLoading.value = false
   }
 }
 
@@ -233,5 +418,45 @@ onMounted(loadAdminDashboard)
 
 .admin-table-grid .panel-body {
   overflow: auto;
+}
+
+.admin-credit-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-credit-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 360px) auto;
+  justify-content: flex-start;
+  gap: 10px;
+}
+
+.credit-dialog-stack {
+  display: grid;
+  gap: 18px;
+}
+
+.credit-user-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--pm-border);
+  border-radius: 8px;
+  background: #f8fbff;
+  color: #344054;
+  font-size: 13px;
+}
+
+.credit-log-block h4 {
+  margin: 0 0 10px;
+}
+
+@media (max-width: 720px) {
+  .admin-credit-toolbar,
+  .credit-user-summary {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

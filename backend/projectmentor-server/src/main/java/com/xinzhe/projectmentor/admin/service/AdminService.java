@@ -84,6 +84,19 @@ public class AdminService {
         }
     }
 
+    public User requireAdminUser() {
+        Long userId = currentUserId();
+        if (userId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+
+        User user = userMapper.selectById(userId);
+        if (!isAdminUser(user)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "无权限访问管理员后台");
+        }
+        return user;
+    }
+
     public AdminStatsVO getStats() {
         requireAdmin();
 

@@ -253,3 +253,54 @@ export interface InterviewSession {
   finishTime?: string
   messages: InterviewMessage[]
 }
+
+export interface AdminMe {
+  admin: boolean
+  userId?: number
+  email?: string
+}
+
+export interface AdminStats {
+  userCount: number
+  projectCount: number
+  reportCount: number
+  qaCount: number
+  shareCount: number
+  todayUserCount: number
+  todayProjectCount: number
+  todayReportCount: number
+  todayQaCount: number
+}
+
+export interface AdminRecentUser {
+  id: number
+  email: string
+  nickname?: string
+  createTime?: string
+}
+
+export interface AdminRecentProject {
+  id: number
+  userId: number
+  name: string
+  techStack?: string
+  status?: string
+  createTime?: string
+}
+
+export interface AdminRecentReport {
+  id: number
+  projectId: number
+  userId?: number
+  totalScore?: number
+  createTime?: string
+}
+
+export interface AdminRecentQa {
+  id: number
+  userId: number
+  projectId: number
+  question: string
+  aiUsed: boolean
+  createTime?: string
+}

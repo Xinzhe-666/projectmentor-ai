@@ -48,7 +48,8 @@ const title = computed(() => {
     'report-detail': '审计报告',
     hallucination: 'AI 幻觉检测',
     interview: '模拟面试',
-    credits: '额度中心'
+    credits: '额度中心',
+    admin: '管理员后台'
   }
 
   return titleMap[String(route.name)] || 'ProjectMentor AI'

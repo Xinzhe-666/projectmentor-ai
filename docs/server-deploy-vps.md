@@ -34,6 +34,7 @@ cp .env.example .env
 ```env
 MYSQL_ROOT_PASSWORD=请换成数据库 root 密码
 JWT_SECRET=请换成长随机字符串
+ADMIN_EMAILS=your-admin@example.com
 AI_API_KEY=可留空；留空时使用规则版 fallback
 ```
 
@@ -93,6 +94,27 @@ docker compose up -d backend
 ```
 
 如果服务器构建明显卡顿，后续可升级为 GitHub Actions 构建镜像，再由服务器拉取镜像部署。
+
+## 管理员后台配置
+
+V4.3-1 新增只读管理员后台。生产环境需要在 `.env` 中配置管理员邮箱：
+
+```env
+ADMIN_EMAILS=your-admin@example.com
+```
+
+说明：
+
+- 多个管理员邮箱使用英文逗号分隔。
+- 后端会去除空格并忽略大小写。
+- 修改 `.env` 后需要重启 backend 才会读取新环境变量：
+
+```bash
+docker compose up -d backend
+```
+
+- 管理员后台当前只读，用于查看用户、项目、报告、分享和问答运行情况。
+- 后台不会返回密码、密钥、数据库密码、完整项目源码或完整问答证据 JSON。
 
 ## 停止服务
 
@@ -198,6 +220,7 @@ docker compose logs -f nginx
 - MySQL 和 Redis 不映射公网端口，只在 Docker Compose 内部网络中被后端通过 `mysql`、`redis` 服务名访问。
 - 生产环境只开放 `22`、`80`、`443`；云防火墙不应开放 `3306`、`6379`。
 - `JWT_SECRET` 必须换成长随机字符串，长度至少 32 个字符。
+- `ADMIN_EMAILS` 只配置管理员邮箱白名单，不要把个人 `.env` 提交到仓库。
 - `AI_API_KEY` 只放在后端 `.env`，不要写进前端代码或公开文档。
 - `AI_API_KEY`、`JWT_SECRET`、`MYSQL_ROOT_PASSWORD` 必须通过环境变量配置，不要写入代码或公开文档。
 - 试用版不承诺商业级稳定性。

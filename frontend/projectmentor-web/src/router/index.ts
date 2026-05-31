@@ -14,6 +14,7 @@ const PublicReportView = () => import('@/views/PublicReportView.vue')
 const HallucinationCheckView = () => import('@/views/HallucinationCheckView.vue')
 const InterviewView = () => import('@/views/InterviewView.vue')
 const CreditView = () => import('@/views/CreditView.vue')
+const AdminDashboardView = () => import('@/views/AdminDashboardView.vue')
 
 const router = createRouter({
   history: createWebHistory(),
@@ -85,6 +86,12 @@ const router = createRouter({
       component: MainLayout,
       meta: { requiresAuth: true },
       children: [{ path: '', name: 'credits', component: CreditView }]
+    },
+    {
+      path: '/admin',
+      component: MainLayout,
+      meta: { requiresAuth: true },
+      children: [{ path: '', name: 'admin', component: AdminDashboardView }]
     }
   ],
   scrollBehavior() {

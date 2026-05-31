@@ -33,6 +33,10 @@
         <el-icon><Coin /></el-icon>
         <span>额度中心</span>
       </el-menu-item>
+      <el-menu-item v-if="isAdmin" index="/admin">
+        <el-icon><Monitor /></el-icon>
+        <span>管理员后台</span>
+      </el-menu-item>
     </el-menu>
 
     <div class="sidebar-footnote">
@@ -42,11 +46,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { ChatDotRound, CirclePlus, Coin, DataBoard, FolderOpened, Warning } from '@element-plus/icons-vue'
+import { ChatDotRound, CirclePlus, Coin, DataBoard, FolderOpened, Monitor, Warning } from '@element-plus/icons-vue'
+import { getAdminMe } from '@/api/admin'
 
 const route = useRoute()
+const isAdmin = ref(false)
 
 const activePath = computed(() => {
   if (route.path === '/projects/create') {
@@ -59,4 +65,15 @@ const activePath = computed(() => {
 
   return route.path
 })
+
+async function checkAdminEntry() {
+  try {
+    const me = await getAdminMe()
+    isAdmin.value = Boolean(me.admin)
+  } catch {
+    isAdmin.value = false
+  }
+}
+
+onMounted(checkAdminEntry)
 </script>

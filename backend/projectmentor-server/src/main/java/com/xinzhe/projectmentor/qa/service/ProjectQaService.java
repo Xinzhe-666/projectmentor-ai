@@ -45,6 +45,8 @@ public class ProjectQaService {
 
     private static final int MAX_SNIPPET_CHARS = 500;
 
+    private static final int MAX_CONTENT_HIT_SCORE = 120;
+
     private static final int DEFAULT_MAX_PROMPT_CHARS = 12000;
 
     private static final int DEFAULT_HISTORY_LIMIT = 20;
@@ -63,13 +65,75 @@ public class ProjectQaService {
 
     private static final Pattern CHINESE_TEXT_PATTERN = Pattern.compile("[\\u4e00-\\u9fa5]{2,}");
 
+    private static final Pattern TOKEN_SPLIT_PATTERN = Pattern.compile("[^A-Za-z0-9\\u4e00-\\u9fa5]+");
+
+    private static final Pattern CAMEL_CASE_BOUNDARY_PATTERN = Pattern.compile("(?<=[a-z0-9])(?=[A-Z])");
+
     private static final Set<String> IMPLEMENTATION_PATH_KEYWORDS = Set.of(
-            "controller", "service", "config", "util", "interceptor", "filter", "mapper", "entity"
+            "controller", "service", "config", "util", "utils", "interceptor", "filter", "mapper", "entity", "dto", "vo"
     );
 
     private static final Set<String> CONFIG_PATH_KEYWORDS = Set.of(
             "application.yml", "application.yaml", "application.properties", "pom.xml",
-            "package.json", "dockerfile", "docker-compose.yml", "docker-compose.yaml", ".sql"
+            "package.json", "dockerfile", "docker-compose.yml", "docker-compose.yaml", "nginx.conf", ".sql"
+    );
+
+    private static final Set<String> NOISY_PATH_KEYWORDS = Set.of(
+            "package-lock.json", "pnpm-lock.yaml", "yarn.lock", "/dist/", "\\dist\\", "/build/", "\\build\\",
+            ".min.js", ".map", ".log", "generated", "target/", "target\\"
+    );
+
+    private static final Set<String> LOW_SIGNAL_PATH_SUFFIXES = Set.of(
+            ".css", ".scss", ".less", ".svg"
+    );
+
+    private static final Set<String> HIGH_SIGNAL_TERMS = Set.of(
+            "jwt", "token", "authorization", "bearer", "redis", "cache", "upload", "zip", "whitelist",
+            "interceptor", "filter", "usercontext", "controller", "service", "mapper", "mysql", "datasource",
+            "docker", "nginx", "ai", "llm", "fallback", "hallucination", "async", "executor", "sse", "credit"
+    );
+
+    private static final List<SynonymGroup> TECH_SYNONYM_GROUPS = List.of(
+            new SynonymGroup(
+                    List.of("登录", "鉴权", "认证", "权限", "login", "auth", "authenticate", "authentication", "authorization", "token", "jwt", "bearer", "security"),
+                    List.of("登录", "鉴权", "认证", "权限", "login", "auth", "authenticate", "authentication", "authorization", "token", "jwt", "bearer", "usercontext", "interceptor", "filter", "security")
+            ),
+            new SynonymGroup(
+                    List.of("用户", "账号", "账户", "user", "account", "member", "profile"),
+                    List.of("用户", "账号", "账户", "user", "account", "member", "profile")
+            ),
+            new SynonymGroup(
+                    List.of("redis", "缓存", "cache", "caching", "ttl", "session"),
+                    List.of("redis", "缓存", "cache", "caching", "key", "ttl", "expire", "session", "credit")
+            ),
+            new SynonymGroup(
+                    List.of("数据库", "mysql", "database", "datasource", "mapper", "entity", "table", "sql", "mybatis", "mybatis-plus"),
+                    List.of("数据库", "mysql", "database", "datasource", "mapper", "entity", "table", "sql", "mybatis", "mybatis-plus")
+            ),
+            new SynonymGroup(
+                    List.of("上传", "upload", "file", "zip", "multipart", "parse", "extract", "whitelist", "zip slip"),
+                    List.of("上传", "upload", "file", "zip", "multipart", "parse", "extract", "whitelist", "path", "size", "entry", "zip slip", "node_modules", "target", "dist")
+            ),
+            new SynonymGroup(
+                    List.of("报告", "report", "audit", "analysis", "risk", "evidence", "suggestion", "score"),
+                    List.of("报告", "report", "audit", "analysis", "risk", "evidence", "suggestion", "score")
+            ),
+            new SynonymGroup(
+                    List.of("ai", "大模型", "llm", "openai", "model", "prompt", "fallback", "hallucination"),
+                    List.of("ai", "大模型", "llm", "openai", "model", "prompt", "fallback", "hallucination")
+            ),
+            new SynonymGroup(
+                    List.of("异步", "async", "task", "thread", "executor", "progress", "sse"),
+                    List.of("异步", "async", "task", "thread", "executor", "progress", "sse")
+            ),
+            new SynonymGroup(
+                    List.of("部署", "deploy", "docker", "compose", "nginx", "server", "env"),
+                    List.of("部署", "docker", "compose", "nginx", "deploy", "server", "env", "mysql", "redis")
+            ),
+            new SynonymGroup(
+                    List.of("额度", "credit", "quota", "balance", "transaction"),
+                    List.of("额度", "credit", "quota", "balance", "transaction", "account")
+            )
     );
 
     private static final Set<String> STOP_WORDS = Set.of(
@@ -241,15 +305,13 @@ public class ProjectQaService {
 
         Matcher englishMatcher = ENGLISH_TOKEN_PATTERN.matcher(question);
         while (englishMatcher.find()) {
-            String token = englishMatcher.group().toLowerCase(Locale.ROOT);
-            if (isUsefulToken(token)) {
-                addKeyword(keywords, token, 2);
-            }
+            addTokenKeywords(keywords, englishMatcher.group(), 2);
         }
 
         Matcher chineseMatcher = CHINESE_TEXT_PATTERN.matcher(question);
         while (chineseMatcher.find()) {
             String text = chineseMatcher.group();
+            addKeyword(keywords, text, 2);
             for (KeywordRule rule : KEYWORD_RULES) {
                 for (String trigger : rule.triggers()) {
                     if (containsIgnoreCase(text, trigger)) {
@@ -257,6 +319,10 @@ public class ProjectQaService {
                     }
                 }
             }
+        }
+
+        for (String token : TOKEN_SPLIT_PATTERN.split(question)) {
+            addTokenKeywords(keywords, token, 2);
         }
 
         for (KeywordRule rule : KEYWORD_RULES) {
@@ -269,11 +335,57 @@ public class ProjectQaService {
             }
         }
 
+        expandSynonymKeywords(questionLower, keywords);
+
         return keywords;
     }
 
+    private void addTokenKeywords(Map<String, Integer> keywords, String rawToken, int weight) {
+        if (rawToken == null || rawToken.isBlank()) {
+            return;
+        }
+
+        String cleanedToken = rawToken.trim();
+        addKeyword(keywords, cleanedToken, weight);
+
+        String delimiterNormalized = cleanedToken.replace('_', ' ').replace('-', ' ').replace('.', ' ');
+        for (String part : delimiterNormalized.split("\\s+")) {
+            addKeyword(keywords, part, weight);
+            for (String camelPart : CAMEL_CASE_BOUNDARY_PATTERN.split(part)) {
+                addKeyword(keywords, camelPart, weight);
+            }
+        }
+    }
+
+    private void expandSynonymKeywords(String questionLower, Map<String, Integer> keywords) {
+        Set<String> originalKeywords = new LinkedHashSet<>(keywords.keySet());
+        for (SynonymGroup group : TECH_SYNONYM_GROUPS) {
+            boolean matched = group.triggers().stream()
+                    .anyMatch(term -> originalKeywords.contains(term.toLowerCase(Locale.ROOT))
+                            || containsIgnoreCase(questionLower, term));
+            if (!matched) {
+                continue;
+            }
+
+            for (String term : group.terms()) {
+                addKeyword(keywords, term.toLowerCase(Locale.ROOT), 5);
+            }
+        }
+    }
+
     private boolean isUsefulToken(String token) {
-        return token.length() >= 2 && !STOP_WORDS.contains(token);
+        if (token == null) {
+            return false;
+        }
+        String normalized = token.trim().toLowerCase(Locale.ROOT);
+        if (normalized.length() < 2 || STOP_WORDS.contains(normalized)) {
+            return false;
+        }
+        if (normalized.length() == 2 && normalized.chars().allMatch(ch -> ch < 128)
+                && !HIGH_SIGNAL_TERMS.contains(normalized)) {
+            return false;
+        }
+        return true;
     }
 
     private void addKeyword(Map<String, Integer> keywords, String keyword, int weight) {
@@ -285,8 +397,15 @@ public class ProjectQaService {
         if (STOP_WORDS.contains(normalized)) {
             return;
         }
+        if (!isUsefulToken(normalized) && !containsChinese(normalized)) {
+            return;
+        }
 
         keywords.merge(normalized, weight, Math::max);
+    }
+
+    private boolean containsChinese(String text) {
+        return text != null && text.chars().anyMatch(ch -> ch >= 0x4e00 && ch <= 0x9fa5);
     }
 
     private List<ScoredFile> scoreFiles(List<ProjectFile> files, Map<String, Integer> keywords) {
@@ -300,32 +419,70 @@ public class ProjectQaService {
             String path = safe(file.getFilePath());
             String content = safe(file.getContent());
             String pathLower = path.toLowerCase(Locale.ROOT);
+            if (isDistractingPath(pathLower) && !isHighSignalConfigPath(pathLower)) {
+                continue;
+            }
+
             String contentLower = content.toLowerCase(Locale.ROOT);
             List<String> pathHits = new ArrayList<>();
             List<String> contentHits = new ArrayList<>();
+            List<String> phraseHits = new ArrayList<>();
+            List<String> technicalHits = new ArrayList<>();
+            int pathScore = 0;
+            int contentScore = 0;
             int score = 0;
 
             for (Map.Entry<String, Integer> entry : keywords.entrySet()) {
                 String keyword = entry.getKey();
                 int weight = entry.getValue();
+                boolean technicalTerm = isTechnicalKeyword(keyword);
 
                 if (pathContainsKeyword(pathLower, keyword)) {
-                    score += 12 * weight;
+                    int pathHitScore = technicalTerm ? 18 * weight : 12 * weight;
+                    pathScore += pathHitScore;
                     pathHits.add(keyword);
+                    if (technicalTerm) {
+                        technicalHits.add(keyword);
+                    }
                 }
 
                 int count = countKeywordMatches(contentLower, keyword);
                 if (count > 0) {
-                    int cappedCount = Math.min(count, 20);
-                    score += cappedCount * 2 * weight;
+                    int cappedCount = Math.min(count, maxContentHitCount(pathLower));
+                    int hitScore = cappedCount * (technicalTerm ? 4 : 2) * weight;
+                    contentScore += hitScore;
                     contentHits.add(keyword + "(" + count + ")");
+                    if (technicalTerm) {
+                        technicalHits.add(keyword);
+                    }
+                    if (keyword.contains(" ") || keyword.length() >= 5) {
+                        phraseHits.add(keyword);
+                    }
                 }
             }
 
             int roleBoost = calculateRoleBoost(pathLower);
-            if (score > 0) {
-                score += roleBoost;
-                scoredFiles.add(new ScoredFile(file, score, pathHits, contentHits, describeRole(pathLower)));
+            if (!pathHits.isEmpty() || !contentHits.isEmpty()) {
+                contentScore = Math.min(contentScore, maxContentScore(pathLower));
+                score = pathScore + contentScore + roleBoost;
+                score += exactPhraseBoost(phraseHits);
+                score += technicalHits.isEmpty() ? 0 : Math.min(technicalHits.size(), 6) * 4;
+                score -= calculateNoisePenalty(pathLower);
+                if (isReadmePath(pathLower)) {
+                    score = Math.min(score, 88);
+                }
+                if (score > 0) {
+                    scoredFiles.add(new ScoredFile(
+                            file,
+                            score,
+                            pathHits,
+                            contentHits,
+                            phraseHits,
+                            technicalHits,
+                            describeRole(pathLower),
+                            roleBoost
+                    ));
+                }
             }
         }
 
@@ -357,7 +514,10 @@ public class ProjectQaService {
                             roleBoost,
                             List.of(),
                             List.of(),
-                            "综合复盘问题，优先选取 README 或核心代码文件作为证据"
+                            List.of(),
+                            List.of(),
+                            "综合复盘问题，优先选取 README 或核心代码文件作为证据",
+                            roleBoost
                     );
                 })
                 .filter(scoredFile -> scoredFile.score() > 0)
@@ -367,33 +527,114 @@ public class ProjectQaService {
                 .toList();
     }
 
+    private boolean isDistractingPath(String pathLower) {
+        if (NOISY_PATH_KEYWORDS.stream().anyMatch(pathLower::contains)) {
+            return true;
+        }
+        return LOW_SIGNAL_PATH_SUFFIXES.stream().anyMatch(pathLower::endsWith);
+    }
+
+    private boolean isHighSignalConfigPath(String pathLower) {
+        return pathLower.endsWith("application.yml")
+                || pathLower.endsWith("application.yaml")
+                || pathLower.endsWith("application.properties")
+                || pathLower.endsWith("pom.xml")
+                || pathLower.endsWith("dockerfile")
+                || pathLower.endsWith("docker-compose.yml")
+                || pathLower.endsWith("docker-compose.yaml")
+                || pathLower.endsWith("nginx.conf")
+                || pathLower.endsWith(".sql");
+    }
+
+    private int maxContentHitCount(String pathLower) {
+        if (isReadmePath(pathLower)) {
+            return 6;
+        }
+        if (isDistractingPath(pathLower)) {
+            return 3;
+        }
+        if (isImplementationPath(pathLower) || isConfigPath(pathLower)) {
+            return 12;
+        }
+        return 8;
+    }
+
+    private int maxContentScore(String pathLower) {
+        if (isReadmePath(pathLower)) {
+            return 70;
+        }
+        if (isDistractingPath(pathLower)) {
+            return 28;
+        }
+        if (isImplementationPath(pathLower)) {
+            return MAX_CONTENT_HIT_SCORE;
+        }
+        if (isConfigPath(pathLower)) {
+            return 95;
+        }
+        return 75;
+    }
+
+    private boolean isTechnicalKeyword(String keyword) {
+        String normalized = safe(keyword).toLowerCase(Locale.ROOT);
+        return HIGH_SIGNAL_TERMS.contains(normalized)
+                || normalized.contains("jwt")
+                || normalized.contains("redis")
+                || normalized.contains("mybatis")
+                || normalized.contains("docker")
+                || normalized.contains("upload")
+                || normalized.contains("zip");
+    }
+
+    private int exactPhraseBoost(List<String> phraseHits) {
+        if (phraseHits == null || phraseHits.isEmpty()) {
+            return 0;
+        }
+        return Math.min(new LinkedHashSet<>(phraseHits).size(), 4) * 8;
+    }
+
+    private int calculateNoisePenalty(String pathLower) {
+        if (pathLower.contains("package-lock.json")
+                || pathLower.contains("pnpm-lock.yaml")
+                || pathLower.contains("yarn.lock")) {
+            return 80;
+        }
+        if (isDistractingPath(pathLower)) {
+            return 45;
+        }
+        return 0;
+    }
+
     private int calculateRoleBoost(String pathLower) {
         if (pathLower.contains("controller")) {
-            return 10;
+            return 18;
         }
         if (pathLower.contains("service")) {
-            return 9;
+            return 17;
         }
         if (pathLower.contains("config") || pathLower.contains("interceptor")
                 || pathLower.contains("filter") || pathLower.contains("util")) {
-            return 8;
+            return 16;
         }
         if (pathLower.contains("mapper") || pathLower.contains("entity")) {
-            return 6;
+            return 12;
+        }
+        if (pathLower.contains("dto") || pathLower.contains("vo")) {
+            return 8;
         }
         if (pathLower.endsWith("pom.xml") || pathLower.endsWith("application.yml")
                 || pathLower.endsWith("application.yaml") || pathLower.endsWith("application.properties")) {
-            return 7;
+            return 14;
         }
         if (pathLower.endsWith("dockerfile") || pathLower.endsWith("docker-compose.yml")
-                || pathLower.endsWith("docker-compose.yaml")) {
-            return 7;
+                || pathLower.endsWith("docker-compose.yaml") || pathLower.endsWith("nginx.conf")) {
+            return 12;
         }
         if (pathLower.endsWith("package.json") || pathLower.endsWith(".sql")) {
-            return 5;
+            return 10;
         }
         if (pathLower.contains("readme")) {
-            return 3;
+            return 4;
         }
         return 0;
     }
@@ -417,6 +658,9 @@ public class ProjectQaService {
         if (pathLower.contains("util")) {
             return "Util 文件通常对应工具类实现";
         }
+        if (pathLower.contains("dto") || pathLower.contains("vo")) {
+            return "DTO / VO 文件通常对应接口入参、出参或前后端数据结构";
+        }
         if (pathLower.contains("mapper")) {
             return "Mapper 文件通常对应数据访问逻辑";
         }
@@ -430,7 +674,7 @@ public class ProjectQaService {
                 || pathLower.endsWith("application.yml") || pathLower.endsWith("application.yaml")
                 || pathLower.endsWith("application.properties") || pathLower.endsWith(".sql")
                 || pathLower.endsWith("dockerfile") || pathLower.endsWith("docker-compose.yml")
-                || pathLower.endsWith("docker-compose.yaml")) {
+                || pathLower.endsWith("docker-compose.yaml") || pathLower.endsWith("nginx.conf")) {
             return "配置文件可作为依赖、部署或运行证据";
         }
         return "";
@@ -491,7 +735,11 @@ public class ProjectQaService {
                 break;
             }
 
-            String snippet = extractSnippet(safe(scoredFile.file().getContent()), keywords.keySet());
+            String snippet = extractSnippet(
+                    safe(scoredFile.file().getContent()),
+                    keywords.keySet(),
+                    safe(scoredFile.file().getFilePath())
+            );
             if (snippet.isBlank()) {
                 continue;
             }
@@ -509,50 +757,190 @@ public class ProjectQaService {
     private String buildReason(ScoredFile scoredFile) {
         List<String> reasons = new ArrayList<>();
 
-        if (!scoredFile.pathHits().isEmpty()) {
-            reasons.add("文件路径命中 " + joinDistinct(scoredFile.pathHits()));
+        String pathLower = safe(scoredFile.file().getFilePath()).toLowerCase(Locale.ROOT);
+        String roleReason = scoredFile.roleReason();
+
+        if (!scoredFile.pathHits().isEmpty() && !scoredFile.contentHits().isEmpty()) {
+            reasons.add("文件路径命中 " + joinDistinct(scoredFile.pathHits())
+                    + "，文件内容命中 " + joinHitKeywords(scoredFile.contentHits()) + "，和问题关键词形成双重匹配");
+        } else if (!scoredFile.pathHits().isEmpty()) {
+            reasons.add("文件路径命中 " + joinDistinct(scoredFile.pathHits()) + "，说明该文件名称或目录与问题主题相关");
+        } else if (!scoredFile.contentHits().isEmpty()) {
+            reasons.add("文件内容命中 " + joinHitKeywords(scoredFile.contentHits()) + "，可作为片段证据");
         }
-        if (!scoredFile.contentHits().isEmpty()) {
-            reasons.add("文件内容命中 " + joinDistinct(scoredFile.contentHits()));
+
+        if (!scoredFile.technicalHits().isEmpty()) {
+            reasons.add("命中技术词 " + joinDistinct(scoredFile.technicalHits()));
         }
-        if (!scoredFile.roleReason().isBlank()) {
-            reasons.add(scoredFile.roleReason());
+        if (!roleReason.isBlank()) {
+            reasons.add(roleReason + (isImplementationPath(pathLower) ? "，优先作为实现证据" : ""));
+        }
+        if (isReadmePath(pathLower) && !isImplementationPath(pathLower)) {
+            reasons.add("README 中有相关描述，但仍需要结合代码或配置验证");
         }
 
         return String.join("；", reasons);
     }
 
-    private String extractSnippet(String content, Set<String> keywords) {
+    private String extractSnippet(String content, Set<String> keywords, String filePath) {
         if (content.isBlank()) {
             return "";
         }
 
-        String contentLower = content.toLowerCase(Locale.ROOT);
-        int bestIndex = -1;
+        List<String> lines = normalizeLinesForSnippet(content, filePath);
+        if (lines.isEmpty()) {
+            return "";
+        }
 
-        for (String keyword : keywords) {
-            int index = contentLower.indexOf(keyword.toLowerCase(Locale.ROOT));
-            if (index >= 0 && (bestIndex < 0 || index < bestIndex)) {
-                bestIndex = index;
+        int bestLineIndex = findBestSnippetLine(lines, keywords, filePath);
+        if (bestLineIndex < 0) {
+            bestLineIndex = 0;
+        }
+
+        int beforeLines = isCodeLikePath(filePath) ? 4 : 3;
+        int afterLines = isCodeLikePath(filePath) ? 10 : 7;
+        int startLine = Math.max(0, bestLineIndex - beforeLines);
+        int endLine = Math.min(lines.size(), bestLineIndex + afterLines + 1);
+
+        String snippet = buildSnippetFromLines(lines, startLine, endLine);
+        while (snippet.length() < 300 && (startLine > 0 || endLine < lines.size())) {
+            if (startLine > 0) {
+                startLine--;
+            }
+            if (endLine < lines.size()) {
+                endLine++;
+            }
+            snippet = buildSnippetFromLines(lines, startLine, endLine);
+            if (snippet.length() >= MAX_SNIPPET_CHARS) {
+                break;
             }
         }
 
-        if (bestIndex < 0) {
-            bestIndex = 0;
+        if (startLine > 0) {
+            snippet = "...\n" + snippet;
+        }
+        if (endLine < lines.size()) {
+            snippet = snippet + "\n...";
         }
 
-        int start = Math.max(0, bestIndex - MAX_SNIPPET_CHARS / 3);
-        int end = Math.min(content.length(), start + MAX_SNIPPET_CHARS);
-        String snippet = content.substring(start, end).trim();
+        return truncate(snippet.trim(), MAX_SNIPPET_CHARS);
+    }
 
-        if (start > 0) {
-            snippet = "..." + snippet;
+    private List<String> normalizeLinesForSnippet(String content, String filePath) {
+        List<String> lines = new ArrayList<>();
+        boolean codeLike = isCodeLikePath(filePath) || isConfigPath(safe(filePath).toLowerCase(Locale.ROOT));
+        boolean previousBlank = false;
+
+        for (String rawLine : content.replace("\r\n", "\n").replace('\r', '\n').split("\n")) {
+            String line = rawLine.replace("\t", "    ");
+            if (!codeLike) {
+                line = line.replaceAll("\\s+", " ").trim();
+            } else {
+                line = line.replaceAll("[ ]{10,}", "        ").stripTrailing();
+            }
+            boolean blank = line.isBlank();
+            if (blank && previousBlank) {
+                continue;
+            }
+            lines.add(line);
+            previousBlank = blank;
         }
-        if (end < content.length()) {
-            snippet = snippet + "...";
+        return lines;
+    }
+
+    private int findBestSnippetLine(List<String> lines, Set<String> keywords, String filePath) {
+        int bestLineIndex = -1;
+        int bestScore = -1;
+        boolean codeLike = isCodeLikePath(filePath);
+        boolean configLike = isConfigPath(safe(filePath).toLowerCase(Locale.ROOT));
+
+        for (int i = 0; i < lines.size(); i++) {
+            String line = lines.get(i);
+            String lineLower = line.toLowerCase(Locale.ROOT);
+            int lineScore = 0;
+
+            for (String keyword : keywords) {
+                String normalizedKeyword = keyword.toLowerCase(Locale.ROOT);
+                if (normalizedKeyword.isBlank()) {
+                    continue;
+                }
+                int count = countKeywordMatches(lineLower, normalizedKeyword);
+                if (count > 0) {
+                    lineScore += Math.min(count, 3) * (isTechnicalKeyword(normalizedKeyword) ? 8 : 4);
+                }
+            }
+
+            if (codeLike && isLikelyCodeAnchor(lineLower)) {
+                lineScore += 8;
+            }
+            if (configLike && line.contains(":")) {
+                lineScore += 5;
+            }
+
+            if (lineScore > bestScore) {
+                bestScore = lineScore;
+                bestLineIndex = i;
+            }
         }
 
-        return truncate(snippet, MAX_SNIPPET_CHARS);
+        return bestScore <= 0 ? -1 : bestLineIndex;
+    }
+
+    private boolean isLikelyCodeAnchor(String lineLower) {
+        return lineLower.contains(" class ")
+                || lineLower.contains(" interface ")
+                || lineLower.contains(" enum ")
+                || lineLower.contains(" public ")
+                || lineLower.contains(" private ")
+                || lineLower.contains(" protected ")
+                || lineLower.contains("@requestmapping")
+                || lineLower.contains("@getmapping")
+                || lineLower.contains("@postmapping")
+                || lineLower.contains("@component")
+                || lineLower.contains("@service")
+                || lineLower.contains("@configuration");
+    }
+
+    private String buildSnippetFromLines(List<String> lines, int startLine, int endLine) {
+        StringBuilder builder = new StringBuilder();
+        for (int i = startLine; i < endLine; i++) {
+            if (builder.length() + lines.get(i).length() + 1 > MAX_SNIPPET_CHARS) {
+                if (builder.isEmpty() && !lines.get(i).isBlank()) {
+                    builder.append(truncate(lines.get(i), MAX_SNIPPET_CHARS));
+                }
+                break;
+            }
+            if (!builder.isEmpty()) {
+                builder.append('\n');
+            }
+            builder.append(lines.get(i));
+        }
+        return builder.toString();
+    }
+
+    private boolean isCodeLikePath(String filePath) {
+        String pathLower = safe(filePath).toLowerCase(Locale.ROOT);
+        return pathLower.endsWith(".java")
+                || pathLower.endsWith(".kt")
+                || pathLower.endsWith(".ts")
+                || pathLower.endsWith(".tsx")
+                || pathLower.endsWith(".js")
+                || pathLower.endsWith(".vue")
+                || pathLower.endsWith(".xml")
+                || pathLower.endsWith(".sql");
+    }
+
+    private String joinHitKeywords(List<String> values) {
+        if (values == null || values.isEmpty()) {
+            return "";
+        }
+
+        return values.stream()
+                .map(value -> value.replaceAll("\\(\\d+\\)$", ""))
+                .distinct()
+                .limit(8)
+                .reduce((left, right) -> left + "、" + right)
+                .orElse("");
     }
 
     private String askAi(String question, List<ProjectQaEvidenceVO> evidences) {
@@ -661,16 +1049,19 @@ public class ProjectQaService {
         if (stats.evidenceCount() == 0 || stats.contentHitCount() == 0) {
             evidenceLevel = "NONE";
             confidenceScore = clamp(18 + stats.evidenceCount() * 3, 0, 30);
-        } else if (stats.readmeOnly() || stats.implementationEvidenceCount() == 0 && stats.configEvidenceCount() == 0) {
+        } else if (stats.readmeOnly() || stats.codeEvidenceCount() == 0 && stats.configEvidenceCount() == 0) {
             evidenceLevel = "WEAK";
             confidenceScore = clamp(36 + stats.evidenceCount() * 4 + stats.contentHitCount() * 3, 31, 55);
-        } else if (stats.implementationEvidenceCount() >= 3 && stats.pathAndContentHitCount() >= 2) {
+        } else if (!stats.readmeOnly()
+                && stats.contentHitCount() >= 2
+                && (stats.hasImplementationChain() || stats.codeEvidenceCount() >= 3)
+                && stats.pathAndContentHitCount() >= 1) {
             evidenceLevel = "STRONG";
-            confidenceScore = clamp(78 + stats.implementationEvidenceCount() * 4 + stats.pathAndContentHitCount() * 3, 76, 95);
-        } else if (stats.implementationEvidenceCount() >= 1
+            confidenceScore = clamp(78 + stats.codeEvidenceCount() * 4 + stats.pathAndContentHitCount() * 3, 76, 95);
+        } else if (stats.codeEvidenceCount() >= 1
                 || stats.hasReadmeEvidence() && stats.configEvidenceCount() > 0 && stats.contentHitCount() >= 2) {
             evidenceLevel = "MEDIUM";
-            confidenceScore = clamp(58 + stats.implementationEvidenceCount() * 5
+            confidenceScore = clamp(58 + stats.codeEvidenceCount() * 5
                     + stats.configEvidenceCount() * 3 + stats.contentHitCount() * 2, 56, 75);
         } else {
             evidenceLevel = "WEAK";
@@ -695,14 +1086,18 @@ public class ProjectQaService {
     private EvidenceStats buildEvidenceStats(List<ProjectQaEvidenceVO> evidences, List<ScoredFile> scoredFiles) {
         int evidenceCount = evidences == null ? 0 : evidences.size();
         if (evidenceCount == 0) {
-            return new EvidenceStats(0, 0, 0, 0, false, false, 0);
+            return new EvidenceStats(0, 0, 0, 0, false, false, 0, false, false, false, false);
         }
 
         int reasonContentHitCount = 0;
         int reasonPathAndContentHitCount = 0;
-        int implementationEvidenceCount = 0;
+        int codeEvidenceCount = 0;
         int configEvidenceCount = 0;
         boolean hasReadmeEvidence = false;
+        boolean hasController = false;
+        boolean hasService = false;
+        boolean hasConfigOrUtil = false;
+        boolean hasMapper = false;
         Set<String> evidencePaths = new LinkedHashSet<>();
 
         for (ProjectQaEvidenceVO evidence : evidences) {
@@ -714,7 +1109,20 @@ public class ProjectQaService {
                 hasReadmeEvidence = true;
             }
             if (isImplementationPath(path)) {
-                implementationEvidenceCount++;
+                codeEvidenceCount++;
+            }
+            if (path.contains("controller")) {
+                hasController = true;
+            }
+            if (path.contains("service")) {
+                hasService = true;
+            }
+            if (path.contains("config") || path.contains("interceptor") || path.contains("filter")
+                    || path.contains("util")) {
+                hasConfigOrUtil = true;
+            }
+            if (path.contains("mapper")) {
+                hasMapper = true;
             }
             if (isConfigPath(path)) {
                 configEvidenceCount++;
@@ -746,16 +1154,20 @@ public class ProjectQaService {
 
         int contentHitCount = Math.max(reasonContentHitCount, scoredContentHitCount);
         int pathAndContentHitCount = Math.max(reasonPathAndContentHitCount, scoredPathAndContentHitCount);
-        boolean readmeOnly = hasReadmeEvidence && implementationEvidenceCount == 0 && configEvidenceCount == 0;
+        boolean readmeOnly = hasReadmeEvidence && codeEvidenceCount == 0 && configEvidenceCount == 0;
 
         return new EvidenceStats(
                 evidenceCount,
                 contentHitCount,
                 pathAndContentHitCount,
-                implementationEvidenceCount,
+                codeEvidenceCount,
                 hasReadmeEvidence,
                 readmeOnly,
-                configEvidenceCount
+                configEvidenceCount,
+                hasController,
+                hasService,
+                hasConfigOrUtil,
+                hasMapper
         );
     }
 
@@ -785,7 +1197,7 @@ public class ProjectQaService {
 
         if ("MEDIUM".equals(evidenceLevel)) {
             return "当前找到 " + stats.evidenceCount() + " 条证据，包含 "
-                    + stats.implementationEvidenceCount() + " 个代码实现文件线索，可以支撑部分回答，但链路仍需结合代码继续复盘。";
+                    + stats.codeEvidenceCount() + " 个代码实现文件线索，可以支撑部分回答，但链路仍需结合代码继续复盘。";
         }
 
         return "当前找到 " + stats.evidenceCount() + " 条证据，包含多个关键代码文件，且路径和内容均有命中，能较好支撑本次回答。";
@@ -944,7 +1356,13 @@ public class ProjectQaService {
                               int score,
                               List<String> pathHits,
                               List<String> contentHits,
-                              String roleReason) {
+                              List<String> phraseHits,
+                              List<String> technicalHits,
+                              String roleReason,
+                              int roleBoost) {
+    }
+
+    private record SynonymGroup(List<String> triggers, List<String> terms) {
     }
 
     private record EvidenceAssessment(String evidenceLevel,
@@ -958,9 +1376,19 @@ public class ProjectQaService {
     private record EvidenceStats(int evidenceCount,
                                  int contentHitCount,
                                  int pathAndContentHitCount,
-                                 int implementationEvidenceCount,
+                                 int codeEvidenceCount,
                                  boolean hasReadmeEvidence,
                                  boolean readmeOnly,
-                                 int configEvidenceCount) {
+                                 int configEvidenceCount,
+                                 boolean hasController,
+                                 boolean hasService,
+                                 boolean hasConfigOrUtil,
+                                 boolean hasMapper) {
+        private boolean hasImplementationChain() {
+            return hasController && hasService
+                    || hasController && hasConfigOrUtil
+                    || hasService && hasConfigOrUtil
+                    || hasService && hasMapper;
+        }
     }
 }

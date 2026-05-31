@@ -77,6 +77,14 @@
 
           <ConfidenceCard :record="currentAnswer" />
 
+          <el-alert
+            v-if="isWeakEvidence(currentAnswer)"
+            title="这个回答证据较弱，建议补充 README、上传更多代码文件，或把问题问得更具体。"
+            type="warning"
+            show-icon
+            :closable="false"
+          />
+
           <MarkdownBlock :content="currentAnswer.answer" />
 
           <div class="qa-insight-grid">
@@ -147,6 +155,14 @@
 
                 <ConfidenceCard :record="record" />
 
+                <el-alert
+                  v-if="isWeakEvidence(record)"
+                  title="这个回答证据较弱，建议补充 README、上传更多代码文件，或把问题问得更具体。"
+                  type="warning"
+                  show-icon
+                  :closable="false"
+                />
+
                 <MarkdownBlock :content="record.answer" />
 
                 <div class="qa-insight-grid">
@@ -193,11 +209,14 @@ const props = defineProps<{
 }>()
 
 const quickQuestions = [
-  '这个项目的登录鉴权在哪里实现？',
-  '这个项目用了 Redis 吗？',
-  '这个项目的 ZIP 上传安全限制在哪里？',
-  '这个项目适合写进简历吗？',
-  '面试官可能追问哪些点？'
+  '登录鉴权在哪里实现？',
+  'JWT / token 是在哪里生成和校验的？',
+  '这个项目用了 Redis 吗？用在哪里？',
+  'ZIP 上传有哪些安全限制？',
+  '审计报告是如何生成的？',
+  'AI 不可用时系统如何 fallback？',
+  '这个功能适合写进简历吗？',
+  '面试官可能围绕这个项目追问哪些点？'
 ]
 
 const question = ref('')
@@ -251,8 +270,18 @@ const QaEvidenceList = defineComponent({
         ? h('div', { class: 'qa-evidence-grid' }, safeEvidences(componentProps.record).map((evidence, evidenceIndex) => {
           const key = evidenceKey(componentProps.record, evidenceIndex)
           return h('article', { key, class: 'qa-evidence-item' }, [
-            h('div', { class: 'qa-file-path' }, evidence.filePath || '-'),
-            h('p', { class: 'qa-reason' }, evidence.reason || '-'),
+            h('div', { class: 'qa-evidence-header' }, [
+              h('div', { class: 'qa-file-path' }, evidence.filePath || '-'),
+              h('button', {
+                class: 'qa-copy-path-button',
+                type: 'button',
+                onClick: () => copyFilePath(evidence.filePath || '')
+              }, '复制文件路径')
+            ]),
+            h('p', { class: 'qa-reason' }, [
+              h('span', { class: 'qa-reason-label' }, '命中原因'),
+              h('span', null, evidence.reason || '-')
+            ]),
             h('pre', { class: 'qa-snippet' }, visibleSnippet(evidence.snippet, key)),
             hasSnippetOverflow(evidence.snippet)
               ? h('button', {
@@ -370,6 +399,21 @@ async function copyInterviewRecord(record: QaDisplayRecord) {
   }
 
   ElMessage.warning('复制失败，请手动复制面试版回答')
+}
+
+async function copyFilePath(filePath: string) {
+  if (!filePath) {
+    ElMessage.warning('没有可复制的文件路径')
+    return
+  }
+
+  const copied = await copyText(filePath)
+  if (copied) {
+    ElMessage.success('文件路径已复制')
+    return
+  }
+
+  ElMessage.warning('复制失败，请手动复制文件路径')
 }
 
 function buildCopyText(record: QaDisplayRecord) {
@@ -554,6 +598,11 @@ function evidenceTagType(record: QaDisplayRecord): 'success' | 'warning' | 'dang
     return 'warning'
   }
   return 'danger'
+}
+
+function isWeakEvidence(record: QaDisplayRecord) {
+  const level = effectiveEvidenceLevel(record)
+  return level === 'WEAK' || level === 'NONE'
 }
 
 function evidenceKey(record: QaDisplayRecord, evidenceIndex: number) {
@@ -819,8 +868,15 @@ onMounted(loadHistory)
   background: #ffffff;
 }
 
+.qa-evidence-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
 .qa-file-path {
-  margin-bottom: 8px;
   color: var(--pm-primary);
   font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
   font-size: 13px;
@@ -828,10 +884,33 @@ onMounted(loadHistory)
   overflow-wrap: anywhere;
 }
 
+.qa-copy-path-button {
+  border: 1px solid rgba(64, 158, 255, 0.25);
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--pm-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+  font: inherit;
+  font-size: 12px;
+  padding: 5px 8px;
+}
+
 .qa-reason {
-  margin: 0 0 10px;
-  color: var(--pm-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 0 0 12px;
+  color: #344054;
+  border-left: 3px solid rgba(64, 158, 255, 0.35);
+  padding-left: 10px;
   line-height: 1.6;
+}
+
+.qa-reason-label {
+  color: #101828;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .qa-snippet {
@@ -877,6 +956,14 @@ onMounted(loadHistory)
 
   .qa-confidence-score {
     text-align: left;
+  }
+
+  .qa-evidence-header {
+    grid-template-columns: 1fr;
+  }
+
+  .qa-copy-path-button {
+    width: fit-content;
   }
 }
 </style>

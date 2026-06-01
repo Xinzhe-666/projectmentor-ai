@@ -93,6 +93,26 @@ CREATE TABLE IF NOT EXISTS pm_project_qa_record
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4 COMMENT ='项目问答记录表';
 
+CREATE TABLE IF NOT EXISTS pm_feedback
+(
+    id          BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT 'feedback ID',
+    user_id     BIGINT       NOT NULL COMMENT 'submitter user ID',
+    contact     VARCHAR(255) NULL COMMENT 'optional contact',
+    type        VARCHAR(50)  NOT NULL COMMENT 'feedback type',
+    content     TEXT         NOT NULL COMMENT 'feedback content',
+    page_url    VARCHAR(500) NULL COMMENT 'source page URL',
+    status      VARCHAR(50)  NOT NULL DEFAULT 'PENDING' COMMENT 'feedback status',
+    admin_note  TEXT         NULL COMMENT 'admin note',
+    create_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'create time',
+    update_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'update time',
+    deleted     TINYINT      NOT NULL DEFAULT 0 COMMENT 'logical delete flag',
+    INDEX idx_user_id (user_id),
+    INDEX idx_status (status),
+    INDEX idx_type (type),
+    INDEX idx_create_time (create_time)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4 COMMENT ='feedback table';
+
 CREATE TABLE IF NOT EXISTS pm_analysis_report
 (
     id                 BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '报告ID',

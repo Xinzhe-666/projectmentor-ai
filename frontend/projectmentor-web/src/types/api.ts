@@ -342,3 +342,64 @@ export interface AdminGrantCreditResult {
   newBalance: number
   transactionId: number
 }
+
+export type FeedbackType =
+  | 'BUG'
+  | 'UX'
+  | 'AUDIT_INACCURATE'
+  | 'QA_INACCURATE'
+  | 'INTERVIEW_QUESTION'
+  | 'UPLOAD'
+  | 'OTHER'
+
+export type FeedbackStatus = 'PENDING' | 'PROCESSING' | 'RESOLVED' | 'WONTFIX'
+
+export interface FeedbackSubmitPayload {
+  type: FeedbackType
+  content: string
+  contact?: string
+  pageUrl?: string
+}
+
+export interface FeedbackSubmitResult {
+  id: number
+  type: FeedbackType
+  status: FeedbackStatus
+  createTime?: string
+}
+
+export interface AdminFeedback {
+  id: number
+  userId: number
+  userEmail?: string
+  type: FeedbackType
+  content: string
+  contact?: string
+  pageUrl?: string
+  status: FeedbackStatus
+  adminNote?: string
+  createTime?: string
+  updateTime?: string
+}
+
+export type AdminFeedbackDetail = AdminFeedback
+
+export interface AdminFeedbackPage {
+  records: AdminFeedback[]
+  total: number
+  page: number
+  size: number
+}
+
+export interface AdminFeedbackListParams {
+  type?: FeedbackType | ''
+  status?: FeedbackStatus | ''
+  keyword?: string
+  page?: number
+  size?: number
+}
+
+export interface AdminFeedbackStatusPayload {
+  status: FeedbackStatus
+  adminNote?: string
+}

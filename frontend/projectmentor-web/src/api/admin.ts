@@ -3,6 +3,10 @@ import type {
   AdminMe,
   AdminCreditUser,
   AdminCreditUserDetail,
+  AdminFeedbackDetail,
+  AdminFeedbackListParams,
+  AdminFeedbackPage,
+  AdminFeedbackStatusPayload,
   AdminGrantCreditPayload,
   AdminGrantCreditResult,
   AdminRecentProject,
@@ -77,6 +81,29 @@ export function grantAdminCredit(payload: AdminGrantCreditPayload) {
   return request<AdminGrantCreditResult>({
     url: '/api/admin/credits/grant',
     method: 'post',
+    data: payload
+  })
+}
+
+export function getAdminFeedbackList(params: AdminFeedbackListParams = {}) {
+  return request<AdminFeedbackPage>({
+    url: '/api/admin/feedback',
+    method: 'get',
+    params
+  })
+}
+
+export function getAdminFeedbackDetail(id: number) {
+  return request<AdminFeedbackDetail>({
+    url: `/api/admin/feedback/${id}`,
+    method: 'get'
+  })
+}
+
+export function updateAdminFeedbackStatus(id: number, payload: AdminFeedbackStatusPayload) {
+  return request<AdminFeedbackDetail>({
+    url: `/api/admin/feedback/${id}/status`,
+    method: 'put',
     data: payload
   })
 }

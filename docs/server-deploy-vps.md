@@ -113,9 +113,10 @@ ADMIN_EMAILS=your-admin@example.com
 docker compose up -d backend
 ```
 
-- 管理员后台当前只读，用于查看用户、项目、报告、分享和问答运行情况。
+- 管理员后台用于查看用户、项目、报告、分享、问答和反馈运行情况。
 - 后台不会返回密码、密钥、数据库密码、完整项目源码或完整问答证据 JSON。
 - V4.3-2 增加管理员手动发放额度：只能增加额度，不能扣减额度；每次发放都会写入额度流水，并记录发放原因、adminId 和 adminEmail。
+- V4.3-3 增加反馈管理：管理员可筛选反馈、查看详情并更新状态，不做邮件通知、客服聊天或复杂工单系统。
 - 当前没有接入真实支付、支付回调或批量发放能力。
 
 ## 停止服务
@@ -126,7 +127,7 @@ docker compose down
 
 ## 数据库变更
 
-V4.2-1 新增项目问答记录表 `pm_project_qa_record`。全新部署会在 MySQL 初始化时执行 `init.sql`；已有数据库不会自动重放初始化脚本，需要手动执行下面的 SQL：
+V4.2-1 新增项目问答记录表 `pm_project_qa_record`，V4.3-3 新增反馈表 `pm_feedback`。全新部署会在 MySQL 初始化时执行 `init.sql`；已有数据库不会自动重放初始化脚本，需要手动执行下面的 SQL：
 
 ```sql
 CREATE TABLE IF NOT EXISTS pm_project_qa_record (
@@ -144,6 +145,26 @@ CREATE TABLE IF NOT EXISTS pm_project_qa_record (
     INDEX idx_user_project (user_id, project_id),
     INDEX idx_create_time (create_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='项目问答记录表';
+```
+
+```sql
+CREATE TABLE IF NOT EXISTS pm_feedback (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '反馈ID',
+    user_id BIGINT NOT NULL COMMENT '用户ID',
+    contact VARCHAR(255) NULL COMMENT '联系方式',
+    type VARCHAR(50) NOT NULL COMMENT '反馈类型',
+    content TEXT NOT NULL COMMENT '反馈内容',
+    page_url VARCHAR(500) NULL COMMENT '反馈来源页面',
+    status VARCHAR(50) NOT NULL DEFAULT 'PENDING' COMMENT '状态',
+    admin_note TEXT NULL COMMENT '管理员备注',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',
+    INDEX idx_user_id (user_id),
+    INDEX idx_status (status),
+    INDEX idx_type (type),
+    INDEX idx_create_time (create_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户反馈表';
 ```
 
 ## 重置数据库

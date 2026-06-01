@@ -6,7 +6,7 @@
         <h2>管理员后台</h2>
         <p class="muted">用于查看 ProjectMentor AI 当前试用版的用户、项目、报告和问答运行情况。</p>
       </div>
-      <el-tag v-if="adminMe?.admin" type="success" effect="light">只读看板</el-tag>
+      <el-tag v-if="adminMe?.admin" type="success" effect="light">管理员</el-tag>
     </section>
 
     <el-alert
@@ -62,6 +62,73 @@
               </template>
             </el-table-column>
           </el-table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">
+          <div>
+            <h3>反馈管理</h3>
+            <p class="muted">查看站内反馈，按类型、状态和关键词筛选，并更新处理状态。</p>
+          </div>
+        </div>
+        <div class="panel-body admin-feedback-panel">
+          <div class="feedback-toolbar">
+            <el-select v-model="feedbackTypeFilter" clearable placeholder="类型">
+              <el-option v-for="option in feedbackTypeOptions" :key="option.value" :label="option.label" :value="option.value" />
+            </el-select>
+            <el-select v-model="feedbackStatusFilter" clearable placeholder="状态">
+              <el-option v-for="option in feedbackStatusOptions" :key="option.value" :label="option.label" :value="option.value" />
+            </el-select>
+            <el-input
+              v-model="feedbackKeyword"
+              clearable
+              placeholder="搜索内容 / 联系方式 / 邮箱"
+              @keyup.enter="handleFeedbackSearch"
+            />
+            <el-button type="primary" :loading="feedbackLoading" @click="handleFeedbackSearch">筛选</el-button>
+            <el-button @click="resetFeedbackFilters">重置</el-button>
+          </div>
+
+          <el-table :data="feedbackRecords" stripe v-loading="feedbackLoading" empty-text="暂无反馈">
+            <el-table-column prop="id" label="ID" width="90" />
+            <el-table-column prop="userEmail" label="用户邮箱" min-width="190" show-overflow-tooltip>
+              <template #default="{ row }">{{ row.userEmail || '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="type" label="类型" width="140">
+              <template #default="{ row }">{{ feedbackTypeLabel(row.type) }}</template>
+            </el-table-column>
+            <el-table-column prop="content" label="内容摘要" min-width="260" show-overflow-tooltip>
+              <template #default="{ row }">{{ feedbackSummary(row.content) }}</template>
+            </el-table-column>
+            <el-table-column prop="status" label="状态" width="120">
+              <template #default="{ row }">
+                <el-tag :type="feedbackStatusTagType(row.status)" effect="light">
+                  {{ feedbackStatusLabel(row.status) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="createTime" label="提交时间" min-width="170" />
+            <el-table-column label="操作" width="130" fixed="right">
+              <template #default="{ row }">
+                <el-button text type="primary" @click="openFeedbackDialog(row)">查看 / 更新</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <div class="feedback-pagination">
+            <el-pagination
+              v-if="feedbackTotal > 0"
+              background
+              layout="total, sizes, prev, pager, next"
+              :page-sizes="[10, 20, 50]"
+              :current-page="feedbackPage"
+              :page-size="feedbackSize"
+              :total="feedbackTotal"
+              @size-change="handleFeedbackSizeChange"
+              @current-change="handleFeedbackPageChange"
+            />
+          </div>
         </div>
       </section>
 
@@ -211,6 +278,62 @@
           <el-button type="primary" :loading="grantLoading" @click="handleGrantCredit">确认发放</el-button>
         </template>
       </el-dialog>
+
+      <el-dialog v-model="feedbackDialogVisible" title="反馈详情" width="760px">
+        <div v-if="selectedFeedback" v-loading="feedbackDetailLoading" class="feedback-detail-stack">
+          <el-descriptions :column="2" border>
+            <el-descriptions-item label="反馈 ID">{{ selectedFeedback.id }}</el-descriptions-item>
+            <el-descriptions-item label="用户邮箱">{{ selectedFeedback.userEmail || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="类型">{{ feedbackTypeLabel(selectedFeedback.type) }}</el-descriptions-item>
+            <el-descriptions-item label="状态">
+              <el-tag :type="feedbackStatusTagType(selectedFeedback.status)" effect="light">
+                {{ feedbackStatusLabel(selectedFeedback.status) }}
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="联系方式">{{ selectedFeedback.contact || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="提交时间">{{ selectedFeedback.createTime || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="来源页面" :span="2">
+              <el-link
+                v-if="selectedFeedback.pageUrl"
+                :href="selectedFeedback.pageUrl"
+                target="_blank"
+                type="primary"
+              >
+                {{ selectedFeedback.pageUrl }}
+              </el-link>
+              <span v-else>-</span>
+            </el-descriptions-item>
+          </el-descriptions>
+
+          <div class="feedback-content-block">
+            <h4>完整内容</h4>
+            <p>{{ selectedFeedback.content }}</p>
+          </div>
+
+          <el-form label-width="96px" @submit.prevent>
+            <el-form-item label="处理状态">
+              <el-select v-model="feedbackForm.status">
+                <el-option v-for="option in feedbackStatusOptions" :key="option.value" :label="option.label" :value="option.value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="管理员备注">
+              <el-input
+                v-model="feedbackForm.adminNote"
+                type="textarea"
+                maxlength="1000"
+                show-word-limit
+                :rows="4"
+                placeholder="记录处理进展、判断或暂不处理原因"
+              />
+            </el-form-item>
+          </el-form>
+        </div>
+
+        <template #footer>
+          <el-button @click="feedbackDialogVisible = false">取消</el-button>
+          <el-button type="primary" :loading="feedbackSaving" @click="handleUpdateFeedbackStatus">保存状态</el-button>
+        </template>
+      </el-dialog>
     </template>
 
     <section v-else class="panel" v-loading="loading">
@@ -228,6 +351,8 @@ import { ElMessage } from 'element-plus'
 
 import {
   getAdminCreditUserDetail,
+  getAdminFeedbackDetail,
+  getAdminFeedbackList,
   getAdminMe,
   getAdminRecentProjects,
   getAdminRecentQa,
@@ -235,17 +360,22 @@ import {
   getAdminRecentUsers,
   getAdminStats,
   grantAdminCredit,
-  searchAdminCreditUsers
+  searchAdminCreditUsers,
+  updateAdminFeedbackStatus
 } from '@/api/admin'
 import type {
   AdminCreditUser,
   AdminCreditUserDetail,
+  AdminFeedback,
+  AdminFeedbackDetail,
   AdminMe,
   AdminRecentProject,
   AdminRecentQa,
   AdminRecentReport,
   AdminRecentUser,
-  AdminStats
+  AdminStats,
+  FeedbackStatus,
+  FeedbackType
 } from '@/types/api'
 
 const loading = ref(false)
@@ -267,8 +397,41 @@ const creditForm = ref({
   amount: 1,
   reason: ''
 })
+const feedbackTypeFilter = ref<FeedbackType | ''>('')
+const feedbackStatusFilter = ref<FeedbackStatus | ''>('')
+const feedbackKeyword = ref('')
+const feedbackPage = ref(1)
+const feedbackSize = ref(10)
+const feedbackTotal = ref(0)
+const feedbackRecords = ref<AdminFeedback[]>([])
+const feedbackLoading = ref(false)
+const feedbackDialogVisible = ref(false)
+const feedbackDetailLoading = ref(false)
+const feedbackSaving = ref(false)
+const selectedFeedback = ref<AdminFeedbackDetail | null>(null)
+const feedbackForm = ref({
+  status: 'PENDING' as FeedbackStatus,
+  adminNote: ''
+})
 
 const isAdmin = computed(() => Boolean(adminMe.value?.admin))
+
+const feedbackTypeOptions: Array<{ label: string; value: FeedbackType }> = [
+  { label: '功能 Bug', value: 'BUG' },
+  { label: '体验建议', value: 'UX' },
+  { label: '审计不准确', value: 'AUDIT_INACCURATE' },
+  { label: '问答不准确', value: 'QA_INACCURATE' },
+  { label: '面试问题', value: 'INTERVIEW_QUESTION' },
+  { label: '上传问题', value: 'UPLOAD' },
+  { label: '其他', value: 'OTHER' }
+]
+
+const feedbackStatusOptions: Array<{ label: string; value: FeedbackStatus }> = [
+  { label: '待处理', value: 'PENDING' },
+  { label: '处理中', value: 'PROCESSING' },
+  { label: '已解决', value: 'RESOLVED' },
+  { label: '暂不处理', value: 'WONTFIX' }
+]
 
 const metrics = computed(() => [
   { label: '用户数', value: stats.value?.userCount ?? '-' },
@@ -291,6 +454,33 @@ function statusTagType(status?: string) {
   }
 
   return statusMap[status || 'PENDING'] || 'info'
+}
+
+function feedbackTypeLabel(type?: string) {
+  return feedbackTypeOptions.find((option) => option.value === type)?.label || type || '-'
+}
+
+function feedbackStatusLabel(status?: string) {
+  return feedbackStatusOptions.find((option) => option.value === status)?.label || status || '-'
+}
+
+function feedbackStatusTagType(status?: string) {
+  const statusMap: Record<string, 'info' | 'primary' | 'success' | 'danger' | 'warning'> = {
+    PENDING: 'info',
+    PROCESSING: 'primary',
+    RESOLVED: 'success',
+    WONTFIX: 'warning'
+  }
+
+  return statusMap[status || 'PENDING'] || 'info'
+}
+
+function feedbackSummary(content?: string) {
+  if (!content) {
+    return '-'
+  }
+
+  return content.length > 80 ? `${content.slice(0, 80)}...` : content
 }
 
 async function loadAdminDashboard() {
@@ -316,7 +506,10 @@ async function loadAdminDashboard() {
     recentProjects.value = projects
     recentReports.value = reports
     recentQa.value = qa
-    await loadCreditUsers()
+    await Promise.allSettled([
+      loadCreditUsers(),
+      loadFeedbackList()
+    ])
   } catch {
     checked.value = true
     adminMe.value = { admin: false }
@@ -335,6 +528,94 @@ async function loadCreditUsers() {
     creditUsers.value = await searchAdminCreditUsers(creditKeyword.value)
   } finally {
     creditLoading.value = false
+  }
+}
+
+async function loadFeedbackList() {
+  if (!isAdmin.value) {
+    return
+  }
+
+  feedbackLoading.value = true
+  try {
+    const data = await getAdminFeedbackList({
+      type: feedbackTypeFilter.value || undefined,
+      status: feedbackStatusFilter.value || undefined,
+      keyword: feedbackKeyword.value.trim() || undefined,
+      page: feedbackPage.value,
+      size: feedbackSize.value
+    })
+    feedbackRecords.value = data.records
+    feedbackTotal.value = data.total
+    feedbackPage.value = data.page
+    feedbackSize.value = data.size
+  } finally {
+    feedbackLoading.value = false
+  }
+}
+
+function handleFeedbackSearch() {
+  feedbackPage.value = 1
+  loadFeedbackList()
+}
+
+function resetFeedbackFilters() {
+  feedbackTypeFilter.value = ''
+  feedbackStatusFilter.value = ''
+  feedbackKeyword.value = ''
+  feedbackPage.value = 1
+  loadFeedbackList()
+}
+
+function handleFeedbackSizeChange(size: number) {
+  feedbackSize.value = size
+  feedbackPage.value = 1
+  loadFeedbackList()
+}
+
+function handleFeedbackPageChange(page: number) {
+  feedbackPage.value = page
+  loadFeedbackList()
+}
+
+async function openFeedbackDialog(row: AdminFeedback) {
+  selectedFeedback.value = row
+  feedbackForm.value = {
+    status: row.status,
+    adminNote: row.adminNote || ''
+  }
+  feedbackDialogVisible.value = true
+  feedbackDetailLoading.value = true
+
+  try {
+    const detail = await getAdminFeedbackDetail(row.id)
+    selectedFeedback.value = detail
+    feedbackForm.value = {
+      status: detail.status,
+      adminNote: detail.adminNote || ''
+    }
+  } finally {
+    feedbackDetailLoading.value = false
+  }
+}
+
+async function handleUpdateFeedbackStatus() {
+  if (!selectedFeedback.value) {
+    return
+  }
+
+  feedbackSaving.value = true
+  try {
+    const detail = await updateAdminFeedbackStatus(selectedFeedback.value.id, {
+      status: feedbackForm.value.status,
+      adminNote: feedbackForm.value.adminNote.trim() || undefined
+    })
+    selectedFeedback.value = detail
+    ElMessage.success('反馈状态已更新')
+    feedbackDialogVisible.value = false
+    await loadFeedbackList()
+  } finally {
+    feedbackSaving.value = false
   }
 }
 
@@ -432,6 +713,49 @@ onMounted(loadAdminDashboard)
   gap: 10px;
 }
 
+.admin-feedback-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.feedback-toolbar {
+  display: grid;
+  grid-template-columns: 150px 150px minmax(220px, 360px) auto auto;
+  justify-content: flex-start;
+  gap: 10px;
+}
+
+.feedback-pagination {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.feedback-detail-stack {
+  display: grid;
+  gap: 18px;
+}
+
+.feedback-content-block {
+  display: grid;
+  gap: 8px;
+}
+
+.feedback-content-block h4 {
+  margin: 0;
+}
+
+.feedback-content-block p {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--pm-border);
+  border-radius: 8px;
+  background: #f8fbff;
+  color: #344054;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .credit-dialog-stack {
   display: grid;
   gap: 18px;
@@ -455,6 +779,7 @@ onMounted(loadAdminDashboard)
 
 @media (max-width: 720px) {
   .admin-credit-toolbar,
+  .feedback-toolbar,
   .credit-user-summary {
     grid-template-columns: 1fr;
   }

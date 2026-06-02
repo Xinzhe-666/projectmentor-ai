@@ -17,7 +17,7 @@
         :closable="false"
       />
 
-      <div class="qa-input-shell">
+      <div class="qa-input-shell pm-command-panel">
         <div class="qa-prompt-head">
           <div>
             <p class="eyebrow">{{ t('qa.askEyebrow') }}</p>
@@ -92,6 +92,7 @@
 
           <el-alert
             v-if="isWeakEvidence(currentAnswer)"
+            class="qa-warning-alert"
             :title="t('qa.weakEvidence')"
             type="warning"
             show-icon
@@ -170,6 +171,7 @@
 
                 <el-alert
                   v-if="isWeakEvidence(record)"
+                  class="qa-warning-alert"
                   :title="t('qa.weakEvidence')"
                   type="warning"
                   show-icon
@@ -260,7 +262,7 @@ const ConfidenceCard = defineComponent({
     }
   },
   setup(componentProps) {
-    return () => h('section', { class: ['qa-confidence-card', `qa-confidence-${effectiveEvidenceLevel(componentProps.record).toLowerCase()}`] }, [
+    return () => h('section', { class: ['qa-confidence-card', 'pm-gradient-border', `qa-confidence-${effectiveEvidenceLevel(componentProps.record).toLowerCase()}`] }, [
       h('div', { class: 'qa-confidence-main' }, [
         h('span', { class: 'qa-confidence-label' }, t('qa.evidenceTrust')),
         h(ElTag, { type: evidenceTagType(componentProps.record), effect: 'light' }, () => effectiveEvidenceLevelText(componentProps.record))
@@ -285,7 +287,7 @@ const QaEvidenceList = defineComponent({
       evidenceCount(componentProps.record)
         ? h('div', { class: 'qa-evidence-grid' }, safeEvidences(componentProps.record).map((evidence, evidenceIndex) => {
           const key = evidenceKey(componentProps.record, evidenceIndex)
-          return h('article', { key, class: 'qa-evidence-item' }, [
+          return h('article', { key, class: 'qa-evidence-item pm-premium-card' }, [
             h('div', { class: 'qa-evidence-header' }, [
               h('div', { class: 'qa-file-path' }, evidence.filePath || '-'),
               h('button', {
@@ -690,14 +692,12 @@ onMounted(loadHistory)
 .qa-input-shell {
   display: grid;
   gap: 16px;
-  padding: 16px;
-  border: 1px solid rgba(31, 111, 235, 0.14);
-  border-radius: 8px;
+  padding: 18px;
   background:
-    radial-gradient(circle at 4% 0%, rgba(20, 184, 166, 0.12), transparent 34%),
-    radial-gradient(circle at 88% 0%, rgba(31, 111, 235, 0.12), transparent 36%),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(248, 251, 255, 0.78));
-  box-shadow: 0 18px 46px rgba(31, 111, 235, 0.09);
+    radial-gradient(circle at 4% 0%, rgba(20, 184, 166, 0.16), transparent 34%),
+    radial-gradient(circle at 88% 0%, rgba(31, 111, 235, 0.18), transparent 36%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(248, 251, 255, 0.74));
+  animation: commandGlow 6s ease-in-out infinite;
 }
 
 .qa-prompt-head h4 {
@@ -740,7 +740,9 @@ onMounted(loadHistory)
 
 .quick-question-list .el-button {
   border-color: rgba(31, 111, 235, 0.16);
-  background: rgba(255, 255, 255, 0.82);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(248, 251, 255, 0.76)),
+    rgba(255, 255, 255, 0.82);
   color: #245089;
   font-weight: 700;
   box-shadow: 0 8px 18px rgba(28, 43, 68, 0.04);
@@ -828,8 +830,11 @@ onMounted(loadHistory)
 .qa-record-current {
   border-color: rgba(64, 158, 255, 0.35);
   background:
+    radial-gradient(circle at 6% 0%, rgba(20, 184, 166, 0.12), transparent 34%),
+    radial-gradient(circle at 96% 0%, rgba(31, 111, 235, 0.13), transparent 34%),
     linear-gradient(145deg, rgba(248, 251, 255, 0.98), rgba(240, 251, 249, 0.72)),
     #fbfdff;
+  box-shadow: 0 24px 58px rgba(31, 111, 235, 0.1);
 }
 
 .qa-record-header {
@@ -895,7 +900,7 @@ onMounted(loadHistory)
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px 14px;
   padding: 16px;
-  border: 1px solid rgba(223, 230, 240, 0.92);
+  border: 1px solid rgba(223, 230, 240, 0.88);
   border-radius: 8px;
   background:
     radial-gradient(circle at 96% 0%, rgba(31, 111, 235, 0.1), transparent 34%),
@@ -989,10 +994,6 @@ onMounted(loadHistory)
   padding: 14px;
   border: 1px solid rgba(223, 230, 240, 0.92);
   border-radius: 8px;
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 255, 0.76)),
-    rgba(255, 255, 255, 0.86);
-  box-shadow: 0 12px 28px rgba(28, 43, 68, 0.05);
   transition:
     border-color 180ms ease,
     box-shadow 180ms ease,
@@ -1044,8 +1045,11 @@ onMounted(loadHistory)
   gap: 5px;
   margin: 0 0 12px;
   color: #344054;
+  padding: 10px 12px;
+  border: 1px solid rgba(64, 158, 255, 0.16);
   border-left: 3px solid rgba(64, 158, 255, 0.35);
-  padding-left: 10px;
+  border-radius: 8px;
+  background: rgba(248, 251, 255, 0.78);
   line-height: 1.6;
 }
 
@@ -1061,13 +1065,24 @@ onMounted(loadHistory)
   overflow: auto;
   padding: 12px;
   border-radius: 8px;
-  background: #111827;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent),
+    #111827;
   color: #e5edf7;
   font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
   font-size: 12px;
   line-height: 1.65;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.qa-warning-alert {
+  border: 1px solid rgba(245, 158, 11, 0.24);
+  background:
+    linear-gradient(135deg, rgba(255, 251, 235, 0.92), rgba(255, 255, 255, 0.74)),
+    rgba(255, 255, 255, 0.8);
+  box-shadow: 0 12px 30px rgba(245, 158, 11, 0.08);
 }
 
 .snippet-toggle {

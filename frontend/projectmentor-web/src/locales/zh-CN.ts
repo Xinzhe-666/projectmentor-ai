@@ -93,6 +93,7 @@ export default {
     heroEyebrow: '项目真实性审计 · 项目问答 · 模拟面试 · 报告分享',
     heroHeadline: '让项目表达更有证据感',
     subtitle: 'AI 项目真实性审计与面试深挖平台，帮助你基于 README 和项目文件准备更可信的项目表达。',
+    heroSubnote: '把“做出来了”进一步整理成“讲得清楚、能被追问、知道边界”的项目复盘材料。',
     ctaFeatures: '查看功能',
     trialTitle: '试用提示',
     trialDesc:
@@ -106,14 +107,21 @@ export default {
       projectTitle: 'AI 项目审计报告',
       evidenceStatus: '证据已关联',
       score: '可信度',
+      scoreNote: '适合继续复盘',
       evidence: '证据片段',
       qa: '追问',
+      command: 'Workspace',
+      commandText: 'README / ZIP / 规则扫描 / AI 分析已进入同一条复盘链路',
+      evidenceTrust: '证据可信度',
+      strongEvidence: '强证据',
       auditCard: '项目审计',
       auditCardDesc: '从 README、文件和风险提示中形成复盘视图。',
       qaCard: '项目问答',
       qaCardDesc: '围绕实现细节追问，并标注证据强弱。',
       reason: '命中原因',
-      reasonText: '回答会尽量说明来自哪个文件、为什么相关、证据是否足够。'
+      reasonText: '回答会尽量说明来自哪个文件、为什么相关、证据是否足够。',
+      askPlaceholder: '继续追问：这个模块如何在面试中解释？',
+      shareReady: '只读报告可分享'
     },
     showcaseEyebrow: 'Product surface',
     showcaseTitle: '像产品控制台一样组织项目证据',
@@ -157,9 +165,9 @@ export default {
         meta: 'Practice follow-ups'
       },
       report: {
-        title: 'Evidence-based Report / 证据链报告',
-        description: '将风险、建议和简历表达落到可追踪的文件证据上。',
-        meta: 'Read-only sharing'
+        title: 'Evidence Chain / 证据链',
+        description: '将风险、建议、问答和简历表达落到可追踪的文件证据上。',
+        meta: 'Traceable evidence'
       },
       admin: {
         title: 'Admin & Feedback / 后台与反馈闭环',

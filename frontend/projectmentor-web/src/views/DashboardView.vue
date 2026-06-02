@@ -1,6 +1,6 @@
 <template>
   <div class="page-stack">
-    <section class="panel dashboard-hero-panel">
+    <section class="panel dashboard-hero-panel pm-command-panel pm-gradient-border">
       <div class="panel-body dashboard-hero">
         <div class="dashboard-hero-copy">
           <p class="eyebrow">{{ t('dashboard.eyebrow') }}</p>
@@ -14,7 +14,7 @@
         </div>
         <div class="dashboard-hero-card">
           <div>
-            <span>{{ t('dashboard.workspaceTitle') }}</span>
+            <span class="pm-status-chip">{{ t('dashboard.workspaceTitle') }}</span>
             <strong>{{ aiStatusLabel }}</strong>
             <p>{{ t('dashboard.workspaceDesc') }}</p>
           </div>
@@ -24,6 +24,7 @@
     </section>
 
     <el-alert
+      class="pm-premium-alert"
       :title="t('dashboard.trialTitle')"
       type="warning"
       show-icon
@@ -32,7 +33,7 @@
     />
 
     <section class="metric-grid dashboard-metric-grid" v-loading="loading">
-      <div class="metric-card dashboard-metric pm-hover-lift" v-for="metric in metrics" :key="metric.label">
+      <div class="metric-card dashboard-metric pm-premium-card pm-hover-lift" v-for="metric in metrics" :key="metric.label">
         <i :class="['dashboard-metric-accent', metric.tone]" />
         <span>{{ metric.label }}</span>
         <strong :class="{ 'small-value': String(metric.value).length > 8 }">{{ metric.value }}</strong>
@@ -40,7 +41,7 @@
     </section>
 
     <section class="quick-grid">
-      <button v-for="entry in quickEntries" :key="entry.title" class="quick-entry pm-hover-lift" @click="router.push(entry.path)">
+      <button v-for="entry in quickEntries" :key="entry.title" class="quick-entry pm-premium-card pm-hover-lift" @click="router.push(entry.path)">
         <el-icon :size="22">
           <component :is="entry.icon" />
         </el-icon>
@@ -204,10 +205,10 @@ onMounted(loadDashboard)
   overflow: hidden;
   border-radius: 8px;
   background:
-    radial-gradient(circle at 10% 20%, rgba(20, 184, 166, 0.14), transparent 34%),
-    radial-gradient(circle at 82% 14%, rgba(31, 111, 235, 0.14), transparent 36%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(248, 251, 255, 0.78)),
-    rgba(255, 255, 255, 0.9);
+    radial-gradient(circle at 8% 0%, rgba(20, 184, 166, 0.18), transparent 34%),
+    radial-gradient(circle at 82% 4%, rgba(31, 111, 235, 0.18), transparent 36%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(248, 251, 255, 0.7)),
+    rgba(255, 255, 255, 0.86);
 }
 
 .dashboard-hero::after {
@@ -228,7 +229,9 @@ onMounted(loadDashboard)
 
 .dashboard-hero h2 {
   margin: 8px 0;
-  font-size: 30px;
+  color: #111827;
+  font-size: clamp(30px, 4vw, 42px);
+  line-height: 1.08;
 }
 
 .dashboard-hero p:last-child {
@@ -247,15 +250,14 @@ onMounted(loadDashboard)
   padding: 18px;
   border: 1px solid rgba(214, 224, 236, 0.82);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.72);
-  box-shadow: 0 18px 42px rgba(28, 43, 68, 0.08);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.82), rgba(248, 251, 255, 0.64)),
+    rgba(255, 255, 255, 0.72);
+  box-shadow: 0 22px 56px rgba(31, 111, 235, 0.1);
   backdrop-filter: blur(16px);
 }
 
 .dashboard-hero-card span {
-  color: var(--pm-muted);
-  font-size: 12px;
-  font-weight: 900;
   text-transform: uppercase;
 }
 
@@ -280,6 +282,7 @@ onMounted(loadDashboard)
 .dashboard-metric {
   position: relative;
   overflow: hidden;
+  min-height: 150px;
 }
 
 .dashboard-metric::after {
@@ -327,12 +330,8 @@ onMounted(loadDashboard)
   padding: 16px;
   border: 1px solid rgba(223, 230, 240, 0.92);
   border-radius: 8px;
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(248, 251, 255, 0.86)),
-    rgba(255, 255, 255, 0.94);
   color: inherit;
   text-align: left;
-  box-shadow: var(--pm-shadow-soft);
   cursor: pointer;
   transition:
     border-color 180ms ease,
@@ -349,6 +348,11 @@ onMounted(loadDashboard)
   border-radius: 8px;
   background: linear-gradient(135deg, rgba(31, 111, 235, 0.12), rgba(20, 184, 166, 0.1));
   color: var(--pm-primary);
+}
+
+.quick-entry span {
+  position: relative;
+  z-index: 1;
 }
 
 .quick-entry strong,

@@ -1,5 +1,7 @@
 <template>
-  <div ref="landingRoot" class="landing-page pm-premium-bg">
+  <div ref="landingRoot" class="landing-page pm-aurora-bg">
+    <div class="pm-grid-overlay" />
+    <div class="pm-noise-overlay" />
     <nav class="landing-nav">
       <RouterLink class="landing-brand" to="/">
         <span>PM</span>
@@ -14,14 +16,15 @@
       </div>
     </nav>
 
-    <section class="landing-hero">
-      <div class="hero-copy pm-fade-up" style="--reveal-index: 0">
+    <section class="landing-hero pm-cinematic-hero">
+      <div class="hero-copy pm-scroll-reveal" style="--reveal-index: 0">
         <p class="eyebrow">{{ t('landing.heroEyebrow') }}</p>
         <h1>
           <span>ProjectMentor AI</span>
           <span class="pm-gradient-text">{{ t('landing.heroHeadline') }}</span>
         </h1>
         <p class="hero-subtitle">{{ t('landing.subtitle') }}</p>
+        <p class="hero-subnote">{{ t('landing.heroSubnote') }}</p>
 
         <div class="hero-actions">
           <el-button size="large" type="primary" :icon="ArrowRight" @click="goStart">{{ t('common.startNow') }}</el-button>
@@ -46,18 +49,21 @@
         />
       </div>
 
-      <div class="hero-visual pm-fade-up" style="--reveal-index: 1">
-        <div class="pm-mockup-frame landing-mockup pm-float">
+      <div class="hero-visual pm-scroll-reveal" style="--reveal-index: 1">
+        <div class="pm-product-window pm-gradient-border landing-mockup pm-floating-mockup">
           <div class="pm-mockup-topbar">
             <i class="pm-mockup-dot" />
             <i class="pm-mockup-dot" />
             <i class="pm-mockup-dot" />
             <span>{{ t('landing.mockup.windowTitle') }}</span>
           </div>
-          <div class="mockup-body">
+          <div class="mockup-body cinematic-mockup-body">
             <aside class="mockup-sidebar">
               <div class="mockup-brand-mini">PMAI</div>
-              <span v-for="item in mockupNav" :key="item">{{ item }}</span>
+              <button v-for="(item, index) in mockupNav" :key="item" :class="{ active: index === 0 }" type="button">
+                <span>{{ item }}</span>
+                <small v-if="index === 0">82</small>
+              </button>
             </aside>
             <main class="mockup-main">
               <div class="mockup-dashboard-head">
@@ -65,31 +71,55 @@
                   <small>{{ t('landing.mockup.auditLabel') }}</small>
                   <strong>{{ t('landing.mockup.projectTitle') }}</strong>
                 </div>
-                <el-tag type="success" effect="light">{{ t('landing.mockup.evidenceStatus') }}</el-tag>
+                <span class="pm-status-chip">{{ t('landing.mockup.evidenceStatus') }}</span>
+              </div>
+
+              <div class="mockup-command-line">
+                <span>{{ t('landing.mockup.command') }}</span>
+                <strong>{{ t('landing.mockup.commandText') }}</strong>
+              </div>
+
+              <div class="mockup-score-layout">
+                <div class="mockup-score-orb">
+                  <span>{{ t('landing.mockup.score') }}</span>
+                  <strong>82</strong>
+                  <small>{{ t('landing.mockup.scoreNote') }}</small>
+                </div>
+                <div class="mockup-trust-panel">
+                  <div>
+                    <span>{{ t('landing.mockup.evidenceTrust') }}</span>
+                    <strong>{{ t('landing.mockup.strongEvidence') }}</strong>
+                  </div>
+                  <div class="trust-bars" aria-hidden="true">
+                    <i />
+                    <i />
+                    <i />
+                  </div>
+                </div>
               </div>
 
               <div class="mockup-score-row">
-                <div>
+                <div class="pm-premium-card">
                   <span>{{ t('landing.mockup.score') }}</span>
                   <strong>82</strong>
                 </div>
-                <div>
+                <div class="pm-premium-card">
                   <span>{{ t('landing.mockup.evidence') }}</span>
                   <strong>14</strong>
                 </div>
-                <div>
+                <div class="pm-premium-card">
                   <span>{{ t('landing.mockup.qa') }}</span>
                   <strong>8</strong>
                 </div>
               </div>
 
               <div class="mockup-insight-grid">
-                <article>
+                <article class="pm-premium-card">
                   <el-icon><DocumentChecked /></el-icon>
                   <span>{{ t('landing.mockup.auditCard') }}</span>
                   <p>{{ t('landing.mockup.auditCardDesc') }}</p>
                 </article>
-                <article>
+                <article class="pm-premium-card">
                   <el-icon><ChatDotRound /></el-icon>
                   <span>{{ t('landing.mockup.qaCard') }}</span>
                   <p>{{ t('landing.mockup.qaCardDesc') }}</p>
@@ -103,6 +133,11 @@
                 </div>
                 <code>src/api/projectQa.ts</code>
               </div>
+
+              <div class="mockup-bottom-command">
+                <span>{{ t('landing.mockup.askPlaceholder') }}</span>
+                <strong>{{ t('landing.mockup.shareReady') }}</strong>
+              </div>
             </main>
           </div>
         </div>
@@ -110,7 +145,7 @@
     </section>
 
     <main class="landing-content">
-      <section class="pm-section-shell product-showcase pm-fade-up" style="--reveal-index: 0">
+      <section class="pm-section-shell pm-cinematic-section product-showcase pm-scroll-reveal" style="--reveal-index: 0">
         <div class="pm-section-heading center">
           <p class="eyebrow">{{ t('landing.showcaseEyebrow') }}</p>
           <h2>{{ t('landing.showcaseTitle') }}</h2>
@@ -118,17 +153,22 @@
         </div>
 
         <div class="showcase-grid">
-          <article v-for="(panel, index) in productPanels" :key="panel.title" class="showcase-card pm-glass-card pm-hover-lift" :style="{ '--reveal-index': index }">
+          <article v-for="(panel, index) in productPanels" :key="panel.title" class="showcase-card pm-premium-card pm-hover-lift" :style="{ '--reveal-index': index }">
             <el-icon :size="22">
               <component :is="panel.icon" />
             </el-icon>
+            <div class="showcase-mini-visual">
+              <i />
+              <i />
+              <i />
+            </div>
             <h3>{{ panel.title }}</h3>
             <p>{{ panel.description }}</p>
           </article>
         </div>
       </section>
 
-      <section id="features" class="pm-section-shell bento-section pm-fade-up" style="--reveal-index: 0">
+      <section id="features" class="pm-section-shell pm-cinematic-section bento-section pm-scroll-reveal" style="--reveal-index: 0">
         <div class="pm-section-heading">
           <p class="eyebrow">{{ t('landing.bentoEyebrow') }}</p>
           <h2>{{ t('landing.bentoTitle') }}</h2>
@@ -139,7 +179,7 @@
           <article
             v-for="(feature, index) in bentoFeatures"
             :key="feature.title"
-            class="pm-bento-card bento-card pm-hover-lift pm-fade-up"
+            class="pm-bento-card bento-card pm-hover-lift pm-scroll-reveal"
             :class="feature.className"
             :style="{ '--reveal-index': index }"
           >
@@ -152,13 +192,18 @@
               <h3>{{ feature.title }}</h3>
               <p>{{ feature.description }}</p>
             </div>
+            <div class="bento-mini-visual" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+            </div>
             <span>{{ feature.meta }}</span>
           </article>
         </div>
       </section>
 
-      <section class="pm-section-shell story-section">
-        <div class="pm-section-heading center pm-fade-up">
+      <section class="pm-section-shell pm-cinematic-section story-section">
+        <div class="pm-section-heading center pm-scroll-reveal">
           <p class="eyebrow">{{ t('landing.storyEyebrow') }}</p>
           <h2>{{ t('landing.storyTitle') }}</h2>
           <p>{{ t('landing.storyDesc') }}</p>
@@ -168,7 +213,7 @@
           <article
             v-for="(story, index) in storySections"
             :key="story.title"
-            class="story-card pm-fade-up"
+            class="story-card pm-premium-card pm-scroll-reveal"
             :style="{ '--reveal-index': index }"
           >
             <span>{{ index + 1 }}</span>
@@ -180,13 +225,13 @@
         </div>
       </section>
 
-      <section class="pm-section-shell workflow-section pm-fade-up">
+      <section class="pm-section-shell pm-cinematic-section workflow-section pm-scroll-reveal">
         <div class="pm-section-heading">
           <p class="eyebrow">{{ t('landing.workflowEyebrow') }}</p>
           <h2>{{ t('landing.workflowTitle') }}</h2>
         </div>
         <div class="flow-grid">
-          <article v-for="(step, index) in workflow" :key="step.title" class="flow-card pm-hover-lift pm-fade-up" :style="{ '--reveal-index': index }">
+          <article v-for="(step, index) in workflow" :key="step.title" class="flow-card pm-premium-card pm-hover-lift pm-scroll-reveal" :style="{ '--reveal-index': index }">
             <span class="flow-index">{{ index + 1 }}</span>
             <el-icon :size="24">
               <component :is="step.icon" />
@@ -197,8 +242,8 @@
         </div>
       </section>
 
-      <section class="pm-section-shell boundary-section pm-fade-up">
-        <div class="boundary-card pm-glass-card">
+      <section class="pm-section-shell pm-cinematic-section boundary-section pm-scroll-reveal">
+        <div class="boundary-card pm-premium-card">
           <div class="pm-section-heading">
             <p class="eyebrow">{{ t('landing.boundaryEyebrow') }}</p>
             <h2>{{ t('landing.boundaryTitle') }}</h2>
@@ -289,7 +334,7 @@ const bentoFeatures = computed(() => [
     description: t('landing.bento.audit.description'),
     meta: t('landing.bento.audit.meta'),
     icon: DocumentChecked,
-    className: 'is-wide'
+    className: 'pm-bento-card-large pm-bento-card-accent'
   },
   {
     title: t('landing.bento.scan.title'),
@@ -317,7 +362,7 @@ const bentoFeatures = computed(() => [
     description: t('landing.bento.report.description'),
     meta: t('landing.bento.report.meta'),
     icon: Files,
-    className: 'is-wide'
+    className: 'pm-bento-card-large'
   },
   {
     title: t('landing.bento.admin.title'),
@@ -394,7 +439,7 @@ function setupScrollReveal() {
     return
   }
 
-  const revealItems = Array.from(root.querySelectorAll<HTMLElement>('.pm-fade-up'))
+  const revealItems = Array.from(root.querySelectorAll<HTMLElement>('.pm-fade-up, .pm-scroll-reveal'))
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     revealItems.forEach((item) => item.classList.add('is-visible'))
     return
@@ -442,7 +487,7 @@ onBeforeUnmount(() => {
   gap: 18px;
   padding: 16px clamp(18px, 5vw, 72px);
   border-bottom: 1px solid rgba(223, 230, 240, 0.62);
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.66);
   box-shadow: 0 10px 34px rgba(28, 43, 68, 0.05);
   backdrop-filter: blur(22px);
 }
@@ -477,32 +522,40 @@ onBeforeUnmount(() => {
 
 .landing-hero {
   display: grid;
-  min-height: 100vh;
-  grid-template-columns: minmax(0, 0.95fr) minmax(420px, 1.05fr);
+  min-height: 104vh;
+  grid-template-columns: minmax(0, 0.92fr) minmax(520px, 1.08fr);
   align-items: center;
-  gap: clamp(32px, 6vw, 84px);
-  max-width: 1320px;
+  gap: clamp(38px, 7vw, 96px);
+  max-width: 1420px;
   margin: 0 auto;
-  padding: 128px clamp(18px, 5vw, 72px) 68px;
+  padding: 132px clamp(18px, 5vw, 72px) 86px;
 }
 
 .hero-copy h1 {
   display: grid;
   gap: 8px;
-  max-width: 760px;
+  max-width: 820px;
   margin: 14px 0 20px;
   color: #111827;
-  font-size: clamp(46px, 7vw, 88px);
-  line-height: 0.98;
+  font-size: clamp(52px, 7.8vw, 104px);
+  line-height: 0.94;
   letter-spacing: 0;
 }
 
 .hero-subtitle {
-  max-width: 720px;
+  max-width: 760px;
   margin: 0;
   color: #475467;
   font-size: clamp(18px, 2.2vw, 22px);
   line-height: 1.72;
+}
+
+.hero-subnote {
+  max-width: 680px;
+  margin: 12px 0 0;
+  color: #667085;
+  font-size: 15px;
+  line-height: 1.8;
 }
 
 .hero-actions {
@@ -527,7 +580,17 @@ onBeforeUnmount(() => {
 
 .landing-mockup {
   position: relative;
-  min-height: 560px;
+  min-height: 630px;
+}
+
+.landing-mockup::before {
+  position: absolute;
+  inset: -1px;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(20, 184, 166, 0.16), transparent 34%),
+    radial-gradient(circle at 100% 10%, rgba(31, 111, 235, 0.18), transparent 36%);
+  content: "";
 }
 
 .pm-mockup-topbar span {
@@ -539,17 +602,19 @@ onBeforeUnmount(() => {
 
 .mockup-body {
   display: grid;
-  grid-template-columns: 128px minmax(0, 1fr);
-  min-height: 522px;
+  grid-template-columns: 150px minmax(0, 1fr);
+  min-height: 592px;
 }
 
 .mockup-sidebar {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 18px 14px;
+  padding: 18px 12px;
   border-right: 1px solid rgba(223, 230, 240, 0.78);
-  background: rgba(248, 251, 255, 0.78);
+  background:
+    linear-gradient(180deg, rgba(248, 251, 255, 0.86), rgba(255, 255, 255, 0.58)),
+    rgba(248, 251, 255, 0.78);
 }
 
 .mockup-brand-mini {
@@ -565,17 +630,37 @@ onBeforeUnmount(() => {
   font-weight: 900;
 }
 
-.mockup-sidebar span {
+.mockup-sidebar button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
   padding: 9px 10px;
+  border: 0;
   border-radius: 8px;
+  background: transparent;
   color: #475467;
+  cursor: default;
   font-size: 12px;
   font-weight: 800;
+  text-align: left;
 }
 
-.mockup-sidebar span:first-of-type {
+.mockup-sidebar button.active {
   background: rgba(31, 111, 235, 0.1);
   color: var(--pm-primary);
+}
+
+.mockup-sidebar button small {
+  display: grid;
+  min-width: 28px;
+  height: 22px;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  color: #245089;
+  font-weight: 900;
 }
 
 .mockup-main {
@@ -608,6 +693,111 @@ onBeforeUnmount(() => {
   font-size: 20px;
 }
 
+.mockup-command-line,
+.mockup-bottom-command {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid rgba(31, 111, 235, 0.14);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(238, 246, 255, 0.72), rgba(255, 255, 255, 0.72)),
+    rgba(255, 255, 255, 0.74);
+}
+
+.mockup-command-line span,
+.mockup-bottom-command span {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.mockup-command-line strong,
+.mockup-bottom-command strong {
+  min-width: 0;
+  color: #111827;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.mockup-score-layout {
+  display: grid;
+  grid-template-columns: minmax(160px, 0.8fr) minmax(0, 1.2fr);
+  gap: 12px;
+}
+
+.mockup-score-orb,
+.mockup-trust-panel {
+  border: 1px solid rgba(214, 224, 236, 0.78);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(31, 111, 235, 0.12), transparent 36%),
+    rgba(255, 255, 255, 0.78);
+  box-shadow: 0 14px 34px rgba(28, 43, 68, 0.07);
+}
+
+.mockup-score-orb {
+  display: grid;
+  min-height: 150px;
+  place-items: center;
+  padding: 16px;
+  text-align: center;
+}
+
+.mockup-score-orb span,
+.mockup-score-orb small,
+.mockup-trust-panel span {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.mockup-score-orb strong {
+  color: #111827;
+  font-size: 58px;
+  line-height: 0.94;
+}
+
+.mockup-trust-panel {
+  display: grid;
+  align-content: space-between;
+  gap: 18px;
+  min-height: 150px;
+  padding: 16px;
+}
+
+.mockup-trust-panel strong {
+  display: block;
+  margin-top: 8px;
+  color: #111827;
+  font-size: 20px;
+}
+
+.trust-bars {
+  display: grid;
+  gap: 8px;
+}
+
+.trust-bars i {
+  display: block;
+  height: 9px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--pm-primary), var(--pm-teal));
+}
+
+.trust-bars i:nth-child(2) {
+  width: 78%;
+  opacity: 0.7;
+}
+
+.trust-bars i:nth-child(3) {
+  width: 52%;
+  opacity: 0.42;
+}
+
 .mockup-score-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -620,7 +810,6 @@ onBeforeUnmount(() => {
   border: 1px solid rgba(223, 230, 240, 0.84);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.76);
-  box-shadow: 0 12px 28px rgba(28, 43, 68, 0.06);
 }
 
 .mockup-score-row div {
@@ -688,6 +877,14 @@ onBeforeUnmount(() => {
   position: relative;
 }
 
+.landing-content::before {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.42) 18%, transparent 70%);
+  content: "";
+}
+
 .product-showcase {
   padding-top: 44px;
 }
@@ -705,6 +902,31 @@ onBeforeUnmount(() => {
 
 .showcase-card :deep(.el-icon) {
   color: var(--pm-primary);
+}
+
+.showcase-mini-visual,
+.bento-mini-visual {
+  display: grid;
+  gap: 7px;
+  margin-top: 18px;
+}
+
+.showcase-mini-visual i,
+.bento-mini-visual i {
+  display: block;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(31, 111, 235, 0.2), rgba(20, 184, 166, 0.14));
+}
+
+.showcase-mini-visual i:nth-child(2),
+.bento-mini-visual i:nth-child(2) {
+  width: 78%;
+}
+
+.showcase-mini-visual i:nth-child(3),
+.bento-mini-visual i:nth-child(3) {
+  width: 52%;
 }
 
 .showcase-card h3,
@@ -734,7 +956,7 @@ onBeforeUnmount(() => {
   gap: 18px;
 }
 
-.bento-card.is-wide {
+.bento-card.pm-bento-card-large {
   grid-column: span 3;
 }
 
@@ -760,8 +982,8 @@ onBeforeUnmount(() => {
 
 .story-list {
   display: grid;
-  gap: 12px;
-  max-width: 920px;
+  gap: 14px;
+  max-width: 980px;
   margin: 0 auto;
 }
 
@@ -771,10 +993,6 @@ onBeforeUnmount(() => {
   gap: 18px;
   align-items: flex-start;
   padding: 22px;
-  border: 1px solid rgba(214, 224, 236, 0.84);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.72);
-  box-shadow: 0 16px 38px rgba(28, 43, 68, 0.06);
 }
 
 .story-card > span {
@@ -890,7 +1108,7 @@ onBeforeUnmount(() => {
   }
 
   .bento-card,
-  .bento-card.is-wide {
+  .bento-card.pm-bento-card-large {
     grid-column: span 1;
   }
 }
@@ -929,6 +1147,16 @@ onBeforeUnmount(() => {
 
   .mockup-brand-mini {
     margin-bottom: 0;
+  }
+
+  .mockup-score-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .mockup-command-line,
+  .mockup-bottom-command {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .mockup-score-row,

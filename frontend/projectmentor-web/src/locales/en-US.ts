@@ -93,6 +93,7 @@ export default {
     heroEyebrow: 'Project Audit · Project Q&A · Mock Interview · Public Report Sharing',
     heroHeadline: 'Make project claims evidence-aware',
     subtitle: 'AI-powered project review and interview preparation platform for evidence-based project storytelling.',
+    heroSubnote: 'Turn “it works” into review material you can explain, defend, and keep within clear boundaries.',
     ctaFeatures: 'View features',
     trialTitle: 'Beta notice',
     trialDesc:
@@ -106,14 +107,21 @@ export default {
       projectTitle: 'AI Project Audit Report',
       evidenceStatus: 'Evidence linked',
       score: 'Trust score',
+      scoreNote: 'Ready for review',
       evidence: 'Evidence snippets',
       qa: 'Follow-ups',
+      command: 'Workspace',
+      commandText: 'README / ZIP / rule scan / AI analysis in one review chain',
+      evidenceTrust: 'Evidence confidence',
+      strongEvidence: 'Strong evidence',
       auditCard: 'Project Audit',
       auditCardDesc: 'Review README, files, and risk notes in one workspace.',
       qaCard: 'Project Q&A',
       qaCardDesc: 'Ask implementation questions and see evidence strength.',
       reason: 'Match reason',
-      reasonText: 'Answers try to explain which file is relevant, why it matched, and whether evidence is enough.'
+      reasonText: 'Answers try to explain which file is relevant, why it matched, and whether evidence is enough.',
+      askPlaceholder: 'Follow up: how should I explain this module in an interview?',
+      shareReady: 'Read-only report ready'
     },
     showcaseEyebrow: 'Product surface',
     showcaseTitle: 'Organize project evidence like a product console',
@@ -159,9 +167,9 @@ export default {
         meta: 'Practice follow-ups'
       },
       report: {
-        title: 'Evidence-based Report',
-        description: 'Trace risks, suggestions, and resume wording back to file-level evidence.',
-        meta: 'Read-only sharing'
+        title: 'Evidence Chain',
+        description: 'Trace risks, suggestions, Q&A, and resume wording back to file-level evidence.',
+        meta: 'Traceable evidence'
       },
       admin: {
         title: 'Admin & Feedback',

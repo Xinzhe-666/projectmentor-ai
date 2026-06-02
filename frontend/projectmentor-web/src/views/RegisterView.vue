@@ -1,5 +1,7 @@
 <template>
-  <div class="auth-page pm-premium-bg">
+  <div class="auth-page pm-aurora-bg">
+    <div class="pm-grid-overlay" />
+    <div class="pm-noise-overlay" />
     <section class="auth-product-panel pm-fade-up is-visible">
       <div class="auth-product-badge">ProjectMentor AI · {{ t('common.beta') }}</div>
       <h1>{{ t('auth.valueTitle') }}</h1>
@@ -9,7 +11,7 @@
       </div>
     </section>
 
-    <section class="auth-panel pm-glass-card pm-fade-up is-visible">
+    <section class="auth-panel pm-premium-card pm-gradient-border pm-fade-up is-visible">
       <div class="auth-topline">
         <RouterLink class="muted" to="/">{{ t('common.backHome') }}</RouterLink>
         <LanguageSwitch />

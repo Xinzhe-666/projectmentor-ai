@@ -5,53 +5,56 @@
         <span class="brand-mark">PM</span>
         <div>
           <p class="eyebrow">ProjectMentor AI</p>
-          <h1>ProjectMentor AI 只读分享报告</h1>
-          <p>该报告由用户主动分享，仅供项目复盘和面试准备参考。</p>
+          <h1>{{ t('publicReport.title') }}</h1>
+          <p>{{ t('publicReport.subtitle') }}</p>
         </div>
       </div>
-      <el-tag effect="light" type="info">Read only</el-tag>
+      <div class="public-header-actions">
+        <LanguageSwitch />
+        <el-tag effect="light" type="info">{{ t('common.readOnly') }}</el-tag>
+      </div>
     </header>
 
     <main class="public-report-container">
       <section class="public-notice">
-        公开分享页仅展示脱敏后的只读报告内容，不包含用户身份、额度流水、AI 调用日志或项目源码内容。
+        {{ t('publicReport.notice') }}
       </section>
 
       <template v-if="report">
         <section class="panel public-hero-panel">
           <div class="panel-body public-hero">
             <div class="public-summary">
-              <p class="eyebrow">Shared Audit Report</p>
-              <h2>{{ report.projectName || '未命名项目' }}</h2>
+              <p class="eyebrow">{{ t('publicReport.eyebrow') }}</p>
+              <h2>{{ report.projectName || t('common.unnamedProject') }}</h2>
               <div class="public-meta-grid">
                 <span>
-                  项目名称
-                  <strong>{{ report.projectName || '未命名项目' }}</strong>
+                  {{ t('common.projectName') }}
+                  <strong>{{ report.projectName || t('common.unnamedProject') }}</strong>
                 </span>
                 <span>
-                  技术栈
-                  <strong>{{ report.techStack || '未填写' }}</strong>
+                  {{ t('common.techStack') }}
+                  <strong>{{ report.techStack || t('common.notFilled') }}</strong>
                 </span>
                 <span>
-                  项目类型
-                  <strong>{{ report.projectType || '未填写' }}</strong>
+                  {{ t('common.projectType') }}
+                  <strong>{{ report.projectType || t('common.notFilled') }}</strong>
                 </span>
                 <span>
-                  生成时间
+                  {{ t('common.createTime') }}
                   <strong>{{ report.createTime || '-' }}</strong>
                 </span>
               </div>
-              <p class="public-summary-text">{{ report.summary || '暂无报告摘要' }}</p>
+              <p class="public-summary-text">{{ report.summary || t('common.noData') }}</p>
             </div>
             <div class="public-score-card">
-              <ScoreRing :score="report.totalScore ?? 0" title="总分" />
+              <ScoreRing :score="report.totalScore ?? 0" :title="t('common.totalScore')" />
             </div>
           </div>
         </section>
 
         <section class="panel">
           <div class="panel-title">
-            <h3>维度评分</h3>
+            <h3>{{ t('publicReport.scoreTitle') }}</h3>
           </div>
           <div class="panel-body public-score-layout">
             <RadarScoreChart :scores="radarScores" />
@@ -67,21 +70,21 @@
         <section class="panel">
           <div class="panel-title">
             <div>
-              <h3>报告内容</h3>
-              <p class="muted">从优势、短板和后续建议快速判断项目当前状态。</p>
+              <h3>{{ t('report.contentTitle') }}</h3>
+              <p class="muted">{{ t('publicReport.contentDesc') }}</p>
             </div>
           </div>
           <div class="panel-body public-content-grid">
             <article>
-              <h4>优势</h4>
+              <h4>{{ t('report.strengths') }}</h4>
               <MarkdownBlock :content="report.strengths" />
             </article>
             <article>
-              <h4>短板</h4>
+              <h4>{{ t('report.weaknesses') }}</h4>
               <MarkdownBlock :content="report.weaknesses" />
             </article>
             <article>
-              <h4>建议</h4>
+              <h4>{{ t('common.suggestions') }}</h4>
               <MarkdownBlock :content="report.suggestions" />
             </article>
           </div>
@@ -90,8 +93,8 @@
         <section class="panel">
           <div class="panel-title">
             <div>
-              <h3>风险点</h3>
-              <p class="muted">风险等级越高，越需要优先补充证据或降低简历表述强度。</p>
+              <h3>{{ t('common.risks') }}</h3>
+              <p class="muted">{{ t('publicReport.risksDesc') }}</p>
             </div>
           </div>
           <div class="panel-body">
@@ -102,8 +105,8 @@
         <section class="panel">
           <div class="panel-title">
             <div>
-              <h3>证据链</h3>
-              <p class="muted">通过 sourceFile、evidence 和 suggestion 追溯每条判断的来源。</p>
+              <h3>{{ t('common.evidence') }}</h3>
+              <p class="muted">{{ t('publicReport.evidenceDesc') }}</p>
             </div>
           </div>
           <div class="panel-body">
@@ -114,35 +117,35 @@
         <section class="panel">
           <div class="panel-title">
             <div>
-              <h3>简历描述参考</h3>
-              <p class="muted">三版描述保留不同表达强度，复制前建议结合个人真实贡献再调整。</p>
+              <h3>{{ t('publicReport.resumeTitle') }}</h3>
+              <p class="muted">{{ t('publicReport.resumeDesc') }}</p>
             </div>
           </div>
           <div class="panel-body public-resume-grid">
             <article>
-              <h4>基础版</h4>
+              <h4>{{ t('report.resumeBasic') }}</h4>
               <MarkdownBlock :content="report.resumeBasic" />
             </article>
             <article>
-              <h4>标准版</h4>
+              <h4>{{ t('report.resumeStandard') }}</h4>
               <MarkdownBlock :content="report.resumeStandard" />
             </article>
             <article>
-              <h4>进阶版</h4>
+              <h4>{{ t('report.resumeAdvanced') }}</h4>
               <MarkdownBlock :content="report.resumeAdvanced" />
             </article>
           </div>
         </section>
 
         <footer class="public-footer">
-          ProjectMentor AI 关注项目真实性、证据链和面试可解释性，不承诺自动审计完全准确。
+          {{ t('publicReport.footer') }}
         </footer>
       </template>
 
       <section v-else-if="errorMessage" class="panel">
         <el-result
           icon="warning"
-          title="分享链接不可用"
+          :title="t('publicReport.unavailable')"
           :sub-title="errorMessage"
         />
       </section>
@@ -153,9 +156,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 
 import { getPublicReport } from '@/api/share'
 import EvidenceList from '@/components/EvidenceList.vue'
+import LanguageSwitch from '@/components/LanguageSwitch.vue'
 import MarkdownBlock from '@/components/MarkdownBlock.vue'
 import RadarScoreChart from '@/components/RadarScoreChart.vue'
 import RiskList from '@/components/RiskList.vue'
@@ -163,6 +168,7 @@ import ScoreRing from '@/components/ScoreRing.vue'
 import type { PublicReport } from '@/types/api'
 
 const route = useRoute()
+const { t } = useI18n()
 const token = String(route.params.token || '')
 const loading = ref(false)
 const report = ref<PublicReport>()
@@ -179,13 +185,13 @@ const radarScores = computed(() => ({
 }))
 
 const scoreRows = computed(() => [
-  { label: '可运行性', value: report.value?.runnabilityScore },
-  { label: '真实性', value: report.value?.authenticityScore },
-  { label: '结构', value: report.value?.structureScore },
-  { label: 'README', value: report.value?.readmeScore },
-  { label: '安全', value: report.value?.securityScore },
-  { label: '工程化', value: report.value?.engineeringScore },
-  { label: '面试价值', value: report.value?.interviewScore }
+  { label: t('report.scores.runnability'), value: report.value?.runnabilityScore },
+  { label: t('report.scores.authenticity'), value: report.value?.authenticityScore },
+  { label: t('report.scores.structure'), value: report.value?.structureScore },
+  { label: t('report.scores.readme'), value: report.value?.readmeScore },
+  { label: t('report.scores.security'), value: report.value?.securityScore },
+  { label: t('report.scores.engineering'), value: report.value?.engineeringScore },
+  { label: t('report.scores.interview'), value: report.value?.interviewScore }
 ])
 
 function formatScore(value?: number) {
@@ -193,7 +199,7 @@ function formatScore(value?: number) {
     return '-'
   }
 
-  return `${Math.round(Number(value))} 分`
+  return `${Math.round(Number(value))} ${t('common.points')}`
 }
 
 async function loadPublicReport() {
@@ -203,7 +209,7 @@ async function loadPublicReport() {
   try {
     report.value = await getPublicReport(token)
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '分享链接不存在、已关闭或已过期'
+    errorMessage.value = error instanceof Error ? error.message : t('publicReport.unavailableMessage')
   } finally {
     loading.value = false
   }
@@ -227,6 +233,14 @@ onMounted(loadPublicReport)
   border-bottom: 1px solid rgba(223, 230, 240, 0.86);
   background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(16px);
+}
+
+.public-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .public-heading {
@@ -376,7 +390,14 @@ onMounted(loadPublicReport)
 
 @media (max-width: 620px) {
   .public-report-header {
+    align-items: flex-start;
+    flex-direction: column;
     padding: 16px;
+  }
+
+  .public-header-actions {
+    justify-content: flex-start;
+    width: 100%;
   }
 
   .public-report-container {

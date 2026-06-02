@@ -2,19 +2,19 @@
   <div class="page-stack">
     <section class="metric-grid" v-loading="loading">
       <div class="metric-card">
-        <span>当前套餐</span>
+        <span>{{ t('credits.plan') }}</span>
         <strong>{{ creditInfo?.planType || '-' }}</strong>
       </div>
       <div class="metric-card">
-        <span>剩余额度</span>
+        <span>{{ t('credits.remaining') }}</span>
         <strong>{{ creditInfo?.remainingCredits ?? '-' }}</strong>
       </div>
       <div class="metric-card">
-        <span>到期时间</span>
+        <span>{{ t('credits.expire') }}</span>
         <strong class="small-value">{{ creditInfo?.expireTime || '-' }}</strong>
       </div>
       <div class="metric-card">
-        <span>流水数量</span>
+        <span>{{ t('credits.logCount') }}</span>
         <strong>{{ logs.length }}</strong>
       </div>
     </section>
@@ -22,31 +22,31 @@
     <section class="panel">
       <div class="panel-title">
         <div>
-          <h2>额度流水</h2>
-          <p class="muted">查看注册赠送、报告生成、失败返还和管理员调整记录。</p>
+          <h2>{{ t('credits.title') }}</h2>
+          <p class="muted">{{ t('credits.desc') }}</p>
         </div>
-        <el-button :icon="Refresh" :loading="loading" @click="loadCredits">刷新</el-button>
+        <el-button :icon="Refresh" :loading="loading" @click="loadCredits">{{ t('common.refresh') }}</el-button>
       </div>
       <div class="panel-body">
         <el-table v-if="logs.length || loading" v-loading="loading" :data="logs" stripe>
-          <el-table-column prop="createTime" label="时间" min-width="180" />
-          <el-table-column prop="operationType" label="操作" min-width="180">
+          <el-table-column prop="createTime" :label="t('credits.time')" min-width="180" />
+          <el-table-column prop="operationType" :label="t('credits.operation')" min-width="180">
             <template #default="{ row }">
               {{ operationLabel(row.operationType) }}
             </template>
           </el-table-column>
-          <el-table-column prop="changeAmount" label="变化" width="120">
+          <el-table-column prop="changeAmount" :label="t('credits.change')" width="120">
             <template #default="{ row }">
               <span :class="amountClass(row.changeAmount)">
                 {{ row.changeAmount > 0 ? '+' : '' }}{{ row.changeAmount }}
               </span>
             </template>
           </el-table-column>
-          <el-table-column prop="beforeAmount" label="变更前" width="110" />
-          <el-table-column prop="afterAmount" label="变更后" width="110" />
-          <el-table-column prop="remark" label="备注" min-width="240" show-overflow-tooltip />
+          <el-table-column prop="beforeAmount" :label="t('credits.before')" width="110" />
+          <el-table-column prop="afterAmount" :label="t('credits.after')" width="110" />
+          <el-table-column prop="remark" :label="t('credits.remark')" min-width="240" show-overflow-tooltip />
         </el-table>
-        <EmptyState v-else title="暂无额度流水" description="额度发生变化后，记录会出现在这里。" />
+        <EmptyState v-else :title="t('credits.emptyTitle')" :description="t('credits.emptyDesc')" />
       </div>
     </section>
   </div>
@@ -54,6 +54,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Refresh } from '@element-plus/icons-vue'
 
 import { getMyCredits, listCreditLogs } from '@/api/credit'
@@ -62,19 +63,15 @@ import { useUserStore } from '@/stores/user'
 import type { CreditInfo, CreditLog } from '@/types/api'
 
 const userStore = useUserStore()
+const { t } = useI18n()
 const loading = ref(false)
 const creditInfo = ref<CreditInfo>()
 const logs = ref<CreditLog[]>([])
 
-const operationMap: Record<string, string> = {
-  REGISTER_GIFT: '注册赠送',
-  GENERATE_ANALYSIS_REPORT: '生成审计报告',
-  GENERATE_ANALYSIS_REPORT_REFUND: '失败返还',
-  ADMIN_ADD: '管理员增加'
-}
-
 function operationLabel(type: string) {
-  return operationMap[type] || type
+  const key = `credits.operations.${type}`
+  const label = t(key)
+  return label === key ? type : label
 }
 
 function amountClass(amount: number) {

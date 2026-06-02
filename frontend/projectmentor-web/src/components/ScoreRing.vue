@@ -1,9 +1,9 @@
 <template>
   <div class="score-ring-card">
-    <div class="score-ring" :style="ringStyle" role="img" :aria-label="`${title} ${normalizedScore} 分`">
+    <div class="score-ring" :style="ringStyle" role="img" :aria-label="t('scoreRing.aria', { title, score: normalizedScore })">
       <div class="score-ring-inner">
         <strong>{{ normalizedScore }}</strong>
-        <span>分</span>
+        <span>{{ t('common.points') }}</span>
       </div>
     </div>
     <div class="score-ring-meta">
@@ -15,11 +15,14 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps<{
   score: number
   title: string
 }>()
+
+const { t } = useI18n()
 
 const normalizedScore = computed(() => {
   if (!Number.isFinite(props.score)) {
@@ -43,14 +46,14 @@ const color = computed(() => {
 
 const gradeText = computed(() => {
   if (normalizedScore.value >= 80) {
-    return '优秀'
+    return t('scoreRing.excellent')
   }
 
   if (normalizedScore.value >= 60) {
-    return '中等'
+    return t('scoreRing.medium')
   }
 
-  return '风险较高'
+  return t('scoreRing.highRisk')
 })
 
 const tagType = computed(() => {

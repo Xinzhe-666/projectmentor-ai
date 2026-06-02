@@ -3,25 +3,25 @@
     <section class="panel">
       <div class="panel-title">
         <div>
-          <h2>AI 幻觉检测</h2>
-          <p class="muted">输入 AI 对项目的描述，检查夸大、缺证据和简历风险。</p>
+          <h2>{{ t('hallucination.title') }}</h2>
+          <p class="muted">{{ t('hallucination.desc') }}</p>
         </div>
       </div>
       <div class="panel-body">
         <el-form :model="form" label-width="110px">
-          <el-form-item label="项目 ID">
-            <el-input v-model="form.projectId" placeholder="可选，传入后会结合项目文件证据" />
+          <el-form-item :label="t('hallucination.projectId')">
+            <el-input v-model="form.projectId" :placeholder="t('hallucination.projectPlaceholder')" />
           </el-form-item>
-          <el-form-item label="AI 回答" required>
+          <el-form-item :label="t('hallucination.aiAnswer')" required>
             <el-input
               v-model="form.aiAnswer"
               type="textarea"
               :rows="9"
-              placeholder="粘贴 AI 生成的项目描述、简历项目经历或面试包装文案"
+              :placeholder="t('hallucination.answerPlaceholder')"
             />
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" :loading="loading" @click="handleCheck">开始检测</el-button>
+            <el-button type="primary" :loading="loading" @click="handleCheck">{{ t('hallucination.start') }}</el-button>
           </el-form-item>
         </el-form>
       </div>
@@ -30,38 +30,38 @@
     <section v-if="result" class="panel">
       <div class="panel-title">
         <div>
-          <h3>检测结果</h3>
-          <p class="muted">风险等级：{{ result.riskLevel }}</p>
+          <h3>{{ t('hallucination.result') }}</h3>
+          <p class="muted">{{ t('hallucination.riskLevel', { level: result.riskLevel }) }}</p>
         </div>
         <el-tag :class="riskLevelClass(result.riskLevel)" effect="light">{{ result.riskLevel }}</el-tag>
       </div>
       <div class="panel-body page-stack">
         <div class="ring-grid">
-          <ScoreRing :score="result.credibilityScore" title="可信度" />
-          <ScoreRing :score="result.objectivityScore" title="客观度" />
+          <ScoreRing :score="result.credibilityScore" :title="t('hallucination.credibility')" />
+          <ScoreRing :score="result.objectivityScore" :title="t('hallucination.objectivity')" />
         </div>
 
         <div class="flag-grid">
           <div class="metric-card">
-            <span>过度鼓励风险</span>
-            <strong>{{ result.overEncouragementRisk ? '有' : '无' }}</strong>
+            <span>{{ t('hallucination.overEncouragement') }}</span>
+            <strong>{{ result.overEncouragementRisk ? t('common.yes') : t('common.none') }}</strong>
           </div>
           <div class="metric-card">
-            <span>缺少证据风险</span>
-            <strong>{{ result.missingEvidenceRisk ? '有' : '无' }}</strong>
+            <span>{{ t('hallucination.missingEvidence') }}</span>
+            <strong>{{ result.missingEvidenceRisk ? t('common.yes') : t('common.none') }}</strong>
           </div>
           <div class="metric-card">
-            <span>简历风险</span>
-            <strong>{{ result.resumeRisk ? '有' : '无' }}</strong>
+            <span>{{ t('hallucination.resumeRisk') }}</span>
+            <strong>{{ result.resumeRisk ? t('common.yes') : t('common.none') }}</strong>
           </div>
           <div class="metric-card">
-            <span>问题数</span>
+            <span>{{ t('hallucination.issueCount') }}</span>
             <strong>{{ result.issueCount }}</strong>
           </div>
         </div>
 
         <div>
-          <h3 class="sub-title">风险问题</h3>
+          <h3 class="sub-title">{{ t('hallucination.riskIssues') }}</h3>
           <div v-if="result.issues.length" class="issue-list">
             <article v-for="(issue, index) in result.issues" :key="`${issue.issueType}-${index}`" class="issue-card">
               <div class="issue-head">
@@ -70,15 +70,15 @@
               </div>
               <p v-if="issue.matchedText" class="matched-text">{{ issue.matchedText }}</p>
               <p>{{ issue.message }}</p>
-              <p v-if="issue.evidence" class="muted">证据：{{ issue.evidence }}</p>
-              <p v-if="issue.suggestion" class="muted">建议：{{ issue.suggestion }}</p>
+              <p v-if="issue.evidence" class="muted">{{ t('hallucination.evidence') }}：{{ issue.evidence }}</p>
+              <p v-if="issue.suggestion" class="muted">{{ t('hallucination.suggestion') }}：{{ issue.suggestion }}</p>
             </article>
           </div>
-          <EmptyState v-else title="暂无结构化风险" description="当前回答没有返回具体风险问题。" />
+          <EmptyState v-else :title="t('hallucination.noIssuesTitle')" :description="t('hallucination.noIssuesDesc')" />
         </div>
 
         <div>
-          <h3 class="sub-title">不安全简历表述</h3>
+          <h3 class="sub-title">{{ t('hallucination.unsafeTitle') }}</h3>
           <template v-if="result.unsafeResumeStatements.length">
             <el-tag
               v-for="statement in result.unsafeResumeStatements"
@@ -90,11 +90,11 @@
               {{ statement }}
             </el-tag>
           </template>
-          <EmptyState v-else title="暂无不安全表述" description="当前结果没有标记需要规避的简历表述。" />
+          <EmptyState v-else :title="t('hallucination.noUnsafeTitle')" :description="t('hallucination.noUnsafeDesc')" />
         </div>
 
         <div>
-          <h3 class="sub-title">更稳妥改写</h3>
+          <h3 class="sub-title">{{ t('hallucination.rewriteTitle') }}</h3>
           <MarkdownBlock :content="result.saferRewrite" />
         </div>
       </div>
@@ -104,6 +104,7 @@
 
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 
 import { checkHallucination } from '@/api/hallucination'
@@ -113,6 +114,7 @@ import ScoreRing from '@/components/ScoreRing.vue'
 import type { HallucinationCheckResult } from '@/types/api'
 
 const loading = ref(false)
+const { t } = useI18n()
 const result = ref<HallucinationCheckResult>()
 const form = reactive({
   projectId: '',
@@ -131,7 +133,7 @@ function riskLevelClass(level?: string) {
 
 async function handleCheck() {
   if (!form.aiAnswer.trim()) {
-    ElMessage.warning('请输入 AI 回答内容')
+    ElMessage.warning(t('hallucination.answerRequired'))
     return
   }
 

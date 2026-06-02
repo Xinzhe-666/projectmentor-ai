@@ -6,10 +6,11 @@
         <strong>ProjectMentor AI</strong>
       </RouterLink>
       <div class="nav-actions">
-        <el-button text :icon="Message" @click="feedbackVisible = true">反馈建议</el-button>
-        <el-button text :icon="Coffee" @click="donateVisible = true">请作者喝咖啡</el-button>
-        <el-button text @click="router.push('/login')">登录</el-button>
-        <el-button type="primary" :icon="ArrowRight" @click="goStart">立即开始</el-button>
+        <LanguageSwitch />
+        <el-button text :icon="Message" @click="feedbackVisible = true">{{ t('common.feedback') }}</el-button>
+        <el-button text :icon="Coffee" @click="donateVisible = true">{{ t('common.donate') }}</el-button>
+        <el-button text @click="router.push('/login')">{{ t('common.login') }}</el-button>
+        <el-button type="primary" :icon="ArrowRight" @click="goStart">{{ t('common.startNow') }}</el-button>
       </div>
     </nav>
 
@@ -17,24 +18,30 @@
       <img class="hero-image" src="@/assets/landing-hero.png" alt="ProjectMentor AI 项目审计工作台" />
       <div class="hero-overlay" />
       <div class="hero-content">
-        <p class="eyebrow">项目真实性审计 · 简历优化 · 面试深挖</p>
+        <p class="eyebrow">{{ t('landing.heroEyebrow') }}</p>
         <h1>ProjectMentor AI</h1>
         <p class="hero-subtitle">
-          面向计算机学生、后端实习候选人和 AI 辅助项目开发者的项目真实性审计、简历优化与面试深挖工具。
+          {{ t('landing.subtitle') }}
         </p>
+        <div class="hero-proof-row">
+          <span>{{ t('landing.capabilities.audit') }}</span>
+          <span>{{ t('landing.capabilities.qa') }}</span>
+          <span>{{ t('landing.capabilities.interview') }}</span>
+          <span>{{ t('landing.capabilities.share') }}</span>
+        </div>
         <div class="hero-actions">
-          <el-button size="large" type="primary" :icon="ArrowRight" @click="goStart">立即开始</el-button>
-          <el-button size="large" :icon="Message" @click="feedbackVisible = true">反馈建议</el-button>
-          <el-button size="large" :icon="Coffee" @click="donateVisible = true">请作者喝咖啡</el-button>
+          <el-button size="large" type="primary" :icon="ArrowRight" @click="goStart">{{ t('common.startNow') }}</el-button>
+          <el-button size="large" :icon="Message" @click="feedbackVisible = true">{{ t('common.feedback') }}</el-button>
+          <el-button size="large" :icon="Coffee" @click="donateVisible = true">{{ t('common.donate') }}</el-button>
         </div>
 
         <el-alert
           class="trial-alert"
-          title="试用提示"
+          :title="t('landing.trialTitle')"
           type="warning"
           show-icon
           :closable="false"
-          description="请勿上传真实商业机密、真实密钥或公司内部代码。ProjectMentor AI 会基于你提供的 README 和项目文件生成辅助分析，结论仅供学习、项目复盘和面试准备参考。"
+          :description="t('landing.trialDesc')"
         />
       </div>
     </section>
@@ -42,10 +49,10 @@
     <main class="landing-content">
       <section class="section-block product-position">
         <div class="section-heading">
-          <p class="eyebrow">What it helps</p>
-          <h2>把项目讲清楚，而不是把项目包装满</h2>
+          <p class="eyebrow">{{ t('landing.positionEyebrow') }}</p>
+          <h2>{{ t('landing.positionTitle') }}</h2>
           <p>
-            ProjectMentor AI 会把 README、简历描述和项目文件放到同一张证据表里，帮你判断哪些内容能写、哪些表述需要降级、哪些细节需要补课。
+            {{ t('landing.positionDesc') }}
           </p>
         </div>
         <div class="position-list">
@@ -58,11 +65,11 @@
 
       <section class="section-block">
         <div class="section-heading">
-          <p class="eyebrow">For whom</p>
-          <h2>适合这些场景</h2>
+          <p class="eyebrow">{{ t('landing.audienceEyebrow') }}</p>
+          <h2>{{ t('landing.audienceTitle') }}</h2>
         </div>
         <div class="card-grid audience-grid">
-          <article v-for="audience in audiences" :key="audience.title" class="info-card">
+          <article v-for="(audience, index) in audiences" :key="audience.title" class="info-card stagger-item" :style="{ '--stagger-index': index }">
             <el-icon :size="24">
               <component :is="audience.icon" />
             </el-icon>
@@ -74,11 +81,11 @@
 
       <section class="section-block">
         <div class="section-heading">
-          <p class="eyebrow">Workflow</p>
-          <h2>核心流程</h2>
+          <p class="eyebrow">{{ t('landing.workflowEyebrow') }}</p>
+          <h2>{{ t('landing.workflowTitle') }}</h2>
         </div>
         <div class="flow-grid">
-          <article v-for="(step, index) in workflow" :key="step.title" class="flow-card">
+          <article v-for="(step, index) in workflow" :key="step.title" class="flow-card stagger-item" :style="{ '--stagger-index': index }">
             <span class="flow-index">{{ index + 1 }}</span>
             <el-icon :size="24">
               <component :is="step.icon" />
@@ -91,8 +98,8 @@
 
       <section class="section-block capability-section">
         <div class="section-heading">
-          <p class="eyebrow">Trial capabilities</p>
-          <h2>当前试用能力</h2>
+          <p class="eyebrow">{{ t('landing.capabilityEyebrow') }}</p>
+          <h2>{{ t('landing.capabilityTitle') }}</h2>
         </div>
         <div class="capability-grid">
           <div v-for="capability in capabilities" :key="capability" class="capability-pill">
@@ -104,9 +111,9 @@
 
       <section class="section-block boundary-section">
         <div class="section-heading">
-          <p class="eyebrow">Trial boundary</p>
-          <h2>试用版边界</h2>
-          <p>它适合做学习复盘和面试准备辅助，不适合替代你对代码与项目事实的最终判断。</p>
+          <p class="eyebrow">{{ t('landing.boundaryEyebrow') }}</p>
+          <h2>{{ t('landing.boundaryTitle') }}</h2>
+          <p>{{ t('landing.boundaryDesc') }}</p>
         </div>
         <div class="boundary-list">
           <div v-for="boundary in boundaries" :key="boundary" class="boundary-item">
@@ -123,8 +130,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import {
   ArrowRight,
   ChatDotRound,
@@ -146,92 +154,94 @@ import {
 
 import DonateDialog from '@/components/DonateDialog.vue'
 import FeedbackDialog from '@/components/FeedbackDialog.vue'
+import LanguageSwitch from '@/components/LanguageSwitch.vue'
 import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
+const { t } = useI18n()
 const userStore = useUserStore()
 const donateVisible = ref(false)
 const feedbackVisible = ref(false)
 
-const positionPoints = [
-  '帮你判断项目能不能写进简历',
-  '帮你发现 README / 简历中的过度包装',
-  '帮你基于代码证据准备面试追问',
-  '帮你识别 AI 生成内容里的虚假夸大',
-  '帮你把 AI 生成的项目逐步讲成自己真正理解的项目'
-]
+const positionPoints = computed(() => [
+  t('landing.positionPoints.resume'),
+  t('landing.positionPoints.overclaim'),
+  t('landing.positionPoints.evidence'),
+  t('landing.positionPoints.hallucination'),
+  t('landing.positionPoints.ownership')
+])
 
-const audiences = [
+const audiences = computed(() => [
   {
-    title: '准备后端实习的学生',
-    description: '提前看清项目亮点、风险点和可能被追问的实现细节。',
+    title: t('landing.audiences.intern.title'),
+    description: t('landing.audiences.intern.description'),
     icon: UserFilled
   },
   {
-    title: '使用 AI 做项目但担心不会讲的人',
-    description: '把生成出来的功能拆回证据链，补齐自己真正理解的部分。',
+    title: t('landing.audiences.aiBuilder.title'),
+    description: t('landing.audiences.aiBuilder.description'),
     icon: MagicStick
   },
   {
-    title: '想优化 README / 简历项目描述的人',
-    description: '把夸大的表达改成更可信、更可追问的项目说明。',
+    title: t('landing.audiences.resume.title'),
+    description: t('landing.audiences.resume.description'),
     icon: EditPen
   },
   {
-    title: '想提前模拟项目深挖面试的人',
-    description: '围绕技术选型、实现路径和项目边界持续追问。',
+    title: t('landing.audiences.interview.title'),
+    description: t('landing.audiences.interview.description'),
     icon: ChatDotRound
   },
   {
-    title: '想检查项目证据不足的人',
-    description: '识别硬编码密钥、夸大表述、缺少文件或配置支撑的风险。',
+    title: t('landing.audiences.evidence.title'),
+    description: t('landing.audiences.evidence.description'),
     icon: Warning
   }
-]
+])
 
-const workflow = [
+const workflow = computed(() => [
   {
-    title: '创建项目',
-    description: '录入项目名称、技术栈和基础描述。',
+    title: t('landing.workflow.create.title'),
+    description: t('landing.workflow.create.description'),
     icon: FolderAdd
   },
   {
-    title: '粘贴 README 或上传 ZIP',
-    description: '补充项目材料，让系统提取可验证的文本证据。',
+    title: t('landing.workflow.upload.title'),
+    description: t('landing.workflow.upload.description'),
     icon: UploadFilled
   },
   {
-    title: '生成审计报告',
-    description: '查看评分、风险、证据链和简历写法建议。',
+    title: t('landing.workflow.report.title'),
+    description: t('landing.workflow.report.description'),
     icon: DocumentChecked
   },
   {
-    title: '复盘证据链与追问',
-    description: '围绕简历描述、项目事实和面试问题继续打磨。',
+    title: t('landing.workflow.review.title'),
+    description: t('landing.workflow.review.description'),
     icon: Search
   }
-]
+])
 
-const capabilities = [
-  '项目审计',
-  'ZIP 上传与证据解析',
-  'AI 增强报告',
-  'AI 幻觉检测',
-  '模拟面试',
-  '打印 / 浏览器另存为 PDF',
-  '只读分享报告',
-  '项目证据链展示',
-  '简历描述建议'
-]
+const capabilities = computed(() => [
+  t('landing.capabilities.audit'),
+  t('landing.capabilities.scan'),
+  t('landing.capabilities.evidenceReview'),
+  t('landing.capabilities.qa'),
+  t('landing.capabilities.interview'),
+  t('landing.capabilities.share'),
+  t('landing.capabilities.hallucination'),
+  t('landing.capabilities.zip'),
+  t('landing.capabilities.resume')
+])
 
-const boundaries = [
-  '本工具不是自动保证简历真实的工具',
-  'AI 结论仅供学习和面试准备参考',
-  '不建议上传商业机密、真实公司代码、真实密钥',
-  '大 ZIP 上传可能较慢',
-  '项目仍处于试用迭代阶段',
-  '审计结果不代表绝对正确，需要用户结合代码自行判断'
-]
+const boundaries = computed(() => [
+  t('landing.boundaries.notGuarantee'),
+  t('landing.boundaries.reference'),
+  t('landing.boundaries.noSecrets'),
+  t('landing.boundaries.slowUpload'),
+  t('landing.boundaries.beta'),
+  t('landing.boundaries.verify')
+])
 
 function goStart() {
   router.push(userStore.isLoggedIn ? '/dashboard' : '/register')
@@ -241,7 +251,11 @@ function goStart() {
 <style scoped>
 .landing-page {
   min-height: 100vh;
-  background: #f6f8fb;
+  background:
+    linear-gradient(135deg, rgba(31, 111, 235, 0.08), transparent 34%),
+    linear-gradient(225deg, rgba(20, 184, 166, 0.1), transparent 38%),
+    #f6f8fb;
+  animation: pageFadeIn 420ms ease both;
 }
 
 .landing-nav {
@@ -255,9 +269,10 @@ function goStart() {
   justify-content: space-between;
   gap: 18px;
   padding: 16px clamp(18px, 5vw, 72px);
-  background: rgba(255, 255, 255, 0.86);
-  backdrop-filter: blur(16px);
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(18px);
   border-bottom: 1px solid rgba(223, 230, 240, 0.72);
+  box-shadow: 0 10px 30px rgba(28, 43, 68, 0.05);
 }
 
 .landing-brand {
@@ -280,16 +295,21 @@ function goStart() {
 }
 
 .nav-actions {
+  align-items: center;
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
   justify-content: flex-end;
 }
 
+.nav-actions :deep(.language-switch) {
+  margin-right: 4px;
+}
+
 .landing-hero {
   position: relative;
-  min-height: 84vh;
-  padding: 148px clamp(18px, 5vw, 72px) 96px;
+  min-height: 82vh;
+  padding: 152px clamp(18px, 5vw, 72px) 104px;
   overflow: hidden;
 }
 
@@ -306,13 +326,24 @@ function goStart() {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(90deg, rgba(246, 248, 251, 0.98) 0%, rgba(246, 248, 251, 0.9) 40%, rgba(246, 248, 251, 0.28) 74%),
-    linear-gradient(180deg, rgba(246, 248, 251, 0.16), rgba(246, 248, 251, 0.98));
+    linear-gradient(118deg, rgba(248, 251, 255, 0.99) 0%, rgba(248, 251, 255, 0.93) 39%, rgba(248, 251, 255, 0.58) 64%, rgba(248, 251, 255, 0.32) 100%),
+    linear-gradient(180deg, rgba(248, 251, 255, 0.1), rgba(248, 251, 255, 0.98));
+}
+
+.hero-overlay::after {
+  position: absolute;
+  inset: -24%;
+  background:
+    linear-gradient(115deg, transparent 0%, rgba(31, 111, 235, 0.08) 26%, transparent 50%),
+    linear-gradient(295deg, transparent 8%, rgba(20, 184, 166, 0.1) 42%, transparent 68%);
+  animation: ambientDrift 16s ease-in-out infinite alternate;
+  content: "";
 }
 
 .hero-content {
   position: relative;
   max-width: 760px;
+  animation: contentRise 520ms ease both;
 }
 
 .hero-content h1 {
@@ -332,6 +363,25 @@ function goStart() {
   line-height: 1.75;
 }
 
+.hero-proof-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.hero-proof-row span {
+  padding: 8px 12px;
+  border: 1px solid rgba(31, 111, 235, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.68);
+  color: #245089;
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: 0 8px 22px rgba(31, 111, 235, 0.08);
+  backdrop-filter: blur(12px);
+}
+
 .hero-actions {
   display: flex;
   gap: 12px;
@@ -343,6 +393,7 @@ function goStart() {
   max-width: 720px;
   margin-top: 24px;
   border-radius: 8px;
+  box-shadow: 0 16px 40px rgba(245, 158, 11, 0.1);
 }
 
 .landing-content {
@@ -357,8 +408,11 @@ function goStart() {
   padding: 26px;
   border: 1px solid rgba(223, 230, 240, 0.92);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.94);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 255, 0.88)),
+    rgba(255, 255, 255, 0.92);
   box-shadow: 0 16px 40px rgba(28, 43, 68, 0.08);
+  backdrop-filter: blur(18px);
 }
 
 .product-position {
@@ -426,7 +480,19 @@ function goStart() {
   padding: 18px;
   border: 1px solid rgba(223, 230, 240, 0.92);
   border-radius: 8px;
-  background: #fbfdff;
+  background: rgba(255, 255, 255, 0.74);
+  box-shadow: 0 14px 30px rgba(28, 43, 68, 0.06);
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.info-card:hover,
+.flow-card:hover {
+  border-color: rgba(31, 111, 235, 0.24);
+  box-shadow: 0 18px 38px rgba(31, 111, 235, 0.11);
+  transform: translateY(-3px);
 }
 
 .info-card :deep(.el-icon),
@@ -485,8 +551,18 @@ function goStart() {
   padding: 11px 14px;
   border: 1px solid rgba(20, 184, 166, 0.22);
   border-radius: 8px;
-  background: #f0fbf9;
+  background: linear-gradient(135deg, rgba(240, 251, 249, 0.98), rgba(255, 255, 255, 0.82));
   color: #344054;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.capability-pill:hover {
+  border-color: rgba(20, 184, 166, 0.34);
+  box-shadow: 0 14px 30px rgba(20, 184, 166, 0.1);
+  transform: translateY(-2px);
 }
 
 .boundary-section {
@@ -538,6 +614,7 @@ function goStart() {
 
   .nav-actions {
     justify-content: flex-start;
+    width: 100%;
   }
 
   .landing-hero {

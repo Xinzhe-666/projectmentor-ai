@@ -2,8 +2,8 @@
   <div class="task-progress">
     <div class="task-progress-head">
       <div>
-        <p class="eyebrow">Analysis Task</p>
-        <h3>{{ task?.status || '未开始' }}</h3>
+        <p class="eyebrow">{{ t('task.eyebrow') }}</p>
+        <h3>{{ task?.status || t('task.notStarted') }}</h3>
       </div>
       <el-tag :type="statusType" effect="light">{{ statusText }}</el-tag>
     </div>
@@ -26,7 +26,7 @@
     />
     <el-alert
       v-if="task?.reportId"
-      :title="`报告已生成：#${task.reportId}`"
+      :title="t('task.reportGenerated', { id: task.reportId })"
       type="success"
       show-icon
       :closable="false"
@@ -36,12 +36,15 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import type { AnalysisTask } from '@/types/api'
 
 const props = defineProps<{
   task?: AnalysisTask | null
 }>()
+
+const { t } = useI18n()
 
 const progress = computed(() => {
   const value = props.task?.progress ?? 0
@@ -50,13 +53,13 @@ const progress = computed(() => {
 
 const statusText = computed(() => {
   const statusMap: Record<string, string> = {
-    PENDING: '排队中',
-    RUNNING: '分析中',
-    SUCCESS: '已完成',
-    FAILED: '失败'
+    PENDING: t('status.pending'),
+    RUNNING: t('status.running'),
+    SUCCESS: t('status.success'),
+    FAILED: t('status.failed')
   }
 
-  return statusMap[props.task?.status || ''] || '等待任务'
+  return statusMap[props.task?.status || ''] || t('status.waiting')
 })
 
 const statusType = computed(() => {

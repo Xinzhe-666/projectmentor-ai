@@ -3,37 +3,37 @@
     <section class="panel report-cover">
       <div class="panel-body report-hero">
         <div class="report-identity">
-          <p class="eyebrow">ProjectMentor AI Audit Report</p>
+          <p class="eyebrow">{{ t('report.eyebrow') }}</p>
           <h1>{{ reportProjectName }}</h1>
           <div class="report-meta-grid">
             <span>
-              报告编号
+              {{ t('common.reportId') }}
               <strong>#{{ report?.id || reportId }}</strong>
             </span>
             <span>
-              项目编号
+              {{ t('common.projectId') }}
               <strong>#{{ report?.projectId || '-' }}</strong>
             </span>
             <span>
-              技术栈
+              {{ t('common.techStack') }}
               <strong>{{ reportTechStack }}</strong>
             </span>
             <span>
-              生成时间
+              {{ t('common.createTime') }}
               <strong>{{ report?.createTime || '-' }}</strong>
             </span>
           </div>
           <p class="report-notice">
-            基于规则扫描与 AI 增强生成，仅供项目复盘和面试准备参考。
+            {{ t('report.notice') }}
           </p>
         </div>
         <div class="report-score-card">
-          <ScoreRing :score="report?.totalScore ?? 0" title="总分" />
+          <ScoreRing :score="report?.totalScore ?? 0" :title="t('common.totalScore')" />
         </div>
       </div>
       <div class="report-actions no-print">
         <el-button class="report-print-button" type="primary" :icon="Printer" @click="handlePrint">
-          打印 / 浏览器另存为 PDF
+          {{ t('common.printPdf') }}
         </el-button>
         <el-button
           :type="shareInfo?.enabled ? 'default' : 'primary'"
@@ -41,14 +41,14 @@
           :loading="shareLoading"
           @click="handleCreateShare"
         >
-          {{ shareInfo?.enabled ? '刷新分享链接' : '生成分享链接' }}
+          {{ shareInfo?.enabled ? t('report.refreshShare') : t('report.createShare') }}
         </el-button>
         <el-button
           v-if="shareInfo?.enabled && fullShareUrl"
           :icon="CopyDocument"
           @click="handleCopyShare"
         >
-          复制分享链接
+          {{ t('report.copyShare') }}
         </el-button>
         <el-button
           v-if="shareInfo?.enabled"
@@ -58,7 +58,7 @@
           :loading="shareLoading"
           @click="handleDisableShare"
         >
-          关闭分享
+          {{ t('report.disableShare') }}
         </el-button>
       </div>
     </section>
@@ -66,26 +66,26 @@
     <section class="panel">
       <div class="panel-title">
         <div>
-          <h3>报告摘要</h3>
-          <p class="muted">先看整体判断，再进入风险点、证据链和简历表达建议。</p>
+          <h3>{{ t('report.summaryTitle') }}</h3>
+          <p class="muted">{{ t('report.summaryDesc') }}</p>
         </div>
       </div>
       <div class="panel-body">
-        <p class="report-summary-text">{{ report?.summary || '报告摘要生成中' }}</p>
+        <p class="report-summary-text">{{ report?.summary || t('report.summaryLoading') }}</p>
       </div>
     </section>
 
     <section v-if="shareInfo?.enabled && fullShareUrl" class="panel no-print">
       <div class="panel-title">
         <div>
-          <h3>只读分享链接</h3>
-          <p class="muted">公开访问仅展示脱敏后的报告内容，不包含用户信息、额度流水、AI 调用日志或项目源码。</p>
+          <h3>{{ t('report.shareTitle') }}</h3>
+          <p class="muted">{{ t('report.shareDesc') }}</p>
         </div>
       </div>
       <div class="panel-body share-link-row">
         <el-input :model-value="fullShareUrl" readonly>
           <template #append>
-            <el-button :icon="CopyDocument" @click="handleCopyShare">复制</el-button>
+            <el-button :icon="CopyDocument" @click="handleCopyShare">{{ t('common.copy') }}</el-button>
           </template>
         </el-input>
       </div>
@@ -94,8 +94,8 @@
     <section class="panel">
       <div class="panel-title">
         <div>
-          <h3>评分雷达图</h3>
-          <p class="muted">从可运行性、真实性、结构、README、安全、工程化和面试价值七个维度观察项目。</p>
+          <h3>{{ t('report.radarTitle') }}</h3>
+          <p class="muted">{{ t('report.radarDesc') }}</p>
         </div>
       </div>
       <div class="panel-body">
@@ -111,19 +111,19 @@
 
     <section class="panel">
       <div class="panel-title">
-        <h3>报告内容</h3>
+        <h3>{{ t('report.contentTitle') }}</h3>
       </div>
       <div class="panel-body report-content-grid">
         <article>
-          <h4>优势</h4>
+          <h4>{{ t('report.strengths') }}</h4>
           <MarkdownBlock :content="report?.strengths" />
         </article>
         <article>
-          <h4>短板</h4>
+          <h4>{{ t('report.weaknesses') }}</h4>
           <MarkdownBlock :content="report?.weaknesses" />
         </article>
         <article>
-          <h4>建议</h4>
+          <h4>{{ t('common.suggestions') }}</h4>
           <MarkdownBlock :content="report?.suggestions" />
         </article>
       </div>
@@ -132,8 +132,8 @@
     <section class="panel">
       <div class="panel-title">
         <div>
-          <h3>风险点</h3>
-          <p class="muted">按 HIGH / MEDIUM / LOW 区分优先级，逐条查看风险类型、证据和建议。</p>
+          <h3>{{ t('common.risks') }}</h3>
+          <p class="muted">{{ t('report.risksDesc') }}</p>
         </div>
       </div>
       <div class="panel-body">
@@ -144,8 +144,8 @@
     <section class="panel">
       <div class="panel-title">
         <div>
-          <h3>证据链</h3>
-          <p class="muted">重点关注 sourceFile、evidence 和 suggestion，判断结论来自哪里。</p>
+          <h3>{{ t('common.evidence') }}</h3>
+          <p class="muted">{{ t('report.evidenceDesc') }}</p>
         </div>
       </div>
       <div class="panel-body">
@@ -156,8 +156,8 @@
     <section class="panel">
       <div class="panel-title">
         <div>
-          <h3>简历描述</h3>
-          <p class="muted">三版文案同时展开，便于按岗位和面试准备程度复制调整。</p>
+          <h3>{{ t('report.resumeTitle') }}</h3>
+          <p class="muted">{{ t('report.resumeDesc') }}</p>
         </div>
       </div>
       <div class="panel-body">
@@ -178,6 +178,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { Close, CopyDocument, Link, Printer, Refresh } from '@element-plus/icons-vue'
 
@@ -192,6 +193,7 @@ import ScoreRing from '@/components/ScoreRing.vue'
 import type { AnalysisReport, Project, ReportShare } from '@/types/api'
 
 const route = useRoute()
+const { t } = useI18n()
 const reportId = Number(route.params.id)
 const loading = ref(false)
 const shareLoading = ref(false)
@@ -205,13 +207,13 @@ const reportProjectName = computed(() => {
   }
 
   if (report.value?.projectId) {
-    return `项目 #${report.value.projectId}`
+    return `${t('common.projectId')} #${report.value.projectId}`
   }
 
-  return '项目报告'
+  return t('common.untitledReport')
 })
 
-const reportTechStack = computed(() => project.value?.techStack || '未填写')
+const reportTechStack = computed(() => project.value?.techStack || t('common.notFilled'))
 
 const fullShareUrl = computed(() => {
   const token = shareInfo.value?.shareToken
@@ -234,29 +236,29 @@ const radarScores = computed(() => ({
 }))
 
 const scoreRows = computed(() => [
-  { label: '可运行性', value: report.value?.runnabilityScore },
-  { label: '真实性', value: report.value?.authenticityScore },
-  { label: '结构', value: report.value?.structureScore },
-  { label: 'README', value: report.value?.readmeScore },
-  { label: '安全', value: report.value?.securityScore },
-  { label: '工程化', value: report.value?.engineeringScore },
-  { label: '面试价值', value: report.value?.interviewScore }
+  { label: t('report.scores.runnability'), value: report.value?.runnabilityScore },
+  { label: t('report.scores.authenticity'), value: report.value?.authenticityScore },
+  { label: t('report.scores.structure'), value: report.value?.structureScore },
+  { label: t('report.scores.readme'), value: report.value?.readmeScore },
+  { label: t('report.scores.security'), value: report.value?.securityScore },
+  { label: t('report.scores.engineering'), value: report.value?.engineeringScore },
+  { label: t('report.scores.interview'), value: report.value?.interviewScore }
 ])
 
 const resumeSections = computed(() => [
   {
-    title: '基础版',
-    description: '适合保守描述，先保证可解释。',
+    title: t('report.resumeBasic'),
+    description: t('report.resumeBasicDesc'),
     content: report.value?.resumeBasic
   },
   {
-    title: '标准版',
-    description: '适合简历主体，兼顾亮点和边界。',
+    title: t('report.resumeStandard'),
+    description: t('report.resumeStandardDesc'),
     content: report.value?.resumeStandard
   },
   {
-    title: '进阶版',
-    description: '适合面试延展，强调证据和实现理解。',
+    title: t('report.resumeAdvanced'),
+    description: t('report.resumeAdvancedDesc'),
     content: report.value?.resumeAdvanced
   }
 ])
@@ -266,7 +268,7 @@ function formatScore(value?: number) {
     return '-'
   }
 
-  return `${Math.round(Number(value))} 分`
+  return `${Math.round(Number(value))} ${t('common.points')}`
 }
 
 async function loadReport() {
@@ -302,7 +304,7 @@ async function handleCreateShare() {
 
   try {
     shareInfo.value = await createReportShare(reportId)
-    ElMessage.success(wasEnabled ? '分享链接已刷新' : '分享链接已生成')
+    ElMessage.success(wasEnabled ? t('report.shareRefreshed') : t('report.shareCreated'))
   } finally {
     shareLoading.value = false
   }
@@ -315,11 +317,11 @@ async function handleCopyShare() {
 
   const copied = await copyText(fullShareUrl.value)
   if (copied) {
-    ElMessage.success('分享链接已复制')
+    ElMessage.success(t('report.shareCopied'))
     return
   }
 
-  ElMessage.error('复制失败，请手动选中链接复制')
+  ElMessage.error(t('report.shareCopyFailed'))
 }
 
 async function copyText(text: string) {
@@ -370,14 +372,14 @@ async function handleDisableShare() {
       reportId,
       enabled: false
     }
-    ElMessage.success('分享链接已关闭')
+    ElMessage.success(t('report.shareDisabled'))
   } finally {
     shareLoading.value = false
   }
 }
 
 function handlePrint() {
-  ElMessage.info('将打开浏览器打印窗口。如需保存 PDF，请在打印窗口的目标打印机中选择“另存为 PDF”。')
+  ElMessage.info(t('report.printTip'))
   window.setTimeout(() => window.print(), 100)
 }
 

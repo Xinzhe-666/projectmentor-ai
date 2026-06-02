@@ -1,7 +1,7 @@
 <template>
-  <el-dialog v-model="visible" title="请作者喝咖啡" width="680px" class="donate-dialog" align-center>
+  <el-dialog v-model="visible" :title="t('donate.title')" width="680px" class="donate-dialog" align-center>
     <p class="donate-copy">
-      如果这个工具帮你节省了项目复盘和面试准备时间，可以自愿请作者喝杯咖啡。支持完全自愿，不影响任何功能使用。
+      {{ t('donate.copy') }}
     </p>
 
     <div class="donate-grid">
@@ -10,19 +10,20 @@
         <div class="qr-frame">
           <el-image :src="method.src" :alt="method.title" fit="contain" class="qr-image">
             <template #error>
-              <div class="qr-placeholder">二维码未配置</div>
+              <div class="qr-placeholder">{{ t('donate.qrMissing') }}</div>
             </template>
           </el-image>
         </div>
       </article>
     </div>
 
-    <p class="donate-note">自愿支持，不影响任何功能使用。这里不是正式支付系统，不接入支付接口。</p>
+    <p class="donate-note">{{ t('donate.note') }}</p>
   </el-dialog>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps<{
   modelValue: boolean
@@ -37,18 +38,20 @@ const visible = computed({
   set: (value: boolean) => emit('update:modelValue', value)
 })
 
-const donateMethods = [
+const { t } = useI18n()
+
+const donateMethods = computed(() => [
   {
     key: 'wechat',
-    title: '微信',
+    title: t('donate.wechat'),
     src: '/donate/wechat.png'
   },
   {
     key: 'alipay',
-    title: '支付宝',
+    title: t('donate.alipay'),
     src: '/donate/alipay.png'
   }
-]
+])
 </script>
 
 <style scoped>

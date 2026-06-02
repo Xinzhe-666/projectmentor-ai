@@ -6,14 +6,15 @@
     </div>
 
     <div class="header-actions">
-      <el-button :icon="Message" @click="feedbackVisible = true">反馈</el-button>
-      <el-button :icon="Coffee" @click="donateVisible = true">喝咖啡</el-button>
-      <el-tag effect="light" type="success">剩余额度 {{ userStore.remainingCredits }}</el-tag>
+      <LanguageSwitch />
+      <el-button :icon="Message" @click="feedbackVisible = true">{{ t('common.feedback') }}</el-button>
+      <el-button :icon="Coffee" @click="donateVisible = true">{{ t('common.coffeeShort') }}</el-button>
+      <el-tag effect="light" type="success">{{ t('common.creditsRemaining') }} {{ userStore.remainingCredits }}</el-tag>
       <div class="user-pill">
         <el-avatar :size="32">{{ userInitial }}</el-avatar>
-        <span>{{ userStore.userInfo?.username || '用户' }}</span>
+        <span>{{ userStore.userInfo?.username || t('common.user') }}</span>
       </div>
-      <el-button :icon="SwitchButton" @click="handleLogout">退出登录</el-button>
+      <el-button :icon="SwitchButton" @click="handleLogout">{{ t('common.logout') }}</el-button>
     </div>
   </header>
 
@@ -24,35 +25,38 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { Coffee, Message, SwitchButton } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 import { logout as logoutApi } from '@/api/auth'
 import DonateDialog from '@/components/DonateDialog.vue'
 import FeedbackDialog from '@/components/FeedbackDialog.vue'
+import LanguageSwitch from '@/components/LanguageSwitch.vue'
 import { getMyCredits } from '@/api/credit'
 import { useUserStore } from '@/stores/user'
 
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
 const userStore = useUserStore()
 const donateVisible = ref(false)
 const feedbackVisible = ref(false)
 
 const title = computed(() => {
   const titleMap: Record<string, string> = {
-    dashboard: 'Dashboard',
-    projects: '我的项目',
-    'project-create': '创建项目',
-    'project-detail': '项目详情',
-    'report-detail': '审计报告',
-    hallucination: 'AI 幻觉检测',
-    interview: '模拟面试',
-    credits: '额度中心',
-    admin: '管理员后台'
+    dashboard: t('route.dashboard'),
+    projects: t('route.projects'),
+    'project-create': t('route.projectCreate'),
+    'project-detail': t('route.projectDetail'),
+    'report-detail': t('route.reportDetail'),
+    hallucination: t('route.hallucination'),
+    interview: t('route.interview'),
+    credits: t('route.credits'),
+    admin: t('route.admin')
   }
 
-  return titleMap[String(route.name)] || 'ProjectMentor AI'
+  return titleMap[String(route.name)] || t('common.appName')
 })
 
 const userInitial = computed(() => userStore.userInfo?.username?.slice(0, 1).toUpperCase() || 'U')
@@ -73,7 +77,7 @@ async function handleLogout() {
     // Token 失效时也允许本地退出。
   } finally {
     userStore.logout()
-    ElMessage.success('已退出登录')
+    ElMessage.success(t('header.logoutSuccess'))
     router.push('/login')
   }
 }

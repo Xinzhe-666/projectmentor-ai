@@ -3,17 +3,17 @@
     <section class="panel interview-controls print-hidden">
       <div class="panel-title">
         <div>
-          <h2>模拟面试</h2>
-          <p class="muted">选择项目和模式，让系统围绕项目证据连续追问。</p>
+          <h2>{{ t('interview.title') }}</h2>
+          <p class="muted">{{ t('interview.desc') }}</p>
         </div>
       </div>
       <div class="panel-body">
         <el-form :model="form" label-width="110px">
-          <el-form-item label="项目" required>
+          <el-form-item :label="t('interview.project')" required>
             <el-select
               v-model="form.projectId"
               filterable
-              placeholder="请选择项目"
+              :placeholder="t('interview.projectPlaceholder')"
               :loading="projectLoading"
               class="wide-control"
             >
@@ -25,19 +25,19 @@
               />
             </el-select>
           </el-form-item>
-          <el-form-item label="模式">
+          <el-form-item :label="t('interview.mode')">
             <el-select v-model="form.mode" class="wide-control">
-              <el-option label="HR 真实性" value="HR_REALITY" />
-              <el-option label="技术深挖" value="TECH_DEEP_DIVE" />
-              <el-option label="压力面试" value="PRESSURE" />
-              <el-option label="Java 后端" value="JAVA_BACKEND" />
-              <el-option label="AI 项目" value="AI_PROJECT" />
+              <el-option :label="t('interview.modes.HR_REALITY')" value="HR_REALITY" />
+              <el-option :label="t('interview.modes.TECH_DEEP_DIVE')" value="TECH_DEEP_DIVE" />
+              <el-option :label="t('interview.modes.PRESSURE')" value="PRESSURE" />
+              <el-option :label="t('interview.modes.JAVA_BACKEND')" value="JAVA_BACKEND" />
+              <el-option :label="t('interview.modes.AI_PROJECT')" value="AI_PROJECT" />
             </el-select>
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" :loading="starting" @click="handleStart">开始面试</el-button>
+            <el-button type="primary" :loading="starting" @click="handleStart">{{ t('interview.start') }}</el-button>
             <el-button :disabled="!session || session.status === 'FINISHED'" :loading="finishing" @click="handleFinish">
-              结束面试
+              {{ t('interview.finish') }}
             </el-button>
           </el-form-item>
         </el-form>
@@ -47,14 +47,14 @@
     <section v-if="session" class="panel">
       <div class="panel-title">
         <div>
-          <h3>{{ session.projectName || `项目 ${session.projectId}` }}</h3>
-          <p class="muted">模式：{{ modeLabel(session.mode) }} · 状态：{{ session.status }}</p>
+          <h3>{{ session.projectName || `${t('common.projectId')} ${session.projectId}` }}</h3>
+          <p class="muted">{{ t('interview.modeStatus', { mode: modeLabel(session.mode), status: session.status }) }}</p>
         </div>
         <div class="interview-title-actions">
           <el-tag v-if="session.totalScore !== undefined" type="success" effect="light">
-            总分 {{ session.totalScore }}
+            {{ t('interview.totalScore', { score: session.totalScore }) }}
           </el-tag>
-          <el-button :icon="Printer" class="print-hidden" @click="handlePrint">打印 / 浏览器另存为 PDF</el-button>
+          <el-button :icon="Printer" class="print-hidden" @click="handlePrint">{{ t('common.printPdf') }}</el-button>
         </div>
       </div>
       <div class="panel-body page-stack">
@@ -67,8 +67,8 @@
           >
             <div class="chat-role">{{ roleLabel(message.role) }}</div>
             <div class="message-content">{{ message.content }}</div>
-            <p v-if="message.feedback" class="muted">反馈：{{ message.feedback }}</p>
-            <el-tag v-if="message.score !== undefined" size="small" effect="light">本轮评分 {{ message.score }}</el-tag>
+            <p v-if="message.feedback" class="muted">{{ t('interview.feedback') }}：{{ message.feedback }}</p>
+            <el-tag v-if="message.score !== undefined" size="small" effect="light">{{ t('interview.roundScore', { score: message.score }) }}</el-tag>
           </article>
         </div>
 
@@ -77,7 +77,7 @@
           type="textarea"
           :rows="4"
           :disabled="session.status === 'FINISHED'"
-          placeholder="输入你的回答"
+          :placeholder="t('interview.answerPlaceholder')"
           class="answer-editor print-hidden"
         />
         <div class="toolbar answer-toolbar print-hidden">
@@ -87,18 +87,18 @@
             :disabled="session.status === 'FINISHED'"
             @click="handleSubmitAnswer"
           >
-            提交回答
+            {{ t('interview.submitAnswer') }}
           </el-button>
-          <span class="muted">提交后系统会继续追问或给出本轮反馈。</span>
+          <span class="muted">{{ t('interview.submitHint') }}</span>
         </div>
 
         <section v-if="session.summary || session.totalScore !== undefined" class="interview-summary">
           <div v-if="session.totalScore !== undefined" class="metric-card">
-            <span>面试总分</span>
+            <span>{{ t('interview.interviewScore') }}</span>
             <strong>{{ session.totalScore }}</strong>
           </div>
           <div class="summary-text">
-            <h4>总结</h4>
+            <h4>{{ t('interview.summary') }}</h4>
             <MarkdownBlock :content="session.summary" />
           </div>
         </section>
@@ -107,7 +107,7 @@
 
     <section v-else class="panel">
       <div class="panel-body">
-        <EmptyState title="还没有面试会话" description="选择项目与模式后，点击开始面试进入对话。" />
+        <EmptyState :title="t('interview.emptyTitle')" :description="t('interview.emptyDesc')" />
       </div>
     </section>
   </div>
@@ -115,6 +115,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { Printer } from '@element-plus/icons-vue'
 
@@ -125,6 +126,7 @@ import MarkdownBlock from '@/components/MarkdownBlock.vue'
 import type { InterviewSession, Project } from '@/types/api'
 
 const starting = ref(false)
+const { t } = useI18n()
 const submitting = ref(false)
 const finishing = ref(false)
 const projectLoading = ref(false)
@@ -141,26 +143,16 @@ const form = reactive<{
 
 const messages = computed(() => session.value?.messages || [])
 
-const modeMap: Record<string, string> = {
-  HR_REALITY: 'HR 真实性',
-  TECH_DEEP_DIVE: '技术深挖',
-  PRESSURE: '压力面试',
-  JAVA_BACKEND: 'Java 后端',
-  AI_PROJECT: 'AI 项目'
-}
-
 function modeLabel(mode: string) {
-  return modeMap[mode] || mode
+  const key = `interview.modes.${mode}`
+  const label = t(key)
+  return label === key ? mode : label
 }
 
 function roleLabel(role: string) {
-  const roleMap: Record<string, string> = {
-    INTERVIEWER: '面试官',
-    USER: '你',
-    SYSTEM: '系统'
-  }
-
-  return roleMap[role] || role
+  const key = `interview.roles.${role}`
+  const label = t(key)
+  return label === key ? role : label
 }
 
 function messageClass(role: string) {
@@ -176,7 +168,7 @@ function messageClass(role: string) {
 }
 
 function handlePrint() {
-  ElMessage.info('将打开浏览器打印窗口。如需保存 PDF，请在打印窗口的目标打印机中选择“另存为 PDF”。')
+  ElMessage.info(t('report.printTip'))
   window.setTimeout(() => window.print(), 100)
 }
 
@@ -191,7 +183,7 @@ async function loadProjects() {
 
 async function handleStart() {
   if (!form.projectId) {
-    ElMessage.warning('请选择项目')
+    ElMessage.warning(t('interview.selectProject'))
     return
   }
 
@@ -209,12 +201,12 @@ async function handleStart() {
 
 async function handleSubmitAnswer() {
   if (!session.value) {
-    ElMessage.warning('请先开始面试')
+    ElMessage.warning(t('interview.startFirst'))
     return
   }
 
   if (!answer.value.trim()) {
-    ElMessage.warning('请输入回答')
+    ElMessage.warning(t('interview.answerRequired'))
     return
   }
 
@@ -235,7 +227,7 @@ async function handleFinish() {
   finishing.value = true
   try {
     session.value = await finishInterview(session.value.id)
-    ElMessage.success('面试已结束')
+    ElMessage.success(t('interview.finished'))
   } finally {
     finishing.value = false
   }

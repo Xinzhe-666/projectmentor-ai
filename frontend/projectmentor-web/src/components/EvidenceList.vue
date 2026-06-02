@@ -7,8 +7,8 @@
             {{ normalizedRiskLevel(evidence.riskLevel) }}
           </span>
           <div class="evidence-title">
-            <span>结论</span>
-            <strong>{{ evidence.conclusion || '证据结论' }}</strong>
+            <span>{{ t('components.evidence.conclusion') }}</span>
+            <strong>{{ evidence.conclusion || t('components.evidence.defaultConclusion') }}</strong>
           </div>
         </div>
         <dl class="evidence-fields">
@@ -30,12 +30,13 @@
 
     <pre v-else-if="rawFallback" class="text-block">{{ rawFallback }}</pre>
 
-    <EmptyState v-else title="暂无证据链" description="当前结果没有返回结构化证据信息。" />
+    <EmptyState v-else :title="t('components.evidence.emptyTitle')" :description="t('components.evidence.emptyDesc')" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import EmptyState from '@/components/EmptyState.vue'
 import type { RuleScanEvidence } from '@/types/api'
@@ -46,6 +47,7 @@ const props = defineProps<{
   evidences: EvidenceInput
 }>()
 
+const { t } = useI18n()
 const parsed = computed(() => parseEvidenceInput(props.evidences))
 const items = computed(() => parsed.value.items)
 const rawFallback = computed(() => parsed.value.raw)

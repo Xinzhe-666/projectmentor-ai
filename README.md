@@ -31,6 +31,7 @@ ProjectMentor AI 的定位不是“让 AI 直接打分”，而是先做规则�
 | 面试深挖 | 基础版 | 规则版 V1，支持会话、追问、评分、总结，已支持面试复盘打印 / 另存为 PDF |
 | 额度系统 | 已完成 | 注册赠送额度，报告生成消耗额度，失败返还并记录流水 |
 | 管理员后台 | MVP | V4.3-3 支持只读数据看板、管理员手动发放额度和反馈管理，通过 `ADMIN_EMAILS` 配置管理员邮箱，不引入复杂 RBAC |
+| 国际化与视觉升级 | 已完成 | V4.4-0 支持中文 / English 切换、localStorage 持久化、首页 / 控制台 / 问答 / 后台视觉升级和轻量 CSS 动效 |
 | 首页体验收口 | 已完成 | V4.1-10 增加正式产品说明、试用提示、适合人群、核心流程和能力边界 |
 | 作者支持入口 | 轻量版 | “请作者喝咖啡”仅展示本地二维码，自愿支持，不影响任何功能使用，不是支付系统 |
 | 反馈入口 | 已完成 | 登录用户可站内提交反馈，管理员可筛选和更新反馈状态；保留 GitHub Issues 作为备用入口，不做复杂工单系统 |
@@ -56,7 +57,7 @@ flowchart LR
 | 层级 | 技术 |
 | --- | --- |
 | 后端 | Java 17, Spring Boot 3, MyBatis-Plus, MySQL 8, Redis, JWT, BCrypt, Validation, AOP, `@Async` |
-| 前端 | Vue 3, Vite, TypeScript, Element Plus, Pinia, Vue Router, Axios, ECharts, markdown-it |
+| 前端 | Vue 3, Vite, TypeScript, Element Plus, Pinia, Vue Router, vue-i18n, Axios, ECharts, markdown-it |
 | 部署 | Docker Compose, Nginx, MySQL, Redis |
 | AI | OpenAI-compatible API，可接 DeepSeek / 豆包 / OpenAI 风格接口 |
 
@@ -75,6 +76,8 @@ AI Key 未配置或调用失败时，系统会自动降级为规则版报告。
 - 额度流水可追踪：当前只实现额度账户、消耗、返还和流水记录，尚未接入支付系统。
 - 管理员后台保持克制边界：通过环境变量配置管理员邮箱，可查看统计和最近记录，也可为指定用户增加额度、筛选反馈和更新反馈状态；额度发放必须写入流水，不返回密码、密钥或项目源码内容。
 - 试用边界明确：首页和登录后 Dashboard 均提示不要上传真实商业机密、真实密钥或公司内部代码，AI 结论仅供学习、项目复盘和面试准备参考。
+- V4.4-0 增加基础国际化：前端支持 `zh-CN` 与 `en-US`，语言选择持久化到 localStorage；没有保存值时会根据浏览器语言判断，默认中文。
+- V4.4-0 优化产品视觉：Landing、Dashboard、Project Q&A 和 Admin Dashboard 更接近正式 AI SaaS 产品体验；动效仅使用轻量 CSS，不引入复杂动画依赖。
 
 ## V4.1-10 首页、支持与反馈
 
@@ -140,6 +143,19 @@ V4.3-3 在原轻量反馈入口基础上补齐站内提交和管理员处理闭�
 - 管理员反馈接口位于 `/api/admin/feedback/**`，继续复用 `ADMIN_EMAILS`、`AuthInterceptor` 和 `AdminInterceptor`。
 - 该能力不是复杂工单系统，不做邮件通知、客服聊天、删除反馈或用户数据导出。
 - 已有线上数据库不会自动重放 `init.sql`，需要手动执行 `pm_feedback` 建表 SQL。
+
+## V4.4-0 国际化与产品视觉升级
+
+V4.4-0 聚焦公开测试展示和常见用户路径，不修改数据库结构，不修改后端核心业务逻辑：
+
+- 前端新增 `vue-i18n` 基础国际化能力，支持 `zh-CN` 与 `en-US`。
+- 语言切换入口位于首页右上角、登录后 Header、登录 / 注册页和公开分享页右上角。
+- 语言设置写入 `localStorage`，刷新后保持；没有保存值时优先根据浏览器语言判断。
+- 主要覆盖 Landing、登录、注册、Header、Sidebar、Dashboard、项目列表、创建项目、项目详情、报告详情、公开分享报告、模拟面试、AI 幻觉检测、项目问答、反馈弹窗、赞助弹窗和管理员后台主要区块。
+- Landing 首页强化 Hero、CTA、核心卖点、试用提示和玻璃感功能卡片，更适合中英文公开测试展示。
+- Dashboard 统一欢迎区、统计卡片和功能入口卡片；Project Q&A 强化输入区、快捷问题、证据可信度和证据列表；Admin Dashboard 优化统计卡、额度管理和反馈管理分组。
+- 动效使用 `animations.css` 中的页面渐入、卡片 hover、按钮 hover glow、背景光幕慢速漂移和功能卡片 stagger animation，不新增大型动画库。
+- 当前仍是 Beta 测试版，英文版用于更友好的公开测试展示；AI 输出仍仅供学习、项目复盘和面试准备参考。
 
 ## 项目结构
 

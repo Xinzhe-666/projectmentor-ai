@@ -1,37 +1,37 @@
 <template>
-  <el-dialog v-model="visible" title="反馈建议" width="720px" class="feedback-dialog" align-center>
+  <el-dialog v-model="visible" :title="t('feedback.title')" width="720px" class="feedback-dialog" align-center>
     <el-form class="feedback-form" label-position="top" @submit.prevent>
-      <el-form-item label="反馈类型" required>
+      <el-form-item :label="t('feedback.type')" required>
         <el-select v-model="form.type" class="feedback-select">
           <el-option v-for="option in feedbackTypeOptions" :key="option.value" :label="option.label" :value="option.value" />
         </el-select>
       </el-form-item>
 
-      <el-form-item label="反馈内容" required>
+      <el-form-item :label="t('feedback.content')" required>
         <el-input
           v-model="form.content"
           type="textarea"
           maxlength="2000"
           show-word-limit
           :autosize="{ minRows: 7, maxRows: 13 }"
-          placeholder="请描述你在哪里遇到了什么问题，以及你期望它变成什么样。"
+          :placeholder="t('feedback.placeholder')"
         />
       </el-form-item>
 
-      <el-form-item label="联系方式">
-        <el-input v-model="form.contact" maxlength="255" show-word-limit placeholder="可选，邮箱 / 微信 / 其他方便联系的方式" />
+      <el-form-item :label="t('feedback.contact')">
+        <el-input v-model="form.contact" maxlength="255" show-word-limit :placeholder="t('feedback.contactPlaceholder')" />
       </el-form-item>
 
-      <el-form-item label="来源页面">
+      <el-form-item :label="t('feedback.pageUrl')">
         <el-input v-model="pageUrl" readonly />
       </el-form-item>
     </el-form>
 
     <template #footer>
       <div class="feedback-actions">
-        <el-button :icon="CopyDocument" @click="copyFeedbackTemplate">复制反馈模板</el-button>
-        <el-button :icon="Position" @click="openGithubIssues">前往 GitHub Issues</el-button>
-        <el-button type="primary" :loading="submitting" @click="handleSubmit">提交反馈</el-button>
+        <el-button :icon="CopyDocument" @click="copyFeedbackTemplate">{{ t('feedback.copyTemplate') }}</el-button>
+        <el-button :icon="Position" @click="openGithubIssues">{{ t('feedback.githubIssues') }}</el-button>
+        <el-button type="primary" :loading="submitting" @click="handleSubmit">{{ t('feedback.submit') }}</el-button>
       </div>
     </template>
   </el-dialog>
@@ -39,6 +39,7 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { CopyDocument, Position } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
@@ -61,19 +62,20 @@ const visible = computed({
   set: (value: boolean) => emit('update:modelValue', value)
 })
 
+const { t } = useI18n()
 const userStore = useUserStore()
 const submitting = ref(false)
 const pageUrl = ref('')
 
-const feedbackTypeOptions: Array<{ label: string; value: FeedbackType }> = [
-  { label: '功能 Bug', value: 'BUG' },
-  { label: '体验建议', value: 'UX' },
-  { label: '审计不准确', value: 'AUDIT_INACCURATE' },
-  { label: '问答不准确', value: 'QA_INACCURATE' },
-  { label: '面试问题', value: 'INTERVIEW_QUESTION' },
-  { label: '上传问题', value: 'UPLOAD' },
-  { label: '其他', value: 'OTHER' }
-]
+const feedbackTypeOptions = computed<Array<{ label: string; value: FeedbackType }>>(() => [
+  { label: t('feedback.types.BUG'), value: 'BUG' },
+  { label: t('feedback.types.UX'), value: 'UX' },
+  { label: t('feedback.types.AUDIT_INACCURATE'), value: 'AUDIT_INACCURATE' },
+  { label: t('feedback.types.QA_INACCURATE'), value: 'QA_INACCURATE' },
+  { label: t('feedback.types.INTERVIEW_QUESTION'), value: 'INTERVIEW_QUESTION' },
+  { label: t('feedback.types.UPLOAD'), value: 'UPLOAD' },
+  { label: t('feedback.types.OTHER'), value: 'OTHER' }
+])
 
 const form = reactive({
   type: 'BUG' as FeedbackType,
@@ -82,26 +84,26 @@ const form = reactive({
 })
 
 const feedbackTypeLabel = computed(() => {
-  return feedbackTypeOptions.find((option) => option.value === form.type)?.label || form.type
+  return feedbackTypeOptions.value.find((option) => option.value === form.type)?.label || form.type
 })
 
-const feedbackTemplate = computed(() => `【问题类型】
+const feedbackTemplate = computed(() => `${t('feedback.template.type')}
 ${feedbackTypeLabel.value}
 
-【我遇到的问题】
-${form.content.trim() || '请描述你在哪里遇到了什么问题。'}
+${t('feedback.template.issue')}
+${form.content.trim() || t('feedback.template.issuePlaceholder')}
 
-【期望效果】
-你希望它变成什么样？
+${t('feedback.template.expectation')}
+${t('feedback.template.expectationPlaceholder')}
 
-【联系方式】
-${form.contact.trim() || '可选'}
+${t('feedback.template.contact')}
+${form.contact.trim() || t('feedback.template.contactPlaceholder')}
 
-【来源页面】
-${pageUrl.value || '未记录'}
+${t('feedback.template.page')}
+${pageUrl.value || t('feedback.template.pagePlaceholder')}
 
-【补充信息】
-浏览器、项目类型、是否上传 ZIP、是否开启 AI。`)
+${t('feedback.template.extra')}
+${t('feedback.template.extraPlaceholder')}`)
 
 watch(
   () => props.modelValue,
@@ -138,7 +140,7 @@ async function copyFeedbackTemplate() {
   try {
     if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(text)
-      ElMessage.success('反馈模板已复制')
+      ElMessage.success(t('feedback.templateCopied'))
       return
     }
   } catch {
@@ -146,11 +148,11 @@ async function copyFeedbackTemplate() {
   }
 
   if (fallbackCopy(text)) {
-    ElMessage.success('反馈模板已复制')
+    ElMessage.success(t('feedback.templateCopied'))
     return
   }
 
-  ElMessage.warning('复制失败，请手动复制文本框内容')
+  ElMessage.warning(t('feedback.copyFailed'))
 }
 
 function openGithubIssues() {
@@ -159,13 +161,13 @@ function openGithubIssues() {
 
 async function handleSubmit() {
   if (!userStore.isLoggedIn) {
-    ElMessage.warning('请先登录后提交反馈')
+    ElMessage.warning(t('feedback.needLogin'))
     return
   }
 
   const content = form.content.trim()
   if (content.length < 5) {
-    ElMessage.warning('反馈内容至少需要 5 个字符')
+    ElMessage.warning(t('feedback.minContent'))
     return
   }
 
@@ -177,14 +179,14 @@ async function handleSubmit() {
       contact: form.contact.trim() || undefined,
       pageUrl: pageUrl.value || window.location.href
     })
-    ElMessage.success('反馈已提交，感谢你的帮助！')
+    ElMessage.success(t('feedback.submitted'))
     form.type = 'BUG'
     form.content = ''
     form.contact = ''
     visible.value = false
   } catch {
     if (!userStore.isLoggedIn) {
-      ElMessage.warning('请先登录后提交反馈')
+      ElMessage.warning(t('feedback.needLogin'))
     }
   } finally {
     submitting.value = false

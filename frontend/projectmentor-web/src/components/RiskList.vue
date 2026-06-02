@@ -7,26 +7,26 @@
             {{ normalizedRiskLevel(risk.riskLevel) }}
           </span>
           <div class="risk-title">
-            <span>风险类型</span>
-            <strong>{{ risk.riskType || '风险点' }}</strong>
+            <span>{{ t('components.risk.riskType') }}</span>
+            <strong>{{ risk.riskType || t('components.risk.defaultRisk') }}</strong>
           </div>
           <span v-if="risk.keyword" class="risk-keyword">{{ risk.keyword }}</span>
         </div>
         <p v-if="risk.message" class="risk-message">{{ risk.message }}</p>
         <dl class="risk-fields">
           <div v-if="risk.sourceFile">
-            <dt>来源文件</dt>
+            <dt>{{ t('components.risk.sourceFile') }}</dt>
             <dd class="source-file">{{ risk.sourceFile }}</dd>
           </div>
           <template v-if="risk.evidence">
             <div>
-              <dt>证据</dt>
+              <dt>{{ t('common.evidence') }}</dt>
               <dd>{{ risk.evidence }}</dd>
             </div>
           </template>
           <template v-if="risk.suggestion">
             <div>
-              <dt>建议</dt>
+              <dt>{{ t('common.suggestions') }}</dt>
               <dd>{{ risk.suggestion }}</dd>
             </div>
           </template>
@@ -36,12 +36,13 @@
 
     <pre v-else-if="rawFallback" class="text-block">{{ rawFallback }}</pre>
 
-    <EmptyState v-else title="暂无风险点" description="当前结果没有返回结构化风险信息。" />
+    <EmptyState v-else :title="t('components.risk.emptyTitle')" :description="t('components.risk.emptyDesc')" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import EmptyState from '@/components/EmptyState.vue'
 import type { RuleScanRisk } from '@/types/api'
@@ -52,6 +53,7 @@ const props = defineProps<{
   risks: RiskInput
 }>()
 
+const { t } = useI18n()
 const parsed = computed(() => parseRiskInput(props.risks))
 const items = computed(() => parsed.value.items)
 const rawFallback = computed(() => parsed.value.raw)

@@ -3,22 +3,22 @@
     <section class="panel">
       <div class="panel-body dashboard-hero">
         <div>
-          <p class="eyebrow">Welcome back</p>
-          <h2>你好，{{ userStore.userInfo?.username || '同学' }}</h2>
+          <p class="eyebrow">{{ t('dashboard.eyebrow') }}</p>
+          <h2>{{ t('dashboard.greeting', { name: userStore.userInfo?.username || t('common.classmate') }) }}</h2>
           <p class="muted">
-            把 GitHub 项目、README 和代码证据放进来，让 AI 先替面试官追问一轮。
+            {{ t('dashboard.subtitle') }}
           </p>
         </div>
-        <el-button type="primary" :icon="Plus" @click="router.push('/projects/create')">创建项目</el-button>
+        <el-button type="primary" :icon="Plus" @click="router.push('/projects/create')">{{ t('common.createProject') }}</el-button>
       </div>
     </section>
 
     <el-alert
-      title="试用提示"
+      :title="t('dashboard.trialTitle')"
       type="warning"
       show-icon
       :closable="false"
-      description="请勿上传真实商业机密、真实密钥或公司内部代码。ProjectMentor AI 会基于你提供的 README 和项目文件生成辅助分析，结论仅供学习、项目复盘和面试准备参考。"
+      :description="t('dashboard.trialDesc')"
     />
 
     <section class="metric-grid" v-loading="loading">
@@ -43,34 +43,34 @@
     <section class="panel">
       <div class="panel-title">
         <div>
-          <h3>最近项目</h3>
-          <p class="muted">按创建时间展示最近 5 个项目。</p>
+          <h3>{{ t('dashboard.recentTitle') }}</h3>
+          <p class="muted">{{ t('dashboard.recentDesc') }}</p>
         </div>
-        <el-button @click="router.push('/projects')">查看全部</el-button>
+        <el-button @click="router.push('/projects')">{{ t('common.viewAll') }}</el-button>
       </div>
       <div class="panel-body">
         <el-table v-if="recentProjects.length" :data="recentProjects" stripe>
-          <el-table-column prop="name" label="项目名称" min-width="160" />
-          <el-table-column prop="techStack" label="技术栈" min-width="180" show-overflow-tooltip />
-          <el-table-column prop="status" label="状态" width="130">
+          <el-table-column prop="name" :label="t('common.projectName')" min-width="160" />
+          <el-table-column prop="techStack" :label="t('common.techStack')" min-width="180" show-overflow-tooltip />
+          <el-table-column prop="status" :label="t('common.status')" width="130">
             <template #default="{ row }">
               <el-tag :type="statusTagType(row.status)" effect="light">{{ row.status || 'PENDING' }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="createTime" label="创建时间" min-width="180" />
-          <el-table-column label="操作" width="120" fixed="right">
+          <el-table-column prop="createTime" :label="t('common.createTime')" min-width="180" />
+          <el-table-column :label="t('common.operation')" width="120" fixed="right">
             <template #default="{ row }">
-              <el-button text type="primary" @click="router.push(`/projects/${row.id}`)">查看</el-button>
+              <el-button text type="primary" @click="router.push(`/projects/${row.id}`)">{{ t('common.view') }}</el-button>
             </template>
           </el-table-column>
         </el-table>
 
         <EmptyState
           v-else
-          title="还没有项目"
-          description="创建第一个项目后，可以继续保存 README、上传 ZIP 并生成审计报告。"
+          :title="t('dashboard.emptyTitle')"
+          :description="t('dashboard.emptyDesc')"
         >
-          <el-button type="primary" :icon="Plus" @click="router.push('/projects/create')">创建项目</el-button>
+          <el-button type="primary" :icon="Plus" @click="router.push('/projects/create')">{{ t('common.createProject') }}</el-button>
         </EmptyState>
       </div>
     </section>
@@ -80,6 +80,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ChatDotRound, Coin, MagicStick, Plus } from '@element-plus/icons-vue'
 
 import { getAiStatus } from '@/api/ai'
@@ -90,6 +91,7 @@ import { useUserStore } from '@/stores/user'
 import type { AiStatus, Project } from '@/types/api'
 
 const router = useRouter()
+const { t } = useI18n()
 const userStore = useUserStore()
 
 const loading = ref(false)
@@ -97,15 +99,15 @@ const projects = ref<Project[]>([])
 const aiStatus = ref<AiStatus | null>(null)
 
 const aiStatusLabel = computed(() =>
-  aiStatus.value?.enabled && aiStatus.value?.configured ? 'AI 增强已配置' : '规则版降级中'
+  aiStatus.value?.enabled && aiStatus.value?.configured ? t('dashboard.aiConfigured') : t('dashboard.aiFallback')
 )
 
 const metrics = computed(() => [
-  { label: '项目数量', value: projects.value.length },
-  { label: '剩余额度', value: userStore.remainingCredits },
-  { label: 'AI 状态', value: aiStatusLabel.value },
-  { label: '审计报告', value: '--' },
-  { label: '面试会话', value: '--' }
+  { label: t('dashboard.metrics.projectCount'), value: projects.value.length },
+  { label: t('dashboard.metrics.credits'), value: userStore.remainingCredits },
+  { label: t('dashboard.metrics.aiStatus'), value: aiStatusLabel.value },
+  { label: t('dashboard.metrics.reports'), value: '--' },
+  { label: t('dashboard.metrics.interviews'), value: '--' }
 ])
 
 const recentProjects = computed(() =>
@@ -114,32 +116,32 @@ const recentProjects = computed(() =>
     .slice(0, 5)
 )
 
-const quickEntries = [
+const quickEntries = computed(() => [
   {
-    title: '创建项目',
-    description: '录入项目基础信息',
+    title: t('dashboard.quick.create.title'),
+    description: t('dashboard.quick.create.description'),
     path: '/projects/create',
     icon: Plus
   },
   {
-    title: 'AI 幻觉检测',
-    description: '检查 AI 描述是否过度包装',
+    title: t('dashboard.quick.hallucination.title'),
+    description: t('dashboard.quick.hallucination.description'),
     path: '/hallucination',
     icon: MagicStick
   },
   {
-    title: '模拟面试',
-    description: '围绕项目细节连续追问',
+    title: t('dashboard.quick.interview.title'),
+    description: t('dashboard.quick.interview.description'),
     path: '/interview',
     icon: ChatDotRound
   },
   {
-    title: '查看额度',
-    description: '跟踪报告生成消耗',
+    title: t('dashboard.quick.credits.title'),
+    description: t('dashboard.quick.credits.description'),
     path: '/credits',
     icon: Coin
   }
-]
+])
 
 function statusTagType(status?: string) {
   const statusMap: Record<string, 'info' | 'primary' | 'success' | 'danger' | 'warning'> = {
@@ -173,10 +175,32 @@ onMounted(loadDashboard)
 
 <style scoped>
 .dashboard-hero {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
+  overflow: hidden;
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(31, 111, 235, 0.08), rgba(20, 184, 166, 0.06)),
+    rgba(255, 255, 255, 0.9);
+}
+
+.dashboard-hero::after {
+  position: absolute;
+  right: -12%;
+  bottom: -70%;
+  width: 48%;
+  height: 180%;
+  background: linear-gradient(135deg, transparent, rgba(31, 111, 235, 0.08), transparent);
+  content: "";
+  transform: rotate(18deg);
+}
+
+.dashboard-hero > * {
+  position: relative;
+  z-index: 1;
 }
 
 .dashboard-hero h2 {
@@ -202,16 +226,23 @@ onMounted(loadDashboard)
   padding: 16px;
   border: 1px solid rgba(223, 230, 240, 0.92);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.94);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 255, 0.9)),
+    rgba(255, 255, 255, 0.94);
   color: inherit;
   text-align: left;
   box-shadow: var(--pm-shadow-soft);
   cursor: pointer;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
 }
 
 .quick-entry:hover {
   border-color: rgba(31, 111, 235, 0.28);
-  transform: translateY(-1px);
+  box-shadow: 0 18px 36px rgba(31, 111, 235, 0.11);
+  transform: translateY(-3px);
 }
 
 .quick-entry :deep(.el-icon) {

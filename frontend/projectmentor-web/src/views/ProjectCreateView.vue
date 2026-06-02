@@ -2,35 +2,35 @@
   <section class="panel form-page">
     <div class="panel-title">
       <div>
-        <h2>创建项目</h2>
-        <p class="muted">先记录项目基础信息，后续再上传 README 或 ZIP。</p>
+        <h2>{{ t('projects.createTitle') }}</h2>
+        <p class="muted">{{ t('projects.createDesc') }}</p>
       </div>
     </div>
     <div class="panel-body">
       <el-form :model="form" label-width="110px">
-        <el-form-item label="项目名称" required>
-          <el-input v-model="form.name" placeholder="例如：AI 简历助手" />
+        <el-form-item :label="t('common.projectName')" required>
+          <el-input v-model="form.name" :placeholder="t('projects.namePlaceholder')" />
         </el-form-item>
-        <el-form-item label="GitHub">
-          <el-input v-model="form.githubUrl" placeholder="https://github.com/..." />
+        <el-form-item :label="t('common.github')">
+          <el-input v-model="form.githubUrl" :placeholder="t('projects.githubPlaceholder')" />
         </el-form-item>
-        <el-form-item label="项目描述">
-          <el-input v-model="form.description" type="textarea" :rows="4" placeholder="简要说明项目目标和核心功能" />
+        <el-form-item :label="t('common.description')">
+          <el-input v-model="form.description" type="textarea" :rows="4" :placeholder="t('projects.descPlaceholder')" />
         </el-form-item>
-        <el-form-item label="项目类型">
-          <el-select v-model="form.projectType" placeholder="请选择" clearable class="wide-control">
-            <el-option label="后端" value="BACKEND" />
-            <el-option label="前端" value="FRONTEND" />
-            <el-option label="全栈" value="FULLSTACK" />
-            <el-option label="AI 项目" value="AI" />
+        <el-form-item :label="t('common.projectType')">
+          <el-select v-model="form.projectType" :placeholder="t('projects.typePlaceholder')" clearable class="wide-control">
+            <el-option :label="t('projects.typeBackend')" value="BACKEND" />
+            <el-option :label="t('projects.typeFrontend')" value="FRONTEND" />
+            <el-option :label="t('projects.typeFullstack')" value="FULLSTACK" />
+            <el-option :label="t('projects.typeAi')" value="AI" />
           </el-select>
         </el-form-item>
-        <el-form-item label="技术栈">
-          <el-input v-model="form.techStack" placeholder="Java, Spring Boot, Vue, MySQL" />
+        <el-form-item :label="t('common.techStack')">
+          <el-input v-model="form.techStack" :placeholder="t('projects.techPlaceholder')" />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :loading="loading" @click="handleSubmit">创建项目</el-button>
-          <el-button @click="router.push('/projects')">取消</el-button>
+          <el-button type="primary" :loading="loading" @click="handleSubmit">{{ t('common.createProject') }}</el-button>
+          <el-button @click="router.push('/projects')">{{ t('common.cancel') }}</el-button>
         </el-form-item>
       </el-form>
     </div>
@@ -40,11 +40,13 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 
 import { createProject } from '@/api/project'
 
 const router = useRouter()
+const { t } = useI18n()
 const loading = ref(false)
 const form = reactive({
   name: '',
@@ -56,14 +58,14 @@ const form = reactive({
 
 async function handleSubmit() {
   if (!form.name.trim()) {
-    ElMessage.warning('请输入项目名称')
+    ElMessage.warning(t('projects.nameRequired'))
     return
   }
 
   loading.value = true
   try {
     const project = await createProject(form)
-    ElMessage.success('项目创建成功')
+    ElMessage.success(t('projects.createSuccess'))
     router.push(`/projects/${project.id}`)
   } finally {
     loading.value = false

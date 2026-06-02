@@ -2,16 +2,16 @@
   <section class="panel qa-panel">
     <div class="panel-title">
       <div>
-        <h3>项目问答</h3>
-        <p class="muted">基于当前项目已上传的 README 和代码文件进行轻量检索增强问答。回答会尽量附带文件证据；如果证据不足，系统会明确提示。</p>
+        <h3>{{ t('qa.title') }}</h3>
+        <p class="muted">{{ t('qa.desc') }}</p>
       </div>
-      <el-button :icon="Refresh" :loading="historyLoading" @click="loadHistory">刷新历史</el-button>
+      <el-button :icon="Refresh" :loading="historyLoading" @click="loadHistory">{{ t('qa.refreshHistory') }}</el-button>
     </div>
 
     <div class="panel-body qa-body">
       <el-alert
         v-if="!hasProjectFiles"
-        title="请先保存 README 或上传项目 ZIP，再使用项目问答。"
+        :title="t('qa.noFiles')"
         type="info"
         show-icon
         :closable="false"
@@ -36,40 +36,40 @@
           :rows="3"
           maxlength="1000"
           show-word-limit
-          placeholder="例如：JWT 在哪里实现？"
+          :placeholder="t('qa.placeholder')"
         />
         <el-button type="primary" :icon="QuestionFilled" :loading="loading" :disabled="!hasProjectFiles" @click="handleAsk">
-          提问
+          {{ t('qa.ask') }}
         </el-button>
       </div>
 
       <div v-if="currentAnswer" class="qa-current">
-        <div class="qa-section-heading">本次回答</div>
+        <div class="qa-section-heading">{{ t('qa.current') }}</div>
         <article class="qa-record qa-record-current">
           <header class="qa-record-header">
             <div class="qa-record-main">
-              <h4>{{ currentAnswer.question }}</h4>
-              <div class="qa-record-meta">
-                <el-tag :type="currentAnswer.aiUsed ? 'success' : 'warning'" effect="light">
-                  {{ currentAnswer.aiUsed ? 'AI 已参与回答' : '规则检索结果' }}
-                </el-tag>
-                <el-tag :type="evidenceTagType(currentAnswer)" effect="light">
-                  {{ effectiveEvidenceLevelText(currentAnswer) }}
-                </el-tag>
-                <span>可信度 {{ formatConfidence(currentAnswer) }}</span>
-                <span>{{ formatDate(currentAnswer.createTime) }}</span>
-                <span>证据 {{ evidenceCount(currentAnswer) }} 条</span>
+                <h4>{{ currentAnswer.question }}</h4>
+                <div class="qa-record-meta">
+                  <el-tag :type="currentAnswer.aiUsed ? 'success' : 'warning'" effect="light">
+                    {{ currentAnswer.aiUsed ? t('qa.aiUsed') : t('qa.ruleOnly') }}
+                  </el-tag>
+                  <el-tag :type="evidenceTagType(currentAnswer)" effect="light">
+                    {{ effectiveEvidenceLevelText(currentAnswer) }}
+                  </el-tag>
+                  <span>{{ t('qa.confidence', { score: formatConfidence(currentAnswer) }) }}</span>
+                  <span>{{ formatDate(currentAnswer.createTime) }}</span>
+                  <span>{{ t('qa.evidenceCount', { count: evidenceCount(currentAnswer) }) }}</span>
+                </div>
               </div>
-            </div>
             <div class="qa-record-actions">
-              <el-button :icon="CopyDocument" @click="copyQaRecord(currentAnswer)">复制回答</el-button>
-              <el-button :icon="CopyDocument" type="primary" plain @click="copyInterviewRecord(currentAnswer)">复制面试版回答</el-button>
+              <el-button :icon="CopyDocument" @click="copyQaRecord(currentAnswer)">{{ t('qa.copyAnswer') }}</el-button>
+              <el-button :icon="CopyDocument" type="primary" plain @click="copyInterviewRecord(currentAnswer)">{{ t('qa.copyInterview') }}</el-button>
             </div>
           </header>
 
           <el-alert
             v-if="!currentAnswer.aiUsed"
-            title="AI 当前不可用或未启用，本回答仅基于关键词检索证据，不代表完整结论。"
+            :title="t('qa.aiUnavailable')"
             type="warning"
             show-icon
             :closable="false"
@@ -79,7 +79,7 @@
 
           <el-alert
             v-if="isWeakEvidence(currentAnswer)"
-            title="这个回答证据较弱，建议补充 README、上传更多代码文件，或把问题问得更具体。"
+            :title="t('qa.weakEvidence')"
             type="warning"
             show-icon
             :closable="false"
@@ -89,11 +89,11 @@
 
           <div class="qa-insight-grid">
             <section class="qa-insight-block">
-              <div class="qa-record-subtitle">面试讲法</div>
+              <div class="qa-record-subtitle">{{ t('qa.interviewAnswer') }}</div>
               <p>{{ displayInterviewAnswer(currentAnswer) }}</p>
             </section>
             <section class="qa-insight-block">
-              <div class="qa-record-subtitle">简历风险提示</div>
+              <div class="qa-record-subtitle">{{ t('qa.resumeRisk') }}</div>
               <p>{{ displayResumeRisk(currentAnswer) }}</p>
             </section>
           </div>
@@ -107,15 +107,15 @@
       <div class="qa-history">
         <div class="qa-history-title">
           <div>
-            <div class="qa-section-heading">最近问答</div>
-            <p class="muted">默认展示最近 20 条，仅当前登录用户可见。</p>
+            <div class="qa-section-heading">{{ t('qa.recent') }}</div>
+            <p class="muted">{{ t('qa.recentDesc') }}</p>
           </div>
         </div>
 
         <div v-loading="historyLoading" class="qa-history-list">
           <EmptyState
             v-if="!historyLoading && visibleHistory.length === 0"
-            title="暂无问答记录，试着问一个和项目实现相关的问题。"
+            :title="t('qa.emptyTitle')"
           />
 
           <article v-for="record in visibleHistory" :key="record.id" class="qa-record">
@@ -124,30 +124,30 @@
                 <h4>{{ record.question }}</h4>
                 <div class="qa-record-meta">
                   <el-tag :type="record.aiUsed ? 'success' : 'warning'" effect="light">
-                    {{ record.aiUsed ? 'AI 已参与回答' : '规则检索结果' }}
+                    {{ record.aiUsed ? t('qa.aiUsed') : t('qa.ruleOnly') }}
                   </el-tag>
                   <el-tag :type="evidenceTagType(record)" effect="light">
                     {{ effectiveEvidenceLevelText(record) }}
                   </el-tag>
-                  <span>可信度 {{ formatConfidence(record) }}</span>
+                  <span>{{ t('qa.confidence', { score: formatConfidence(record) }) }}</span>
                   <span>{{ formatDate(record.createTime) }}</span>
-                  <span>证据 {{ evidenceCount(record) }} 条</span>
+                  <span>{{ t('qa.evidenceCount', { count: evidenceCount(record) }) }}</span>
                 </div>
               </div>
               <div class="qa-record-actions">
-                <el-button :icon="CopyDocument" @click="copyQaRecord(record)">复制回答</el-button>
-                <el-button :icon="CopyDocument" type="primary" plain @click="copyInterviewRecord(record)">复制面试版回答</el-button>
-                <el-button :icon="DeleteIcon" type="danger" plain @click="handleDelete(record)">删除</el-button>
+                <el-button :icon="CopyDocument" @click="copyQaRecord(record)">{{ t('qa.copyAnswer') }}</el-button>
+                <el-button :icon="CopyDocument" type="primary" plain @click="copyInterviewRecord(record)">{{ t('qa.copyInterview') }}</el-button>
+                <el-button :icon="DeleteIcon" type="danger" plain @click="handleDelete(record)">{{ t('qa.deleteRecord') }}</el-button>
               </div>
             </header>
 
             <details class="qa-record-details">
-              <summary>查看完整回答、面试讲法、简历风险和证据</summary>
+              <summary>{{ t('qa.detailsSummary') }}</summary>
 
               <div class="qa-record-detail-body">
                 <el-alert
                   v-if="!record.aiUsed"
-                  title="AI 当前不可用或未启用，本回答仅基于关键词检索证据，不代表完整结论。"
+                  :title="t('qa.aiUnavailable')"
                   type="warning"
                   show-icon
                   :closable="false"
@@ -157,7 +157,7 @@
 
                 <el-alert
                   v-if="isWeakEvidence(record)"
-                  title="这个回答证据较弱，建议补充 README、上传更多代码文件，或把问题问得更具体。"
+                  :title="t('qa.weakEvidence')"
                   type="warning"
                   show-icon
                   :closable="false"
@@ -167,11 +167,11 @@
 
                 <div class="qa-insight-grid">
                   <section class="qa-insight-block">
-                    <div class="qa-record-subtitle">面试讲法</div>
+                    <div class="qa-record-subtitle">{{ t('qa.interviewAnswer') }}</div>
                     <p>{{ displayInterviewAnswer(record) }}</p>
                   </section>
                   <section class="qa-insight-block">
-                    <div class="qa-record-subtitle">简历风险提示</div>
+                    <div class="qa-record-subtitle">{{ t('qa.resumeRisk') }}</div>
                     <p>{{ displayResumeRisk(record) }}</p>
                   </section>
                 </div>
@@ -190,6 +190,7 @@
 
 <script setup lang="ts">
 import { computed, defineComponent, h, onMounted, ref, type PropType } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { CopyDocument, Delete as DeleteIcon, QuestionFilled, Refresh } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox, ElTag } from 'element-plus'
 
@@ -208,16 +209,18 @@ const props = defineProps<{
   hasProjectFiles: boolean
 }>()
 
-const quickQuestions = [
-  '登录鉴权在哪里实现？',
-  'JWT / token 是在哪里生成和校验的？',
-  '这个项目用了 Redis 吗？用在哪里？',
-  'ZIP 上传有哪些安全限制？',
-  '审计报告是如何生成的？',
-  'AI 不可用时系统如何 fallback？',
-  '这个功能适合写进简历吗？',
-  '面试官可能围绕这个项目追问哪些点？'
-]
+const { t } = useI18n()
+
+const quickQuestions = computed(() => [
+  t('qa.quickQuestions.auth'),
+  t('qa.quickQuestions.jwt'),
+  t('qa.quickQuestions.redis'),
+  t('qa.quickQuestions.zip'),
+  t('qa.quickQuestions.report'),
+  t('qa.quickQuestions.fallback'),
+  t('qa.quickQuestions.resume'),
+  t('qa.quickQuestions.interview')
+])
 
 const question = ref('')
 const loading = ref(false)
@@ -246,7 +249,7 @@ const ConfidenceCard = defineComponent({
   setup(componentProps) {
     return () => h('section', { class: ['qa-confidence-card', `qa-confidence-${effectiveEvidenceLevel(componentProps.record).toLowerCase()}`] }, [
       h('div', { class: 'qa-confidence-main' }, [
-        h('span', { class: 'qa-confidence-label' }, '证据可信度'),
+        h('span', { class: 'qa-confidence-label' }, t('qa.evidenceTrust')),
         h(ElTag, { type: evidenceTagType(componentProps.record), effect: 'light' }, () => effectiveEvidenceLevelText(componentProps.record))
       ]),
       h('strong', { class: 'qa-confidence-score' }, formatConfidence(componentProps.record)),
@@ -265,7 +268,7 @@ const QaEvidenceList = defineComponent({
   },
   setup(componentProps) {
     return () => h('div', { class: 'qa-evidence-list' }, [
-      h('div', { class: 'qa-record-subtitle' }, '证据'),
+      h('div', { class: 'qa-record-subtitle' }, t('common.evidence')),
       evidenceCount(componentProps.record)
         ? h('div', { class: 'qa-evidence-grid' }, safeEvidences(componentProps.record).map((evidence, evidenceIndex) => {
           const key = evidenceKey(componentProps.record, evidenceIndex)
@@ -276,10 +279,10 @@ const QaEvidenceList = defineComponent({
                 class: 'qa-copy-path-button',
                 type: 'button',
                 onClick: () => copyFilePath(evidence.filePath || '')
-              }, '复制文件路径')
+              }, t('qa.filePath'))
             ]),
             h('p', { class: 'qa-reason' }, [
-              h('span', { class: 'qa-reason-label' }, '命中原因'),
+              h('span', { class: 'qa-reason-label' }, t('qa.reason')),
               h('span', null, evidence.reason || '-')
             ]),
             h('pre', { class: 'qa-snippet' }, visibleSnippet(evidence.snippet, key)),
@@ -288,13 +291,13 @@ const QaEvidenceList = defineComponent({
                 class: 'snippet-toggle qa-text-button',
                 type: 'button',
                 onClick: () => toggleSnippet(key)
-              }, isSnippetExpanded(key) ? '收起' : '展开')
+              }, isSnippetExpanded(key) ? t('qa.collapse') : t('qa.expand'))
               : null
           ])
         }))
         : h(EmptyState, {
-          title: '当前上传文件中没有找到明显相关证据。',
-          description: '建议先保存 README 或上传项目 ZIP，或者把问题问得更具体。'
+          title: t('qa.noEvidenceTitle'),
+          description: t('qa.noEvidenceDesc')
         })
     ])
   }
@@ -311,7 +314,7 @@ const QaFollowUps = defineComponent({
   setup(componentProps) {
     return () => safeFollowUps(componentProps.record).length
       ? h('div', { class: 'qa-follow-ups' }, [
-        h('div', { class: 'qa-record-subtitle' }, '建议追问'),
+        h('div', { class: 'qa-record-subtitle' }, t('qa.followUps')),
         h('div', { class: 'follow-up-list' }, safeFollowUps(componentProps.record).map((followUp) => h('button', {
           key: followUp,
           class: 'qa-follow-up-button',
@@ -339,7 +342,7 @@ async function loadHistory() {
 async function handleAsk() {
   const trimmedQuestion = question.value.trim()
   if (!trimmedQuestion) {
-    ElMessage.warning('请输入问题')
+    ElMessage.warning(t('qa.questionRequired'))
     return
   }
 
@@ -361,10 +364,10 @@ async function handleAsk() {
 
 async function handleDelete(record: ProjectQaHistoryRecord) {
   try {
-    await ElMessageBox.confirm('确认删除这条问答记录吗？删除后历史中不再显示。', '删除问答记录', {
+    await ElMessageBox.confirm(t('qa.deleteConfirm'), t('qa.deleteTitle'), {
       type: 'warning',
-      confirmButtonText: '删除',
-      cancelButtonText: '取消'
+      confirmButtonText: t('common.delete'),
+      cancelButtonText: t('common.cancel')
     })
   } catch {
     return
@@ -375,7 +378,7 @@ async function handleDelete(record: ProjectQaHistoryRecord) {
   if (currentAnswer.value?.id === record.id) {
     currentAnswer.value = undefined
   }
-  ElMessage.success('问答记录已删除')
+  ElMessage.success(t('qa.deleted'))
 }
 
 async function copyQaRecord(record: QaDisplayRecord) {
@@ -383,76 +386,76 @@ async function copyQaRecord(record: QaDisplayRecord) {
   const copied = await copyText(text)
 
   if (copied) {
-    ElMessage.success('回答已复制')
+    ElMessage.success(t('qa.answerCopied'))
     return
   }
 
-  ElMessage.warning('复制失败，请手动复制回答内容')
+  ElMessage.warning(t('qa.copyFailed'))
 }
 
 async function copyInterviewRecord(record: QaDisplayRecord) {
   const copied = await copyText(buildInterviewCopyText(record))
 
   if (copied) {
-    ElMessage.success('面试版回答已复制')
+    ElMessage.success(t('qa.interviewCopied'))
     return
   }
 
-  ElMessage.warning('复制失败，请手动复制面试版回答')
+  ElMessage.warning(t('qa.interviewCopyFailed'))
 }
 
 async function copyFilePath(filePath: string) {
   if (!filePath) {
-    ElMessage.warning('没有可复制的文件路径')
+    ElMessage.warning(t('qa.noPath'))
     return
   }
 
   const copied = await copyText(filePath)
   if (copied) {
-    ElMessage.success('文件路径已复制')
+    ElMessage.success(t('qa.pathCopied'))
     return
   }
 
-  ElMessage.warning('复制失败，请手动复制文件路径')
+  ElMessage.warning(t('qa.pathCopyFailed'))
 }
 
 function buildCopyText(record: QaDisplayRecord) {
   return [
-    `问题：${record.question || '-'}`,
+    `${t('qa.copyTemplate.question')}${record.question || '-'}`,
     '',
-    '回答：',
+    t('qa.copyTemplate.answer'),
     record.answer || '-',
     '',
-    '证据可信度：',
+    t('qa.copyTemplate.confidence'),
     `${effectiveEvidenceLevelText(record)}（${formatConfidence(record)}）`,
     effectiveEvidenceSummary(record),
     '',
-    '证据文件路径：',
+    t('qa.copyTemplate.paths'),
     evidencePathsText(record),
     '',
-    '建议追问：',
+    t('qa.copyTemplate.followUps'),
     followUpsText(record)
   ].join('\n')
 }
 
 function buildInterviewCopyText(record: QaDisplayRecord) {
   return [
-    `问题：${record.question || '-'}`,
+    `${t('qa.copyTemplate.question')}${record.question || '-'}`,
     '',
-    '证据可信度：',
+    t('qa.copyTemplate.confidence'),
     `${effectiveEvidenceLevelText(record)}（${formatConfidence(record)}）`,
     effectiveEvidenceSummary(record),
     '',
-    '面试讲法：',
+    t('qa.copyTemplate.interviewAnswer'),
     displayInterviewAnswer(record),
     '',
-    '简历风险提示：',
+    t('qa.copyTemplate.resumeRisk'),
     displayResumeRisk(record),
     '',
-    '关键证据文件路径：',
+    t('qa.copyTemplate.keyPaths'),
     evidencePathsText(record),
     '',
-    '建议追问：',
+    t('qa.copyTemplate.followUps'),
     followUpsText(record)
   ].join('\n')
 }
@@ -461,14 +464,14 @@ function evidencePathsText(record: QaDisplayRecord) {
   const evidences = safeEvidences(record)
   return evidences.length
     ? evidences.map((evidence, index) => `${index + 1}. ${evidence.filePath || '-'}`).join('\n')
-    : '无'
+    : t('common.none')
 }
 
 function followUpsText(record: QaDisplayRecord) {
   const followUps = safeFollowUps(record)
   return followUps.length
     ? followUps.map((item, index) => `${index + 1}. ${item}`).join('\n')
-    : '无'
+    : t('common.none')
 }
 
 async function copyText(text: string) {
@@ -512,7 +515,7 @@ function fallbackCopyText(text: string) {
 
 function formatDate(value?: string) {
   if (!value) {
-    return '刚刚'
+    return t('common.justNow')
   }
 
   return String(value).replace('T', ' ').slice(0, 19)
@@ -554,12 +557,12 @@ function effectiveEvidenceLevelText(record: QaDisplayRecord) {
   }
 
   const levelMap: Record<string, string> = {
-    STRONG: '强证据',
-    MEDIUM: '中等证据',
-    WEAK: '弱证据',
-    NONE: '证据不足'
+    STRONG: t('qa.evidenceLevels.STRONG'),
+    MEDIUM: t('qa.evidenceLevels.MEDIUM'),
+    WEAK: t('qa.evidenceLevels.WEAK'),
+    NONE: t('qa.evidenceLevels.NONE')
   }
-  return levelMap[effectiveEvidenceLevel(record)] || '证据不足'
+  return levelMap[effectiveEvidenceLevel(record)] || t('qa.evidenceLevels.NONE')
 }
 
 function formatConfidence(record: QaDisplayRecord) {
@@ -573,17 +576,17 @@ function effectiveEvidenceSummary(record: QaDisplayRecord) {
 
   const count = evidenceCount(record)
   if (count === 0) {
-    return '当前上传文件中没有找到明显相关证据。'
+    return t('qa.noRelatedEvidence')
   }
-  return `当前根据 ${count} 条证据做了简单兜底评估，建议结合文件路径继续复盘。`
+  return t('qa.fallbackEvidenceSummary', { count })
 }
 
 function displayInterviewAnswer(record: QaDisplayRecord) {
-  return record.interviewAnswer || '暂无面试讲法。'
+  return record.interviewAnswer || t('qa.noInterviewAnswer')
 }
 
 function displayResumeRisk(record: QaDisplayRecord) {
-  return record.resumeRisk || '暂无简历风险提示。'
+  return record.resumeRisk || t('qa.noResumeRisk')
 }
 
 function evidenceTagType(record: QaDisplayRecord): 'success' | 'warning' | 'danger' | 'info' | 'primary' {
@@ -659,6 +662,16 @@ onMounted(loadHistory)
   gap: 16px;
 }
 
+.qa-panel {
+  overflow: hidden;
+}
+
+.qa-panel > .panel-title {
+  background:
+    linear-gradient(135deg, rgba(31, 111, 235, 0.08), rgba(20, 184, 166, 0.07)),
+    rgba(255, 255, 255, 0.92);
+}
+
 .quick-question-list,
 .follow-up-list,
 .qa-record-actions {
@@ -676,6 +689,23 @@ onMounted(loadHistory)
   height: auto;
   min-height: 32px;
   line-height: 1.4;
+}
+
+.quick-question-list .el-button {
+  border-color: rgba(31, 111, 235, 0.2);
+  background: rgba(255, 255, 255, 0.78);
+  color: #245089;
+  font-weight: 700;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.quick-question-list .el-button:hover {
+  border-color: rgba(31, 111, 235, 0.34);
+  box-shadow: 0 10px 24px rgba(31, 111, 235, 0.1);
+  transform: translateY(-2px);
 }
 
 .qa-follow-up-button,
@@ -699,6 +729,13 @@ onMounted(loadHistory)
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: flex-start;
   gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(31, 111, 235, 0.14);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(238, 246, 255, 0.7), rgba(240, 251, 249, 0.52)),
+    rgba(255, 255, 255, 0.82);
+  box-shadow: 0 14px 32px rgba(31, 111, 235, 0.08);
 }
 
 .qa-section-heading {
@@ -722,12 +759,17 @@ onMounted(loadHistory)
   padding: 16px;
   border: 1px solid rgba(223, 230, 240, 0.92);
   border-radius: 8px;
-  background: #ffffff;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(248, 251, 255, 0.9)),
+    #ffffff;
+  box-shadow: 0 12px 28px rgba(28, 43, 68, 0.06);
 }
 
 .qa-record-current {
   border-color: rgba(64, 158, 255, 0.35);
-  background: #fbfdff;
+  background:
+    linear-gradient(145deg, rgba(248, 251, 255, 0.98), rgba(240, 251, 249, 0.72)),
+    #fbfdff;
 }
 
 .qa-record-header {
@@ -790,7 +832,10 @@ onMounted(loadHistory)
   padding: 14px;
   border: 1px solid rgba(223, 230, 240, 0.92);
   border-radius: 8px;
-  background: #fbfdff;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 255, 0.86)),
+    #fbfdff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
 }
 
 .qa-confidence-main {
@@ -845,7 +890,7 @@ onMounted(loadHistory)
   padding: 14px;
   border: 1px solid rgba(223, 230, 240, 0.92);
   border-radius: 8px;
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.78);
 }
 
 .qa-insight-block p {
@@ -865,7 +910,17 @@ onMounted(loadHistory)
   padding: 14px;
   border: 1px solid rgba(223, 230, 240, 0.92);
   border-radius: 8px;
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.86);
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.qa-evidence-item:hover {
+  border-color: rgba(31, 111, 235, 0.24);
+  box-shadow: 0 14px 30px rgba(31, 111, 235, 0.09);
+  transform: translateY(-2px);
 }
 
 .qa-evidence-header {

@@ -2,15 +2,15 @@
   <div class="page-stack">
     <section class="page-title">
       <div>
-        <p class="eyebrow">Admin</p>
-        <h2>管理员后台</h2>
-        <p class="muted">用于查看 ProjectMentor AI 当前试用版的用户、项目、报告和问答运行情况。</p>
+        <p class="eyebrow">{{ t('admin.eyebrow') }}</p>
+        <h2>{{ t('admin.title') }}</h2>
+        <p class="muted">{{ t('admin.desc') }}</p>
       </div>
-      <el-tag v-if="adminMe?.admin" type="success" effect="light">管理员</el-tag>
+      <el-tag v-if="adminMe?.admin" type="success" effect="light">{{ t('admin.role') }}</el-tag>
     </section>
 
     <el-alert
-      title="当前管理员后台为只读 MVP，仅用于查看试用版运行情况。请勿在页面中展示或导出敏感信息。"
+      :title="t('admin.readonlyNotice')"
       type="warning"
       show-icon
       :closable="false"
@@ -18,8 +18,8 @@
 
     <section v-if="checked && !isAdmin" class="panel">
       <div class="panel-body admin-denied">
-        <h3>无权限访问管理员后台</h3>
-        <p class="muted">当前账号未配置为管理员，无法查看系统运行数据。</p>
+        <h3>{{ t('admin.deniedTitle') }}</h3>
+        <p class="muted">{{ t('admin.deniedDesc') }}</p>
       </div>
     </section>
 
@@ -34,8 +34,8 @@
       <section class="panel">
         <div class="panel-title">
           <div>
-            <h3>额度管理</h3>
-            <p class="muted">搜索用户、查看余额，并为指定用户发放额度。</p>
+            <h3>{{ t('admin.creditTitle') }}</h3>
+            <p class="muted">{{ t('admin.creditDesc') }}</p>
           </div>
         </div>
         <div class="panel-body admin-credit-panel">
@@ -43,22 +43,22 @@
             <el-input
               v-model="creditKeyword"
               clearable
-              placeholder="输入邮箱 / 昵称 / 用户 ID"
+              :placeholder="t('admin.creditPlaceholder')"
               @keyup.enter="loadCreditUsers"
             />
-            <el-button type="primary" :loading="creditLoading" @click="loadCreditUsers">搜索</el-button>
+            <el-button type="primary" :loading="creditLoading" @click="loadCreditUsers">{{ t('common.search') }}</el-button>
           </div>
 
-          <el-table :data="creditUsers" stripe v-loading="creditLoading" empty-text="暂无用户记录">
-            <el-table-column prop="userId" label="用户 ID" width="100" />
-            <el-table-column prop="email" label="邮箱" min-width="190" show-overflow-tooltip />
-            <el-table-column prop="nickname" label="昵称" min-width="130" show-overflow-tooltip />
-            <el-table-column prop="creditBalance" label="当前额度" width="120" />
-            <el-table-column prop="createTime" label="注册时间" min-width="170" />
-            <el-table-column label="操作" width="190" fixed="right">
+          <el-table :data="creditUsers" stripe v-loading="creditLoading" :empty-text="t('admin.noUsers')">
+            <el-table-column prop="userId" :label="t('common.userId')" width="100" />
+            <el-table-column prop="email" :label="t('common.email')" min-width="190" show-overflow-tooltip />
+            <el-table-column prop="nickname" :label="t('admin.nickname')" min-width="130" show-overflow-tooltip />
+            <el-table-column prop="creditBalance" :label="t('admin.balance')" width="120" />
+            <el-table-column prop="createTime" :label="t('admin.registerTime')" min-width="170" />
+            <el-table-column :label="t('common.operation')" width="190" fixed="right">
               <template #default="{ row }">
-                <el-button text type="primary" @click="openGrantDialog(row)">发放额度</el-button>
-                <el-button text @click="openDetailDialog(row)">查看流水</el-button>
+                <el-button text type="primary" @click="openGrantDialog(row)">{{ t('admin.grantCredit') }}</el-button>
+                <el-button text @click="openDetailDialog(row)">{{ t('admin.viewLogs') }}</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -68,50 +68,50 @@
       <section class="panel">
         <div class="panel-title">
           <div>
-            <h3>反馈管理</h3>
-            <p class="muted">查看站内反馈，按类型、状态和关键词筛选，并更新处理状态。</p>
+            <h3>{{ t('admin.feedbackTitle') }}</h3>
+            <p class="muted">{{ t('admin.feedbackDesc') }}</p>
           </div>
         </div>
         <div class="panel-body admin-feedback-panel">
           <div class="feedback-toolbar">
-            <el-select v-model="feedbackTypeFilter" clearable placeholder="类型">
+            <el-select v-model="feedbackTypeFilter" clearable :placeholder="t('admin.typePlaceholder')">
               <el-option v-for="option in feedbackTypeOptions" :key="option.value" :label="option.label" :value="option.value" />
             </el-select>
-            <el-select v-model="feedbackStatusFilter" clearable placeholder="状态">
+            <el-select v-model="feedbackStatusFilter" clearable :placeholder="t('admin.statusPlaceholder')">
               <el-option v-for="option in feedbackStatusOptions" :key="option.value" :label="option.label" :value="option.value" />
             </el-select>
             <el-input
               v-model="feedbackKeyword"
               clearable
-              placeholder="搜索内容 / 联系方式 / 邮箱"
+              :placeholder="t('admin.feedbackKeyword')"
               @keyup.enter="handleFeedbackSearch"
             />
-            <el-button type="primary" :loading="feedbackLoading" @click="handleFeedbackSearch">筛选</el-button>
-            <el-button @click="resetFeedbackFilters">重置</el-button>
+            <el-button type="primary" :loading="feedbackLoading" @click="handleFeedbackSearch">{{ t('common.filter') }}</el-button>
+            <el-button @click="resetFeedbackFilters">{{ t('common.reset') }}</el-button>
           </div>
 
-          <el-table :data="feedbackRecords" stripe v-loading="feedbackLoading" empty-text="暂无反馈">
+          <el-table :data="feedbackRecords" stripe v-loading="feedbackLoading" :empty-text="t('admin.noFeedback')">
             <el-table-column prop="id" label="ID" width="90" />
-            <el-table-column prop="userEmail" label="用户邮箱" min-width="190" show-overflow-tooltip>
+            <el-table-column prop="userEmail" :label="t('admin.userEmail')" min-width="190" show-overflow-tooltip>
               <template #default="{ row }">{{ row.userEmail || '-' }}</template>
             </el-table-column>
-            <el-table-column prop="type" label="类型" width="140">
+            <el-table-column prop="type" :label="t('feedback.type')" width="140">
               <template #default="{ row }">{{ feedbackTypeLabel(row.type) }}</template>
             </el-table-column>
-            <el-table-column prop="content" label="内容摘要" min-width="260" show-overflow-tooltip>
+            <el-table-column prop="content" :label="t('admin.contentSummary')" min-width="260" show-overflow-tooltip>
               <template #default="{ row }">{{ feedbackSummary(row.content) }}</template>
             </el-table-column>
-            <el-table-column prop="status" label="状态" width="120">
+            <el-table-column prop="status" :label="t('common.status')" width="120">
               <template #default="{ row }">
                 <el-tag :type="feedbackStatusTagType(row.status)" effect="light">
                   {{ feedbackStatusLabel(row.status) }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="createTime" label="提交时间" min-width="170" />
-            <el-table-column label="操作" width="130" fixed="right">
+            <el-table-column prop="createTime" :label="t('admin.submitTime')" min-width="170" />
+            <el-table-column :label="t('common.operation')" width="130" fixed="right">
               <template #default="{ row }">
-                <el-button text type="primary" @click="openFeedbackDialog(row)">查看 / 更新</el-button>
+                <el-button text type="primary" @click="openFeedbackDialog(row)">{{ t('admin.updateFeedback') }}</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -136,16 +136,16 @@
         <article class="panel">
           <div class="panel-title">
             <div>
-              <h3>最近用户</h3>
-              <p class="muted">默认展示最近 10 条注册记录</p>
+              <h3>{{ t('admin.recentUsers') }}</h3>
+              <p class="muted">{{ t('admin.recentUsersDesc') }}</p>
             </div>
           </div>
           <div class="panel-body">
-            <el-table :data="recentUsers" stripe empty-text="暂无用户记录">
+            <el-table :data="recentUsers" stripe :empty-text="t('admin.noUsers')">
               <el-table-column prop="id" label="ID" width="90" />
-              <el-table-column prop="email" label="邮箱" min-width="180" show-overflow-tooltip />
-              <el-table-column prop="nickname" label="昵称" min-width="130" show-overflow-tooltip />
-              <el-table-column prop="createTime" label="创建时间" min-width="170" />
+              <el-table-column prop="email" :label="t('common.email')" min-width="180" show-overflow-tooltip />
+              <el-table-column prop="nickname" :label="t('admin.nickname')" min-width="130" show-overflow-tooltip />
+              <el-table-column prop="createTime" :label="t('common.createTime')" min-width="170" />
             </el-table>
           </div>
         </article>
@@ -153,22 +153,22 @@
         <article class="panel">
           <div class="panel-title">
             <div>
-              <h3>最近项目</h3>
-              <p class="muted">仅展示项目摘要，不展示源码内容</p>
+              <h3>{{ t('admin.recentProjects') }}</h3>
+              <p class="muted">{{ t('admin.recentProjectsDesc') }}</p>
             </div>
           </div>
           <div class="panel-body">
-            <el-table :data="recentProjects" stripe empty-text="暂无项目记录">
+            <el-table :data="recentProjects" stripe :empty-text="t('admin.noProjects')">
               <el-table-column prop="id" label="ID" width="90" />
-              <el-table-column prop="userId" label="用户ID" width="100" />
-              <el-table-column prop="name" label="项目名称" min-width="160" show-overflow-tooltip />
-              <el-table-column prop="techStack" label="技术栈" min-width="160" show-overflow-tooltip />
-              <el-table-column prop="status" label="状态" width="120">
+              <el-table-column prop="userId" :label="t('common.userId')" width="100" />
+              <el-table-column prop="name" :label="t('common.projectName')" min-width="160" show-overflow-tooltip />
+              <el-table-column prop="techStack" :label="t('common.techStack')" min-width="160" show-overflow-tooltip />
+              <el-table-column prop="status" :label="t('common.status')" width="120">
                 <template #default="{ row }">
                   <el-tag :type="statusTagType(row.status)" effect="light">{{ row.status || 'PENDING' }}</el-tag>
                 </template>
               </el-table-column>
-              <el-table-column prop="createTime" label="创建时间" min-width="170" />
+              <el-table-column prop="createTime" :label="t('common.createTime')" min-width="170" />
             </el-table>
           </div>
         </article>
@@ -176,19 +176,19 @@
         <article class="panel">
           <div class="panel-title">
             <div>
-              <h3>最近报告</h3>
-              <p class="muted">展示报告分数与归属项目</p>
+              <h3>{{ t('admin.recentReports') }}</h3>
+              <p class="muted">{{ t('admin.recentReportsDesc') }}</p>
             </div>
           </div>
           <div class="panel-body">
-            <el-table :data="recentReports" stripe empty-text="暂无报告记录">
+            <el-table :data="recentReports" stripe :empty-text="t('admin.noReports')">
               <el-table-column prop="id" label="ID" width="90" />
-              <el-table-column prop="projectId" label="项目ID" width="100" />
-              <el-table-column prop="userId" label="用户ID" width="100" />
-              <el-table-column prop="totalScore" label="总分" width="100">
+              <el-table-column prop="projectId" :label="t('common.projectId')" width="100" />
+              <el-table-column prop="userId" :label="t('common.userId')" width="100" />
+              <el-table-column prop="totalScore" :label="t('common.totalScore')" width="100">
                 <template #default="{ row }">{{ row.totalScore ?? '-' }}</template>
               </el-table-column>
-              <el-table-column prop="createTime" label="创建时间" min-width="170" />
+              <el-table-column prop="createTime" :label="t('common.createTime')" min-width="170" />
             </el-table>
           </div>
         </article>
@@ -196,40 +196,40 @@
         <article class="panel">
           <div class="panel-title">
             <div>
-              <h3>最近问答</h3>
-              <p class="muted">仅展示问题摘要，不返回证据 JSON</p>
+              <h3>{{ t('admin.recentQa') }}</h3>
+              <p class="muted">{{ t('admin.recentQaDesc') }}</p>
             </div>
           </div>
           <div class="panel-body">
-            <el-table :data="recentQa" stripe empty-text="暂无问答记录">
+            <el-table :data="recentQa" stripe :empty-text="t('admin.noQa')">
               <el-table-column prop="id" label="ID" width="90" />
-              <el-table-column prop="userId" label="用户ID" width="100" />
-              <el-table-column prop="projectId" label="项目ID" width="100" />
-              <el-table-column prop="question" label="问题" min-width="220" show-overflow-tooltip />
+              <el-table-column prop="userId" :label="t('common.userId')" width="100" />
+              <el-table-column prop="projectId" :label="t('common.projectId')" width="100" />
+              <el-table-column prop="question" :label="t('admin.question')" min-width="220" show-overflow-tooltip />
               <el-table-column prop="aiUsed" label="AI" width="100">
                 <template #default="{ row }">
                   <el-tag :type="row.aiUsed ? 'success' : 'info'" effect="light">
-                    {{ row.aiUsed ? '已参与' : '未参与' }}
+                    {{ row.aiUsed ? t('admin.aiUsed') : t('admin.aiNotUsed') }}
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column prop="createTime" label="创建时间" min-width="170" />
+              <el-table-column prop="createTime" :label="t('common.createTime')" min-width="170" />
             </el-table>
           </div>
         </article>
       </section>
 
-      <el-dialog v-model="creditDialogVisible" title="额度发放" width="720px">
+      <el-dialog v-model="creditDialogVisible" :title="t('admin.creditDialogTitle')" width="720px">
         <div v-if="selectedCreditUser" class="credit-dialog-stack">
           <div class="credit-user-summary">
-            <span>用户 ID：{{ selectedCreditUser.userId }}</span>
-            <span>邮箱：{{ selectedCreditUser.email }}</span>
-            <span>昵称：{{ selectedCreditUser.nickname || '-' }}</span>
-            <span>当前额度：{{ creditDetail?.creditBalance ?? selectedCreditUser.creditBalance }}</span>
+            <span>{{ t('common.userId') }}：{{ selectedCreditUser.userId }}</span>
+            <span>{{ t('common.email') }}：{{ selectedCreditUser.email }}</span>
+            <span>{{ t('admin.nickname') }}：{{ selectedCreditUser.nickname || '-' }}</span>
+            <span>{{ t('admin.balance') }}：{{ creditDetail?.creditBalance ?? selectedCreditUser.creditBalance }}</span>
           </div>
 
           <el-form label-width="92px" @submit.prevent>
-            <el-form-item label="发放额度">
+            <el-form-item :label="t('admin.grantAmount')">
               <el-input-number
                 v-model="creditForm.amount"
                 :min="1"
@@ -239,60 +239,60 @@
                 controls-position="right"
               />
             </el-form-item>
-            <el-form-item label="发放原因">
+            <el-form-item :label="t('admin.grantReason')">
               <el-input
                 v-model="creditForm.reason"
                 type="textarea"
                 :rows="3"
                 maxlength="200"
                 show-word-limit
-                placeholder="例如：测试用户补充额度"
+                :placeholder="t('admin.grantReasonPlaceholder')"
               />
             </el-form-item>
           </el-form>
 
           <div class="credit-log-block">
-            <h4>最近流水</h4>
+            <h4>{{ t('admin.recentLogs') }}</h4>
             <el-table
               :data="creditDetail?.recentTransactions || []"
               size="small"
               stripe
-              empty-text="暂无额度流水"
+              :empty-text="t('admin.noCreditLogs')"
             >
-              <el-table-column prop="changeAmount" label="变动额度" width="100">
+              <el-table-column prop="changeAmount" :label="t('credits.change')" width="100">
                 <template #default="{ row }">
                   <el-tag :type="row.changeAmount > 0 ? 'success' : 'warning'" effect="light">
                     {{ row.changeAmount > 0 ? `+${row.changeAmount}` : row.changeAmount }}
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column prop="type" label="类型" width="140" show-overflow-tooltip />
-              <el-table-column prop="reason" label="原因" min-width="220" show-overflow-tooltip />
-              <el-table-column prop="createTime" label="时间" min-width="170" />
+              <el-table-column prop="type" :label="t('feedback.type')" width="140" show-overflow-tooltip />
+              <el-table-column prop="reason" :label="t('admin.grantReason')" min-width="220" show-overflow-tooltip />
+              <el-table-column prop="createTime" :label="t('credits.time')" min-width="170" />
             </el-table>
           </div>
         </div>
 
         <template #footer>
-          <el-button @click="creditDialogVisible = false">取消</el-button>
-          <el-button type="primary" :loading="grantLoading" @click="handleGrantCredit">确认发放</el-button>
+          <el-button @click="creditDialogVisible = false">{{ t('common.cancel') }}</el-button>
+          <el-button type="primary" :loading="grantLoading" @click="handleGrantCredit">{{ t('admin.confirmGrant') }}</el-button>
         </template>
       </el-dialog>
 
-      <el-dialog v-model="feedbackDialogVisible" title="反馈详情" width="760px">
+      <el-dialog v-model="feedbackDialogVisible" :title="t('admin.feedbackDialogTitle')" width="760px">
         <div v-if="selectedFeedback" v-loading="feedbackDetailLoading" class="feedback-detail-stack">
           <el-descriptions :column="2" border>
-            <el-descriptions-item label="反馈 ID">{{ selectedFeedback.id }}</el-descriptions-item>
-            <el-descriptions-item label="用户邮箱">{{ selectedFeedback.userEmail || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="类型">{{ feedbackTypeLabel(selectedFeedback.type) }}</el-descriptions-item>
-            <el-descriptions-item label="状态">
+            <el-descriptions-item :label="t('admin.feedbackId')">{{ selectedFeedback.id }}</el-descriptions-item>
+            <el-descriptions-item :label="t('admin.userEmail')">{{ selectedFeedback.userEmail || '-' }}</el-descriptions-item>
+            <el-descriptions-item :label="t('feedback.type')">{{ feedbackTypeLabel(selectedFeedback.type) }}</el-descriptions-item>
+            <el-descriptions-item :label="t('common.status')">
               <el-tag :type="feedbackStatusTagType(selectedFeedback.status)" effect="light">
                 {{ feedbackStatusLabel(selectedFeedback.status) }}
               </el-tag>
             </el-descriptions-item>
-            <el-descriptions-item label="联系方式">{{ selectedFeedback.contact || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="提交时间">{{ selectedFeedback.createTime || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="来源页面" :span="2">
+            <el-descriptions-item :label="t('feedback.contact')">{{ selectedFeedback.contact || '-' }}</el-descriptions-item>
+            <el-descriptions-item :label="t('admin.submitTime')">{{ selectedFeedback.createTime || '-' }}</el-descriptions-item>
+            <el-descriptions-item :label="t('feedback.pageUrl')" :span="2">
               <el-link
                 v-if="selectedFeedback.pageUrl"
                 :href="selectedFeedback.pageUrl"
@@ -306,40 +306,40 @@
           </el-descriptions>
 
           <div class="feedback-content-block">
-            <h4>完整内容</h4>
+            <h4>{{ t('admin.fullContent') }}</h4>
             <p>{{ selectedFeedback.content }}</p>
           </div>
 
           <el-form label-width="96px" @submit.prevent>
-            <el-form-item label="处理状态">
+            <el-form-item :label="t('admin.processStatus')">
               <el-select v-model="feedbackForm.status">
                 <el-option v-for="option in feedbackStatusOptions" :key="option.value" :label="option.label" :value="option.value" />
               </el-select>
             </el-form-item>
-            <el-form-item label="管理员备注">
+            <el-form-item :label="t('admin.adminNote')">
               <el-input
                 v-model="feedbackForm.adminNote"
                 type="textarea"
                 maxlength="1000"
                 show-word-limit
                 :rows="4"
-                placeholder="记录处理进展、判断或暂不处理原因"
+                :placeholder="t('admin.adminNotePlaceholder')"
               />
             </el-form-item>
           </el-form>
         </div>
 
         <template #footer>
-          <el-button @click="feedbackDialogVisible = false">取消</el-button>
-          <el-button type="primary" :loading="feedbackSaving" @click="handleUpdateFeedbackStatus">保存状态</el-button>
+          <el-button @click="feedbackDialogVisible = false">{{ t('common.cancel') }}</el-button>
+          <el-button type="primary" :loading="feedbackSaving" @click="handleUpdateFeedbackStatus">{{ t('admin.saveStatus') }}</el-button>
         </template>
       </el-dialog>
     </template>
 
     <section v-else class="panel" v-loading="loading">
       <div class="panel-body admin-denied">
-        <h3>正在校验管理员权限</h3>
-        <p class="muted">请稍候。</p>
+        <h3>{{ t('admin.checkingTitle') }}</h3>
+        <p class="muted">{{ t('admin.checkingDesc') }}</p>
       </div>
     </section>
   </div>
@@ -347,6 +347,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 
 import {
@@ -379,6 +380,7 @@ import type {
 } from '@/types/api'
 
 const loading = ref(false)
+const { t } = useI18n()
 const checked = ref(false)
 const adminMe = ref<AdminMe | null>(null)
 const stats = ref<AdminStats | null>(null)
@@ -416,33 +418,33 @@ const feedbackForm = ref({
 
 const isAdmin = computed(() => Boolean(adminMe.value?.admin))
 
-const feedbackTypeOptions: Array<{ label: string; value: FeedbackType }> = [
-  { label: '功能 Bug', value: 'BUG' },
-  { label: '体验建议', value: 'UX' },
-  { label: '审计不准确', value: 'AUDIT_INACCURATE' },
-  { label: '问答不准确', value: 'QA_INACCURATE' },
-  { label: '面试问题', value: 'INTERVIEW_QUESTION' },
-  { label: '上传问题', value: 'UPLOAD' },
-  { label: '其他', value: 'OTHER' }
-]
+const feedbackTypeOptions = computed<Array<{ label: string; value: FeedbackType }>>(() => [
+  { label: t('feedback.types.BUG'), value: 'BUG' },
+  { label: t('feedback.types.UX'), value: 'UX' },
+  { label: t('feedback.types.AUDIT_INACCURATE'), value: 'AUDIT_INACCURATE' },
+  { label: t('feedback.types.QA_INACCURATE'), value: 'QA_INACCURATE' },
+  { label: t('feedback.types.INTERVIEW_QUESTION'), value: 'INTERVIEW_QUESTION' },
+  { label: t('feedback.types.UPLOAD'), value: 'UPLOAD' },
+  { label: t('feedback.types.OTHER'), value: 'OTHER' }
+])
 
-const feedbackStatusOptions: Array<{ label: string; value: FeedbackStatus }> = [
-  { label: '待处理', value: 'PENDING' },
-  { label: '处理中', value: 'PROCESSING' },
-  { label: '已解决', value: 'RESOLVED' },
-  { label: '暂不处理', value: 'WONTFIX' }
-]
+const feedbackStatusOptions = computed<Array<{ label: string; value: FeedbackStatus }>>(() => [
+  { label: t('admin.feedbackStatuses.PENDING'), value: 'PENDING' },
+  { label: t('admin.feedbackStatuses.PROCESSING'), value: 'PROCESSING' },
+  { label: t('admin.feedbackStatuses.RESOLVED'), value: 'RESOLVED' },
+  { label: t('admin.feedbackStatuses.WONTFIX'), value: 'WONTFIX' }
+])
 
 const metrics = computed(() => [
-  { label: '用户数', value: stats.value?.userCount ?? '-' },
-  { label: '项目数', value: stats.value?.projectCount ?? '-' },
-  { label: '报告数', value: stats.value?.reportCount ?? '-' },
-  { label: '项目问答数', value: stats.value?.qaCount ?? '-' },
-  { label: '分享报告数', value: stats.value?.shareCount ?? '-' },
-  { label: '今日新增用户', value: stats.value?.todayUserCount ?? '-' },
-  { label: '今日新增项目', value: stats.value?.todayProjectCount ?? '-' },
-  { label: '今日新增报告', value: stats.value?.todayReportCount ?? '-' },
-  { label: '今日问答数', value: stats.value?.todayQaCount ?? '-' }
+  { label: t('admin.metrics.users'), value: stats.value?.userCount ?? '-' },
+  { label: t('admin.metrics.projects'), value: stats.value?.projectCount ?? '-' },
+  { label: t('admin.metrics.reports'), value: stats.value?.reportCount ?? '-' },
+  { label: t('admin.metrics.qa'), value: stats.value?.qaCount ?? '-' },
+  { label: t('admin.metrics.shares'), value: stats.value?.shareCount ?? '-' },
+  { label: t('admin.metrics.todayUsers'), value: stats.value?.todayUserCount ?? '-' },
+  { label: t('admin.metrics.todayProjects'), value: stats.value?.todayProjectCount ?? '-' },
+  { label: t('admin.metrics.todayReports'), value: stats.value?.todayReportCount ?? '-' },
+  { label: t('admin.metrics.todayQa'), value: stats.value?.todayQaCount ?? '-' }
 ])
 
 function statusTagType(status?: string) {
@@ -457,11 +459,11 @@ function statusTagType(status?: string) {
 }
 
 function feedbackTypeLabel(type?: string) {
-  return feedbackTypeOptions.find((option) => option.value === type)?.label || type || '-'
+  return feedbackTypeOptions.value.find((option) => option.value === type)?.label || type || '-'
 }
 
 function feedbackStatusLabel(status?: string) {
-  return feedbackStatusOptions.find((option) => option.value === status)?.label || status || '-'
+  return feedbackStatusOptions.value.find((option) => option.value === status)?.label || status || '-'
 }
 
 function feedbackStatusTagType(status?: string) {
@@ -611,7 +613,7 @@ async function handleUpdateFeedbackStatus() {
       adminNote: feedbackForm.value.adminNote.trim() || undefined
     })
     selectedFeedback.value = detail
-    ElMessage.success('反馈状态已更新')
+    ElMessage.success(t('admin.feedbackUpdated'))
     feedbackDialogVisible.value = false
     await loadFeedbackList()
   } finally {
@@ -649,13 +651,13 @@ async function handleGrantCredit() {
   }
 
   if (!Number.isInteger(creditForm.value.amount) || creditForm.value.amount <= 0) {
-    ElMessage.warning('发放额度必须为正整数')
+    ElMessage.warning(t('admin.amountRequired'))
     return
   }
 
   const reason = creditForm.value.reason.trim()
   if (reason.length < 2) {
-    ElMessage.warning('请填写至少 2 个字符的发放原因')
+    ElMessage.warning(t('admin.reasonRequired'))
     return
   }
 
@@ -666,7 +668,7 @@ async function handleGrantCredit() {
       amount: creditForm.value.amount,
       reason
     })
-    ElMessage.success('额度已发放')
+    ElMessage.success(t('admin.creditGranted'))
     selectedCreditUser.value.creditBalance = result.newBalance
     await Promise.all([
       loadCreditDetail(selectedCreditUser.value.userId),
@@ -684,6 +686,7 @@ onMounted(loadAdminDashboard)
 
 <style scoped>
 .admin-denied {
+  padding: 26px;
   text-align: center;
 }
 
@@ -695,6 +698,22 @@ onMounted(loadAdminDashboard)
 .admin-table-grid {
   display: grid;
   gap: 18px;
+}
+
+.page-title {
+  padding: 4px 0 2px;
+}
+
+.page-title h2 {
+  color: var(--pm-ink);
+}
+
+.admin-credit-panel,
+.admin-feedback-panel {
+  border-radius: 8px;
+  background:
+    linear-gradient(145deg, rgba(248, 251, 255, 0.92), rgba(255, 255, 255, 0.78)),
+    rgba(255, 255, 255, 0.86);
 }
 
 .admin-table-grid .panel-body {
@@ -711,6 +730,10 @@ onMounted(loadAdminDashboard)
   grid-template-columns: minmax(0, 360px) auto;
   justify-content: flex-start;
   gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(223, 230, 240, 0.82);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
 }
 
 .admin-feedback-panel {
@@ -723,6 +746,10 @@ onMounted(loadAdminDashboard)
   grid-template-columns: 150px 150px minmax(220px, 360px) auto auto;
   justify-content: flex-start;
   gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(223, 230, 240, 0.82);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
 }
 
 .feedback-pagination {
@@ -768,7 +795,7 @@ onMounted(loadAdminDashboard)
   padding: 12px;
   border: 1px solid var(--pm-border);
   border-radius: 8px;
-  background: #f8fbff;
+  background: linear-gradient(135deg, rgba(238, 246, 255, 0.86), rgba(240, 251, 249, 0.68));
   color: #344054;
   font-size: 13px;
 }

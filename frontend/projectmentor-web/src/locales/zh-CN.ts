@@ -91,10 +91,103 @@ export default {
   },
   landing: {
     heroEyebrow: '项目真实性审计 · 项目问答 · 模拟面试 · 报告分享',
+    heroHeadline: '让项目表达更有证据感',
     subtitle: 'AI 项目真实性审计与面试深挖平台，帮助你基于 README 和项目文件准备更可信的项目表达。',
+    ctaFeatures: '查看功能',
     trialTitle: '试用提示',
     trialDesc:
       '请勿上传真实商业机密、真实密钥或公司内部代码。ProjectMentor AI 会基于你提供的 README 和项目文件生成辅助分析，结论仅供学习、项目复盘和面试准备参考。',
+    mockup: {
+      windowTitle: 'ProjectMentor AI Workspace',
+      navAudit: '项目审计',
+      navQa: '项目问答',
+      navAdmin: '后台看板',
+      auditLabel: 'Evidence-first audit',
+      projectTitle: 'AI 项目审计报告',
+      evidenceStatus: '证据已关联',
+      score: '可信度',
+      evidence: '证据片段',
+      qa: '追问',
+      auditCard: '项目审计',
+      auditCardDesc: '从 README、文件和风险提示中形成复盘视图。',
+      qaCard: '项目问答',
+      qaCardDesc: '围绕实现细节追问，并标注证据强弱。',
+      reason: '命中原因',
+      reasonText: '回答会尽量说明来自哪个文件、为什么相关、证据是否足够。'
+    },
+    showcaseEyebrow: 'Product surface',
+    showcaseTitle: '像产品控制台一样组织项目证据',
+    showcaseDesc: '首页用模拟产品界面展示核心体验：审计、问答、证据可信度与后台运营状态都能被快速理解。',
+    productPanels: {
+      audit: {
+        title: '审计视图',
+        description: '把评分、风险、证据链和简历建议放在同一个复盘路径里。'
+      },
+      qa: {
+        title: '问答视图',
+        description: '输入问题后返回回答、证据等级、命中原因和可继续追问的问题。'
+      },
+      admin: {
+        title: '运营视图',
+        description: '管理员可以观察用户、项目、报告、问答、额度与反馈状态。'
+      }
+    },
+    bentoEyebrow: 'Core capabilities',
+    bentoTitle: '围绕项目可信度的一组轻量能力',
+    bentoDesc: 'PMAI 不替你包装项目，而是帮你把已有材料整理成更清楚、可追问、可复盘的证据结构。',
+    bento: {
+      audit: {
+        title: 'Project Audit / 项目审计',
+        description: '生成项目评分、风险点、优势短板和可复盘的审计报告。',
+        meta: 'Score · Risk · Evidence'
+      },
+      scan: {
+        title: 'README Risk Scan / README 风险扫描',
+        description: '先用规则发现夸大表述、敏感内容和缺少支撑的描述。',
+        meta: 'Fast rule scan'
+      },
+      qa: {
+        title: 'Project Q&A / 项目问答',
+        description: '围绕当前项目材料提问，回答会标注证据可信度和来源路径。',
+        meta: 'Answer with context'
+      },
+      interview: {
+        title: 'Mock Interview / 模拟面试',
+        description: '用项目事实驱动追问，帮助你练习更真实的项目深挖。',
+        meta: 'Practice follow-ups'
+      },
+      report: {
+        title: 'Evidence-based Report / 证据链报告',
+        description: '将风险、建议和简历表达落到可追踪的文件证据上。',
+        meta: 'Read-only sharing'
+      },
+      admin: {
+        title: 'Admin & Feedback / 后台与反馈闭环',
+        description: '轻量查看运营状态，处理额度和反馈，不改变产品核心流程。',
+        meta: 'Ops dashboard'
+      }
+    },
+    storyEyebrow: 'Narrative',
+    storyTitle: '从“能不能讲”到“怎么讲清楚”',
+    storyDesc: '滚动浏览时，你会看到 PMAI 的核心判断路径：先看证据，再做审计，最后转成面试复盘材料。',
+    story: {
+      why: {
+        title: '为什么需要 PMAI',
+        description: 'AI 生成项目和 README 很容易变得漂亮但空泛，PMAI 帮你回到证据和边界。'
+      },
+      audit: {
+        title: 'PMAI 如何审计项目',
+        description: '系统会结合 README、上传文件和规则扫描，给出风险、建议和证据等级。'
+      },
+      interview: {
+        title: '如何帮助面试复盘',
+        description: '项目问答和模拟面试会围绕实现路径、技术取舍和证据薄弱处继续追问。'
+      },
+      beta: {
+        title: '当前是 Beta 测试版',
+        description: '适合学习、复盘和面试准备；结论需要结合你自己的代码理解继续校验。'
+      }
+    },
     positionEyebrow: 'What it helps',
     positionTitle: '把项目讲清楚，而不是把项目包装满',
     positionDesc:
@@ -180,6 +273,14 @@ export default {
     loginSubtitle: '继续审计你的项目可信度和面试风险。',
     registerTitle: '创建账号',
     registerSubtitle: '用一次项目上传，换一轮更真实的面试预演。',
+    valueTitle: '把项目证据整理成可复盘的面试材料',
+    valueDesc: '登录后可以继续管理项目、生成审计报告、追问实现细节，并在 Beta 阶段提交反馈。',
+    betaNotice: '当前为 Beta 测试版，请不要上传商业机密、真实密钥或敏感文件；AI 结论仅供学习和面试准备参考。',
+    highlights: {
+      evidence: '基于 README 与项目文件整理证据',
+      qa: '用项目问答复盘实现细节',
+      report: '生成可分享的只读审计报告'
+    },
     usernamePlaceholder: '请输入用户名',
     emailPlaceholder: '请输入邮箱',
     passwordPlaceholder: '请输入密码',
@@ -200,6 +301,13 @@ export default {
     trialTitle: '试用提示',
     trialDesc:
       '请勿上传真实商业机密、真实密钥或公司内部代码。ProjectMentor AI 会基于你提供的 README 和项目文件生成辅助分析，结论仅供学习、项目复盘和面试准备参考。',
+    workspaceTitle: '当前工作区',
+    workspaceDesc: '从这里进入项目创建、审计、问答、模拟面试和额度记录。',
+    heroChips: {
+      evidence: '证据优先',
+      qa: '项目问答可用',
+      beta: 'Beta 复盘工作台'
+    },
     metrics: {
       projectCount: '项目数量',
       credits: '剩余额度',
@@ -430,6 +538,10 @@ export default {
     refreshHistory: '刷新历史',
     noFiles: '请先保存 README 或上传项目 ZIP，再使用项目问答。',
     placeholder: '例如：JWT 在哪里实现？',
+    askEyebrow: 'Evidence-aware Q&A',
+    askTitle: '向当前项目提一个可追溯的问题',
+    askSubtitle: '回答会尽量结合已上传的 README 与项目文件，并说明证据强弱、命中原因和可继续追问的方向。',
+    quickTitle: '快捷问题',
     ask: '提问',
     current: '本次回答',
     recent: '最近问答',
@@ -571,6 +683,12 @@ export default {
     title: '管理员后台',
     desc: '用于查看 ProjectMentor AI 当前试用版的用户、项目、报告和问答运行情况。',
     role: '管理员',
+    opsSummary: 'Beta 运营概览',
+    sections: {
+      overview: '数据概览',
+      operations: '额度与反馈',
+      activity: '近期活动'
+    },
     readonlyNotice: '当前管理员后台为只读 MVP，仅用于查看试用版运行情况。请勿在页面中展示或导出敏感信息。',
     deniedTitle: '无权限访问管理员后台',
     deniedDesc: '当前账号未配置为管理员，无法查看系统运行数据。',

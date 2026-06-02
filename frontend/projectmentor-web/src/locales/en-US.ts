@@ -91,10 +91,106 @@ export default {
   },
   landing: {
     heroEyebrow: 'Project Audit · Project Q&A · Mock Interview · Public Report Sharing',
+    heroHeadline: 'Make project claims evidence-aware',
     subtitle: 'AI-powered project review and interview preparation platform for evidence-based project storytelling.',
+    ctaFeatures: 'View features',
     trialTitle: 'Beta notice',
     trialDesc:
       'Do not upload secrets, company code, or sensitive files. ProjectMentor AI reviews the README and project files you provide. AI outputs are for learning and interview preparation only.',
+    mockup: {
+      windowTitle: 'ProjectMentor AI Workspace',
+      navAudit: 'Project Audit',
+      navQa: 'Project Q&A',
+      navAdmin: 'Admin Board',
+      auditLabel: 'Evidence-first audit',
+      projectTitle: 'AI Project Audit Report',
+      evidenceStatus: 'Evidence linked',
+      score: 'Trust score',
+      evidence: 'Evidence snippets',
+      qa: 'Follow-ups',
+      auditCard: 'Project Audit',
+      auditCardDesc: 'Review README, files, and risk notes in one workspace.',
+      qaCard: 'Project Q&A',
+      qaCardDesc: 'Ask implementation questions and see evidence strength.',
+      reason: 'Match reason',
+      reasonText: 'Answers try to explain which file is relevant, why it matched, and whether evidence is enough.'
+    },
+    showcaseEyebrow: 'Product surface',
+    showcaseTitle: 'Organize project evidence like a product console',
+    showcaseDesc:
+      'The landing experience previews the core surfaces: audit, Q&A, evidence confidence, and beta operations status.',
+    productPanels: {
+      audit: {
+        title: 'Audit view',
+        description: 'Review scores, risks, evidence chains, and resume wording in one flow.'
+      },
+      qa: {
+        title: 'Q&A view',
+        description: 'Ask a question and get an answer, evidence level, match reason, and follow-ups.'
+      },
+      admin: {
+        title: 'Operations view',
+        description: 'Admins can observe users, projects, reports, Q&A, credits, and feedback status.'
+      }
+    },
+    bentoEyebrow: 'Core capabilities',
+    bentoTitle: 'A lightweight toolkit for project credibility',
+    bentoDesc:
+      'PMAI does not package the project for you. It helps turn existing materials into clearer, reviewable evidence.',
+    bento: {
+      audit: {
+        title: 'Project Audit',
+        description: 'Generate project scores, risks, strengths, gaps, and a reviewable audit report.',
+        meta: 'Score · Risk · Evidence'
+      },
+      scan: {
+        title: 'README Risk Scan',
+        description: 'Use rules first to find overclaims, sensitive content, and unsupported descriptions.',
+        meta: 'Fast rule scan'
+      },
+      qa: {
+        title: 'Project Q&A',
+        description: 'Ask questions about current project materials with evidence confidence and source paths.',
+        meta: 'Answer with context'
+      },
+      interview: {
+        title: 'Mock Interview',
+        description: 'Practice realistic project deep-dives driven by project facts and evidence gaps.',
+        meta: 'Practice follow-ups'
+      },
+      report: {
+        title: 'Evidence-based Report',
+        description: 'Trace risks, suggestions, and resume wording back to file-level evidence.',
+        meta: 'Read-only sharing'
+      },
+      admin: {
+        title: 'Admin & Feedback',
+        description: 'Observe beta operations, manage credits, and close the feedback loop.',
+        meta: 'Ops dashboard'
+      }
+    },
+    storyEyebrow: 'Narrative',
+    storyTitle: 'From “can I say this?” to “can I explain it?”',
+    storyDesc:
+      'PMAI follows one path: inspect evidence, audit the project, then turn findings into interview review material.',
+    story: {
+      why: {
+        title: 'Why PMAI exists',
+        description: 'AI-generated projects and READMEs can sound polished but thin. PMAI brings the review back to evidence and boundaries.'
+      },
+      audit: {
+        title: 'How PMAI audits',
+        description: 'It combines README content, uploaded files, and rule scans to surface risks, suggestions, and evidence levels.'
+      },
+      interview: {
+        title: 'How it supports interview review',
+        description: 'Project Q&A and mock interviews continue around implementation paths, tradeoffs, and weak evidence.'
+      },
+      beta: {
+        title: 'Currently in beta',
+        description: 'Use it for learning, review, and interview preparation. Keep validating conclusions against your own code understanding.'
+      }
+    },
     positionEyebrow: 'What it helps',
     positionTitle: 'Explain the project clearly, without overclaiming it',
     positionDesc:
@@ -181,6 +277,14 @@ export default {
     loginSubtitle: 'Continue reviewing project credibility and interview risks.',
     registerTitle: 'Create an account',
     registerSubtitle: 'Upload a project once and prepare a more realistic interview rehearsal.',
+    valueTitle: 'Turn project evidence into reviewable interview material',
+    valueDesc: 'Sign in to manage projects, generate audit reports, ask implementation questions, and send beta feedback.',
+    betaNotice: 'This is a beta version. Do not upload secrets, sensitive files, or company code. AI outputs are for learning and interview preparation only.',
+    highlights: {
+      evidence: 'Organize evidence from README and project files',
+      qa: 'Review implementation details through project Q&A',
+      report: 'Generate read-only audit reports for sharing'
+    },
     usernamePlaceholder: 'Enter username',
     emailPlaceholder: 'Enter email',
     passwordPlaceholder: 'Enter password',
@@ -201,6 +305,13 @@ export default {
     trialTitle: 'Beta notice',
     trialDesc:
       'Do not upload secrets, company code, or sensitive files. ProjectMentor AI reviews the README and project files you provide. AI outputs are for learning and interview preparation only.',
+    workspaceTitle: 'Current workspace',
+    workspaceDesc: 'Start project creation, audits, Q&A, mock interviews, and credit review from here.',
+    heroChips: {
+      evidence: 'Evidence first',
+      qa: 'Project Q&A ready',
+      beta: 'Beta review workspace'
+    },
     metrics: {
       projectCount: 'Projects',
       credits: 'Credits left',
@@ -433,6 +544,10 @@ export default {
     refreshHistory: 'Refresh history',
     noFiles: 'Please save README content or upload a project ZIP before using Project Q&A.',
     placeholder: 'Example: Where is JWT implemented?',
+    askEyebrow: 'Evidence-aware Q&A',
+    askTitle: 'Ask a traceable question about this project',
+    askSubtitle: 'Answers try to use uploaded README and project files, then explain evidence strength, match reason, and follow-up directions.',
+    quickTitle: 'Quick questions',
     ask: 'Ask',
     current: 'Current answer',
     recent: 'Recent Q&A',
@@ -575,6 +690,12 @@ export default {
     title: 'Admin Dashboard',
     desc: 'View current beta usage for users, projects, reports, and project Q&A.',
     role: 'Admin',
+    opsSummary: 'Beta operations overview',
+    sections: {
+      overview: 'Overview',
+      operations: 'Credits & feedback',
+      activity: 'Recent activity'
+    },
     readonlyNotice: 'This admin dashboard is a read-only MVP for observing beta operations. Do not display or export sensitive information.',
     deniedTitle: 'No admin access',
     deniedDesc: 'The current account is not configured as an admin and cannot view system data.',

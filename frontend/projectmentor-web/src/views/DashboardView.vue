@@ -1,15 +1,25 @@
 <template>
   <div class="page-stack">
-    <section class="panel">
+    <section class="panel dashboard-hero-panel">
       <div class="panel-body dashboard-hero">
-        <div>
+        <div class="dashboard-hero-copy">
           <p class="eyebrow">{{ t('dashboard.eyebrow') }}</p>
           <h2>{{ t('dashboard.greeting', { name: userStore.userInfo?.username || t('common.classmate') }) }}</h2>
           <p class="muted">
             {{ t('dashboard.subtitle') }}
           </p>
+          <div class="pm-chip-row dashboard-hero-chips">
+            <span v-for="chip in heroChips" :key="chip" class="pm-chip">{{ chip }}</span>
+          </div>
         </div>
-        <el-button type="primary" :icon="Plus" @click="router.push('/projects/create')">{{ t('common.createProject') }}</el-button>
+        <div class="dashboard-hero-card">
+          <div>
+            <span>{{ t('dashboard.workspaceTitle') }}</span>
+            <strong>{{ aiStatusLabel }}</strong>
+            <p>{{ t('dashboard.workspaceDesc') }}</p>
+          </div>
+          <el-button type="primary" :icon="Plus" @click="router.push('/projects/create')">{{ t('common.createProject') }}</el-button>
+        </div>
       </div>
     </section>
 
@@ -21,15 +31,16 @@
       :description="t('dashboard.trialDesc')"
     />
 
-    <section class="metric-grid" v-loading="loading">
-      <div class="metric-card" v-for="metric in metrics" :key="metric.label">
+    <section class="metric-grid dashboard-metric-grid" v-loading="loading">
+      <div class="metric-card dashboard-metric pm-hover-lift" v-for="metric in metrics" :key="metric.label">
+        <i :class="['dashboard-metric-accent', metric.tone]" />
         <span>{{ metric.label }}</span>
-        <strong>{{ metric.value }}</strong>
+        <strong :class="{ 'small-value': String(metric.value).length > 8 }">{{ metric.value }}</strong>
       </div>
     </section>
 
     <section class="quick-grid">
-      <button v-for="entry in quickEntries" :key="entry.title" class="quick-entry" @click="router.push(entry.path)">
+      <button v-for="entry in quickEntries" :key="entry.title" class="quick-entry pm-hover-lift" @click="router.push(entry.path)">
         <el-icon :size="22">
           <component :is="entry.icon" />
         </el-icon>
@@ -102,12 +113,18 @@ const aiStatusLabel = computed(() =>
   aiStatus.value?.enabled && aiStatus.value?.configured ? t('dashboard.aiConfigured') : t('dashboard.aiFallback')
 )
 
+const heroChips = computed(() => [
+  t('dashboard.heroChips.evidence'),
+  t('dashboard.heroChips.qa'),
+  t('dashboard.heroChips.beta')
+])
+
 const metrics = computed(() => [
-  { label: t('dashboard.metrics.projectCount'), value: projects.value.length },
-  { label: t('dashboard.metrics.credits'), value: userStore.remainingCredits },
-  { label: t('dashboard.metrics.aiStatus'), value: aiStatusLabel.value },
-  { label: t('dashboard.metrics.reports'), value: '--' },
-  { label: t('dashboard.metrics.interviews'), value: '--' }
+  { label: t('dashboard.metrics.projectCount'), value: projects.value.length, tone: 'blue' },
+  { label: t('dashboard.metrics.credits'), value: userStore.remainingCredits, tone: 'teal' },
+  { label: t('dashboard.metrics.aiStatus'), value: aiStatusLabel.value, tone: 'green' },
+  { label: t('dashboard.metrics.reports'), value: '--', tone: 'amber' },
+  { label: t('dashboard.metrics.interviews'), value: '--', tone: 'blue' }
 ])
 
 const recentProjects = computed(() =>
@@ -174,16 +191,22 @@ onMounted(loadDashboard)
 </script>
 
 <style scoped>
+.dashboard-hero-panel {
+  overflow: hidden;
+}
+
 .dashboard-hero {
   position: relative;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
   align-items: center;
-  justify-content: space-between;
-  gap: 20px;
+  gap: 24px;
   overflow: hidden;
   border-radius: 8px;
   background:
-    linear-gradient(135deg, rgba(31, 111, 235, 0.08), rgba(20, 184, 166, 0.06)),
+    radial-gradient(circle at 10% 20%, rgba(20, 184, 166, 0.14), transparent 34%),
+    radial-gradient(circle at 82% 14%, rgba(31, 111, 235, 0.14), transparent 36%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(248, 251, 255, 0.78)),
     rgba(255, 255, 255, 0.9);
 }
 
@@ -212,6 +235,84 @@ onMounted(loadDashboard)
   max-width: 620px;
 }
 
+.dashboard-hero-chips {
+  margin-top: 18px;
+}
+
+.dashboard-hero-card {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid rgba(214, 224, 236, 0.82);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 18px 42px rgba(28, 43, 68, 0.08);
+  backdrop-filter: blur(16px);
+}
+
+.dashboard-hero-card span {
+  color: var(--pm-muted);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.dashboard-hero-card strong {
+  display: block;
+  margin-top: 8px;
+  color: #111827;
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.dashboard-hero-card p {
+  margin: 8px 0 0;
+  color: var(--pm-muted);
+  line-height: 1.7;
+}
+
+.dashboard-metric-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.dashboard-metric {
+  position: relative;
+  overflow: hidden;
+}
+
+.dashboard-metric::after {
+  position: absolute;
+  inset: auto 14px 12px auto;
+  width: 46px;
+  height: 46px;
+  border-radius: 999px;
+  background: rgba(31, 111, 235, 0.08);
+  content: "";
+}
+
+.dashboard-metric-accent {
+  display: block;
+  width: 28px;
+  height: 3px;
+  margin-bottom: 14px;
+  border-radius: 999px;
+  background: var(--pm-primary);
+}
+
+.dashboard-metric-accent.teal {
+  background: var(--pm-teal);
+}
+
+.dashboard-metric-accent.green {
+  background: var(--pm-green);
+}
+
+.dashboard-metric-accent.amber {
+  background: var(--pm-amber);
+}
+
 .quick-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -227,7 +328,7 @@ onMounted(loadDashboard)
   border: 1px solid rgba(223, 230, 240, 0.92);
   border-radius: 8px;
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 255, 0.9)),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(248, 251, 255, 0.86)),
     rgba(255, 255, 255, 0.94);
   color: inherit;
   text-align: left;
@@ -239,13 +340,14 @@ onMounted(loadDashboard)
     transform 180ms ease;
 }
 
-.quick-entry:hover {
-  border-color: rgba(31, 111, 235, 0.28);
-  box-shadow: 0 18px 36px rgba(31, 111, 235, 0.11);
-  transform: translateY(-3px);
-}
-
 .quick-entry :deep(.el-icon) {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(31, 111, 235, 0.12), rgba(20, 184, 166, 0.1));
   color: var(--pm-primary);
 }
 
@@ -260,19 +362,25 @@ onMounted(loadDashboard)
 }
 
 @media (max-width: 920px) {
+  .dashboard-hero,
+  .dashboard-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .quick-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 620px) {
-  .dashboard-hero {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
+  .dashboard-hero,
+  .dashboard-metric-grid,
   .quick-grid {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-hero-card {
+    width: 100%;
   }
 }
 </style>

@@ -1,6 +1,15 @@
 <template>
-  <div class="auth-page">
-    <section class="auth-panel">
+  <div class="auth-page pm-premium-bg">
+    <section class="auth-product-panel pm-fade-up is-visible">
+      <div class="auth-product-badge">ProjectMentor AI · {{ t('common.beta') }}</div>
+      <h1>{{ t('auth.valueTitle') }}</h1>
+      <p>{{ t('auth.valueDesc') }}</p>
+      <div class="auth-highlight-list">
+        <span v-for="item in authHighlights" :key="item">{{ item }}</span>
+      </div>
+    </section>
+
+    <section class="auth-panel pm-glass-card pm-fade-up is-visible">
       <div class="auth-topline">
         <RouterLink class="muted" to="/">{{ t('common.backHome') }}</RouterLink>
         <LanguageSwitch />
@@ -21,12 +30,13 @@
       </el-form>
 
       <p class="auth-tip">{{ t('auth.noAccount') }}<RouterLink to="/register">{{ t('auth.registerNow') }}</RouterLink></p>
+      <p class="auth-beta-note">{{ t('auth.betaNotice') }}</p>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
@@ -45,6 +55,12 @@ const form = reactive({
   username: '',
   password: ''
 })
+
+const authHighlights = computed(() => [
+  t('auth.highlights.evidence'),
+  t('auth.highlights.qa'),
+  t('auth.highlights.report')
+])
 
 async function handleLogin() {
   if (!form.username || !form.password) {

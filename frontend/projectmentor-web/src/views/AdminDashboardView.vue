@@ -1,12 +1,15 @@
 <template>
   <div class="page-stack">
-    <section class="page-title">
+    <section class="page-title admin-hero pm-glass-card">
       <div>
         <p class="eyebrow">{{ t('admin.eyebrow') }}</p>
         <h2>{{ t('admin.title') }}</h2>
         <p class="muted">{{ t('admin.desc') }}</p>
       </div>
-      <el-tag v-if="adminMe?.admin" type="success" effect="light">{{ t('admin.role') }}</el-tag>
+      <div class="admin-hero-meta">
+        <el-tag v-if="adminMe?.admin" type="success" effect="light">{{ t('admin.role') }}</el-tag>
+        <span>{{ t('admin.opsSummary') }}</span>
+      </div>
     </section>
 
     <el-alert
@@ -24,14 +27,16 @@
     </section>
 
     <template v-else-if="checked && isAdmin">
-      <section class="metric-grid" v-loading="loading">
-        <div class="metric-card" v-for="metric in metrics" :key="metric.label">
+      <div class="admin-section-label">{{ t('admin.sections.overview') }}</div>
+      <section class="metric-grid admin-metric-grid" v-loading="loading">
+        <div class="metric-card admin-metric-card pm-hover-lift" v-for="metric in metrics" :key="metric.label">
           <span>{{ metric.label }}</span>
           <strong>{{ metric.value }}</strong>
         </div>
       </section>
 
-      <section class="panel">
+      <div class="admin-section-label">{{ t('admin.sections.operations') }}</div>
+      <section class="panel admin-panel">
         <div class="panel-title">
           <div>
             <h3>{{ t('admin.creditTitle') }}</h3>
@@ -65,7 +70,7 @@
         </div>
       </section>
 
-      <section class="panel">
+      <section class="panel admin-panel">
         <div class="panel-title">
           <div>
             <h3>{{ t('admin.feedbackTitle') }}</h3>
@@ -132,8 +137,9 @@
         </div>
       </section>
 
+      <div class="admin-section-label">{{ t('admin.sections.activity') }}</div>
       <section class="admin-table-grid" v-loading="loading">
-        <article class="panel">
+        <article class="panel admin-panel">
           <div class="panel-title">
             <div>
               <h3>{{ t('admin.recentUsers') }}</h3>
@@ -150,7 +156,7 @@
           </div>
         </article>
 
-        <article class="panel">
+        <article class="panel admin-panel">
           <div class="panel-title">
             <div>
               <h3>{{ t('admin.recentProjects') }}</h3>
@@ -173,7 +179,7 @@
           </div>
         </article>
 
-        <article class="panel">
+        <article class="panel admin-panel">
           <div class="panel-title">
             <div>
               <h3>{{ t('admin.recentReports') }}</h3>
@@ -193,7 +199,7 @@
           </div>
         </article>
 
-        <article class="panel">
+        <article class="panel admin-panel">
           <div class="panel-title">
             <div>
               <h3>{{ t('admin.recentQa') }}</h3>
@@ -700,12 +706,75 @@ onMounted(loadAdminDashboard)
   gap: 18px;
 }
 
-.page-title {
-  padding: 4px 0 2px;
+.admin-hero {
+  position: relative;
+  align-items: center;
+  padding: 24px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(20, 184, 166, 0.14), transparent 34%),
+    radial-gradient(circle at 88% 0%, rgba(31, 111, 235, 0.13), transparent 36%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(248, 251, 255, 0.76));
 }
 
-.page-title h2 {
+.admin-hero h2 {
   color: var(--pm-ink);
+}
+
+.admin-hero-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.admin-hero-meta span {
+  padding: 7px 10px;
+  border: 1px solid rgba(31, 111, 235, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.68);
+  color: #245089;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.admin-section-label {
+  margin: 4px 0 -4px;
+  color: #344054;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.admin-metric-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.admin-metric-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.admin-metric-card::before {
+  display: block;
+  width: 30px;
+  height: 3px;
+  margin-bottom: 14px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--pm-primary), var(--pm-teal));
+  content: "";
+}
+
+.admin-panel {
+  overflow: hidden;
+}
+
+.admin-panel > .panel-title {
+  background:
+    linear-gradient(180deg, rgba(248, 251, 255, 0.9), rgba(255, 255, 255, 0.78)),
+    rgba(255, 255, 255, 0.9);
 }
 
 .admin-credit-panel,
@@ -727,13 +796,15 @@ onMounted(loadAdminDashboard)
 
 .admin-credit-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 360px) auto;
+  grid-template-columns: minmax(0, 420px) auto;
   justify-content: flex-start;
   gap: 10px;
-  padding: 12px;
+  padding: 14px;
   border: 1px solid rgba(223, 230, 240, 0.82);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.72);
+  background:
+    linear-gradient(135deg, rgba(238, 246, 255, 0.72), rgba(255, 255, 255, 0.78)),
+    rgba(255, 255, 255, 0.72);
 }
 
 .admin-feedback-panel {
@@ -743,18 +814,25 @@ onMounted(loadAdminDashboard)
 
 .feedback-toolbar {
   display: grid;
-  grid-template-columns: 150px 150px minmax(220px, 360px) auto auto;
+  grid-template-columns: 160px 160px minmax(240px, 1fr) auto auto;
   justify-content: flex-start;
   gap: 10px;
-  padding: 12px;
+  padding: 14px;
   border: 1px solid rgba(223, 230, 240, 0.82);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.72);
+  background:
+    linear-gradient(135deg, rgba(238, 246, 255, 0.72), rgba(255, 255, 255, 0.78)),
+    rgba(255, 255, 255, 0.72);
 }
 
 .feedback-pagination {
   display: flex;
   justify-content: flex-end;
+}
+
+.admin-credit-toolbar .el-button,
+.feedback-toolbar .el-button {
+  margin-left: 0;
 }
 
 .feedback-detail-stack {
@@ -809,6 +887,20 @@ onMounted(loadAdminDashboard)
   .feedback-toolbar,
   .credit-user-summary {
     grid-template-columns: 1fr;
+  }
+
+  .admin-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .admin-metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-hero-meta {
+    justify-content: flex-start;
   }
 }
 </style>

@@ -1,5 +1,5 @@
 <template>
-  <section class="panel qa-panel">
+  <section class="panel qa-panel pm-glass-card">
     <div class="panel-title">
       <div>
         <h3>{{ t('qa.title') }}</h3>
@@ -17,30 +17,43 @@
         :closable="false"
       />
 
-      <div class="quick-question-list">
-        <el-button
-          v-for="item in quickQuestions"
-          :key="item"
-          size="small"
-          plain
-          @click="fillQuestion(item)"
-        >
-          {{ item }}
-        </el-button>
-      </div>
+      <div class="qa-input-shell">
+        <div class="qa-prompt-head">
+          <div>
+            <p class="eyebrow">{{ t('qa.askEyebrow') }}</p>
+            <h4>{{ t('qa.askTitle') }}</h4>
+            <p>{{ t('qa.askSubtitle') }}</p>
+          </div>
+        </div>
 
-      <div class="qa-input-row">
-        <el-input
-          v-model="question"
-          type="textarea"
-          :rows="3"
-          maxlength="1000"
-          show-word-limit
-          :placeholder="t('qa.placeholder')"
-        />
-        <el-button type="primary" :icon="QuestionFilled" :loading="loading" :disabled="!hasProjectFiles" @click="handleAsk">
-          {{ t('qa.ask') }}
-        </el-button>
+        <div class="quick-question-block">
+          <div class="qa-record-subtitle">{{ t('qa.quickTitle') }}</div>
+          <div class="quick-question-list">
+            <el-button
+              v-for="item in quickQuestions"
+              :key="item"
+              size="small"
+              plain
+              @click="fillQuestion(item)"
+            >
+              {{ item }}
+            </el-button>
+          </div>
+        </div>
+
+        <div class="qa-input-row">
+          <el-input
+            v-model="question"
+            type="textarea"
+            :rows="3"
+            maxlength="1000"
+            show-word-limit
+            :placeholder="t('qa.placeholder')"
+          />
+          <el-button type="primary" :icon="QuestionFilled" :loading="loading" :disabled="!hasProjectFiles" @click="handleAsk">
+            {{ t('qa.ask') }}
+          </el-button>
+        </div>
       </div>
 
       <div v-if="currentAnswer" class="qa-current">
@@ -62,8 +75,8 @@
                 </div>
               </div>
             <div class="qa-record-actions">
-              <el-button :icon="CopyDocument" @click="copyQaRecord(currentAnswer)">{{ t('qa.copyAnswer') }}</el-button>
-              <el-button :icon="CopyDocument" type="primary" plain @click="copyInterviewRecord(currentAnswer)">{{ t('qa.copyInterview') }}</el-button>
+              <el-button class="qa-action-button" :icon="CopyDocument" @click="copyQaRecord(currentAnswer)">{{ t('qa.copyAnswer') }}</el-button>
+              <el-button class="qa-action-button" :icon="CopyDocument" type="primary" plain @click="copyInterviewRecord(currentAnswer)">{{ t('qa.copyInterview') }}</el-button>
             </div>
           </header>
 
@@ -135,9 +148,9 @@
                 </div>
               </div>
               <div class="qa-record-actions">
-                <el-button :icon="CopyDocument" @click="copyQaRecord(record)">{{ t('qa.copyAnswer') }}</el-button>
-                <el-button :icon="CopyDocument" type="primary" plain @click="copyInterviewRecord(record)">{{ t('qa.copyInterview') }}</el-button>
-                <el-button :icon="DeleteIcon" type="danger" plain @click="handleDelete(record)">{{ t('qa.deleteRecord') }}</el-button>
+                <el-button class="qa-action-button" :icon="CopyDocument" @click="copyQaRecord(record)">{{ t('qa.copyAnswer') }}</el-button>
+                <el-button class="qa-action-button" :icon="CopyDocument" type="primary" plain @click="copyInterviewRecord(record)">{{ t('qa.copyInterview') }}</el-button>
+                <el-button class="qa-action-button" :icon="DeleteIcon" type="danger" plain @click="handleDelete(record)">{{ t('qa.deleteRecord') }}</el-button>
               </div>
             </header>
 
@@ -668,8 +681,42 @@ onMounted(loadHistory)
 
 .qa-panel > .panel-title {
   background:
-    linear-gradient(135deg, rgba(31, 111, 235, 0.08), rgba(20, 184, 166, 0.07)),
+    radial-gradient(circle at 16% 0%, rgba(20, 184, 166, 0.14), transparent 34%),
+    radial-gradient(circle at 92% 0%, rgba(31, 111, 235, 0.14), transparent 36%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 255, 0.76)),
     rgba(255, 255, 255, 0.92);
+}
+
+.qa-input-shell {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid rgba(31, 111, 235, 0.14);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 4% 0%, rgba(20, 184, 166, 0.12), transparent 34%),
+    radial-gradient(circle at 88% 0%, rgba(31, 111, 235, 0.12), transparent 36%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(248, 251, 255, 0.78));
+  box-shadow: 0 18px 46px rgba(31, 111, 235, 0.09);
+}
+
+.qa-prompt-head h4 {
+  margin: 8px 0 8px;
+  color: #111827;
+  font-size: 22px;
+  line-height: 1.25;
+}
+
+.qa-prompt-head p:last-child {
+  max-width: 780px;
+  margin: 0;
+  color: var(--pm-muted);
+  line-height: 1.75;
+}
+
+.quick-question-block {
+  display: grid;
+  gap: 10px;
 }
 
 .quick-question-list,
@@ -692,10 +739,11 @@ onMounted(loadHistory)
 }
 
 .quick-question-list .el-button {
-  border-color: rgba(31, 111, 235, 0.2);
-  background: rgba(255, 255, 255, 0.78);
+  border-color: rgba(31, 111, 235, 0.16);
+  background: rgba(255, 255, 255, 0.82);
   color: #245089;
   font-weight: 700;
+  box-shadow: 0 8px 18px rgba(28, 43, 68, 0.04);
   transition:
     border-color 180ms ease,
     box-shadow 180ms ease,
@@ -711,12 +759,23 @@ onMounted(loadHistory)
 .qa-follow-up-button,
 .qa-text-button {
   border: 1px solid rgba(64, 158, 255, 0.28);
-  border-radius: 6px;
-  background: #ffffff;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.88);
   color: var(--pm-primary);
   cursor: pointer;
   font: inherit;
   padding: 7px 12px;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.qa-follow-up-button:hover,
+.qa-copy-path-button:hover {
+  border-color: rgba(31, 111, 235, 0.34);
+  box-shadow: 0 10px 22px rgba(31, 111, 235, 0.1);
+  transform: translateY(-1px);
 }
 
 .qa-text-button {
@@ -729,13 +788,14 @@ onMounted(loadHistory)
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: flex-start;
   gap: 12px;
-  padding: 14px;
-  border: 1px solid rgba(31, 111, 235, 0.14);
+}
+
+.qa-input-row :deep(.el-textarea__inner) {
+  border-color: rgba(31, 111, 235, 0.18);
   border-radius: 8px;
-  background:
-    linear-gradient(135deg, rgba(238, 246, 255, 0.7), rgba(240, 251, 249, 0.52)),
-    rgba(255, 255, 255, 0.82);
-  box-shadow: 0 14px 32px rgba(31, 111, 235, 0.08);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  line-height: 1.7;
 }
 
 .qa-section-heading {
@@ -756,13 +816,13 @@ onMounted(loadHistory)
 
 .qa-record {
   min-width: 0;
-  padding: 16px;
+  padding: 18px;
   border: 1px solid rgba(223, 230, 240, 0.92);
   border-radius: 8px;
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(248, 251, 255, 0.9)),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(248, 251, 255, 0.86)),
     #ffffff;
-  box-shadow: 0 12px 28px rgba(28, 43, 68, 0.06);
+  box-shadow: 0 16px 38px rgba(28, 43, 68, 0.07);
 }
 
 .qa-record-current {
@@ -786,7 +846,7 @@ onMounted(loadHistory)
 .qa-record-main h4 {
   margin: 0 0 10px;
   color: #101828;
-  font-size: 16px;
+  font-size: 17px;
   line-height: 1.55;
   overflow-wrap: anywhere;
 }
@@ -802,6 +862,11 @@ onMounted(loadHistory)
 
 .qa-record-actions .el-button {
   margin-left: 0;
+}
+
+.qa-action-button {
+  border-radius: 8px;
+  font-weight: 700;
 }
 
 .qa-record-details {
@@ -829,13 +894,16 @@ onMounted(loadHistory)
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px 14px;
-  padding: 14px;
+  padding: 16px;
   border: 1px solid rgba(223, 230, 240, 0.92);
   border-radius: 8px;
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 255, 0.86)),
+    radial-gradient(circle at 96% 0%, rgba(31, 111, 235, 0.1), transparent 34%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 255, 0.84)),
     #fbfdff;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  box-shadow:
+    0 12px 30px rgba(28, 43, 68, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92);
 }
 
 .qa-confidence-main {
@@ -865,6 +933,9 @@ onMounted(loadHistory)
 
 .qa-confidence-strong {
   border-color: rgba(103, 194, 58, 0.36);
+  background:
+    radial-gradient(circle at 96% 0%, rgba(16, 185, 129, 0.12), transparent 34%),
+    rgba(255, 255, 255, 0.9);
 }
 
 .qa-confidence-medium {
@@ -873,10 +944,16 @@ onMounted(loadHistory)
 
 .qa-confidence-weak {
   border-color: rgba(230, 162, 60, 0.36);
+  background:
+    radial-gradient(circle at 96% 0%, rgba(245, 158, 11, 0.12), transparent 34%),
+    rgba(255, 255, 255, 0.9);
 }
 
 .qa-confidence-none {
   border-color: rgba(245, 108, 108, 0.34);
+  background:
+    radial-gradient(circle at 96% 0%, rgba(239, 68, 68, 0.1), transparent 34%),
+    rgba(255, 255, 255, 0.9);
 }
 
 .qa-insight-grid {
@@ -890,7 +967,9 @@ onMounted(loadHistory)
   padding: 14px;
   border: 1px solid rgba(223, 230, 240, 0.92);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.78);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(248, 251, 255, 0.7)),
+    rgba(255, 255, 255, 0.78);
 }
 
 .qa-insight-block p {
@@ -910,7 +989,10 @@ onMounted(loadHistory)
   padding: 14px;
   border: 1px solid rgba(223, 230, 240, 0.92);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.86);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 255, 0.76)),
+    rgba(255, 255, 255, 0.86);
+  box-shadow: 0 12px 28px rgba(28, 43, 68, 0.05);
   transition:
     border-color 180ms ease,
     box-shadow 180ms ease,
@@ -941,14 +1023,19 @@ onMounted(loadHistory)
 
 .qa-copy-path-button {
   border: 1px solid rgba(64, 158, 255, 0.25);
-  border-radius: 6px;
-  background: #ffffff;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
   color: var(--pm-primary);
   cursor: pointer;
   flex-shrink: 0;
   font: inherit;
   font-size: 12px;
+  font-weight: 800;
   padding: 5px 8px;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
 }
 
 .qa-reason {
@@ -974,7 +1061,7 @@ onMounted(loadHistory)
   overflow: auto;
   padding: 12px;
   border-radius: 8px;
-  background: #0f172a;
+  background: #111827;
   color: #e5edf7;
   font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
   font-size: 12px;

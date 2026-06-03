@@ -8,8 +8,8 @@ export default {
     register: 'Register',
     logout: 'Logout',
     feedback: 'Feedback',
-    donate: 'Buy me a coffee',
-    coffeeShort: 'Coffee',
+    donate: 'Support the creator',
+    coffeeShort: 'Support the creator',
     startNow: 'Get started',
     backHome: 'Back home',
     username: 'Username',
@@ -671,9 +671,9 @@ export default {
     }
   },
   donate: {
-    title: 'Buy me a coffee',
+    title: 'Support the creator',
     copy:
-      'If this tool saved you time during project review or interview preparation, you can optionally buy the author a coffee. It is fully voluntary and does not affect any feature.',
+      'If this tool saved you time during project review or interview preparation, you can optionally support the creator. It is fully voluntary and does not affect any feature.',
     wechat: 'WeChat',
     alipay: 'Alipay',
     qrMissing: 'QR code not configured',

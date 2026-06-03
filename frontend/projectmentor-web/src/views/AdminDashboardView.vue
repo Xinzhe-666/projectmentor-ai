@@ -54,16 +54,38 @@
             <el-button type="primary" :loading="creditLoading" @click="loadCreditUsers">{{ t('common.search') }}</el-button>
           </div>
 
-          <el-table :data="creditUsers" stripe v-loading="creditLoading" :empty-text="t('admin.noUsers')">
+          <el-table class="admin-table-compact" :data="creditUsers" stripe v-loading="creditLoading" :empty-text="t('admin.noUsers')">
             <el-table-column prop="userId" :label="t('common.userId')" width="100" />
-            <el-table-column prop="email" :label="t('common.email')" min-width="190" show-overflow-tooltip />
-            <el-table-column prop="nickname" :label="t('admin.nickname')" min-width="130" show-overflow-tooltip />
-            <el-table-column prop="creditBalance" :label="t('admin.balance')" width="120" />
-            <el-table-column prop="createTime" :label="t('admin.registerTime')" min-width="170" />
-            <el-table-column :label="t('common.operation')" width="190" fixed="right">
+            <el-table-column prop="email" :label="t('common.email')" min-width="190" show-overflow-tooltip>
               <template #default="{ row }">
-                <el-button text type="primary" @click="openGrantDialog(row)">{{ t('admin.grantCredit') }}</el-button>
-                <el-button text @click="openDetailDialog(row)">{{ t('admin.viewLogs') }}</el-button>
+                <span class="admin-cell-strong">{{ row.email || '-' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="nickname" :label="t('admin.nickname')" min-width="130" show-overflow-tooltip>
+              <template #default="{ row }">
+                <span class="admin-cell-muted">{{ row.nickname || '-' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="creditBalance" :label="t('admin.balance')" width="120">
+              <template #default="{ row }">
+                <span class="admin-credit-badge">{{ row.creditBalance }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="createTime" :label="t('admin.registerTime')" min-width="170">
+              <template #default="{ row }">
+                <span class="admin-cell-time">{{ row.createTime || '-' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column :label="t('common.operation')" width="250" align="right" header-align="right" fixed="right">
+              <template #default="{ row }">
+                <div class="admin-action-buttons">
+                  <el-button class="admin-action-primary" type="primary" @click="openGrantDialog(row)">
+                    {{ t('admin.grantCredit') }}
+                  </el-button>
+                  <el-button class="admin-action-secondary" @click="openDetailDialog(row)">
+                    {{ t('admin.viewLogs') }}
+                  </el-button>
+                </div>
               </template>
             </el-table-column>
           </el-table>
@@ -95,28 +117,42 @@
             <el-button @click="resetFeedbackFilters">{{ t('common.reset') }}</el-button>
           </div>
 
-          <el-table :data="feedbackRecords" stripe v-loading="feedbackLoading" :empty-text="t('admin.noFeedback')">
+          <el-table class="admin-table-compact" :data="feedbackRecords" stripe v-loading="feedbackLoading" :empty-text="t('admin.noFeedback')">
             <el-table-column prop="id" label="ID" width="90" />
             <el-table-column prop="userEmail" :label="t('admin.userEmail')" min-width="190" show-overflow-tooltip>
-              <template #default="{ row }">{{ row.userEmail || '-' }}</template>
+              <template #default="{ row }">
+                <span class="admin-cell-strong">{{ row.userEmail || '-' }}</span>
+              </template>
             </el-table-column>
             <el-table-column prop="type" :label="t('feedback.type')" width="140">
-              <template #default="{ row }">{{ feedbackTypeLabel(row.type) }}</template>
+              <template #default="{ row }">
+                <span class="admin-cell-muted">{{ feedbackTypeLabel(row.type) }}</span>
+              </template>
             </el-table-column>
             <el-table-column prop="content" :label="t('admin.contentSummary')" min-width="260" show-overflow-tooltip>
-              <template #default="{ row }">{{ feedbackSummary(row.content) }}</template>
+              <template #default="{ row }">
+                <span class="admin-cell-muted">{{ feedbackSummary(row.content) }}</span>
+              </template>
             </el-table-column>
             <el-table-column prop="status" :label="t('common.status')" width="120">
               <template #default="{ row }">
-                <el-tag :type="feedbackStatusTagType(row.status)" effect="light">
+                <el-tag class="admin-status-tag" :type="feedbackStatusTagType(row.status)" effect="light">
                   {{ feedbackStatusLabel(row.status) }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="createTime" :label="t('admin.submitTime')" min-width="170" />
-            <el-table-column :label="t('common.operation')" width="130" fixed="right">
+            <el-table-column prop="createTime" :label="t('admin.submitTime')" min-width="170">
               <template #default="{ row }">
-                <el-button text type="primary" @click="openFeedbackDialog(row)">{{ t('admin.updateFeedback') }}</el-button>
+                <span class="admin-cell-time">{{ row.createTime || '-' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column :label="t('common.operation')" width="160" align="right" header-align="right" fixed="right">
+              <template #default="{ row }">
+                <div class="admin-action-buttons admin-action-buttons--single">
+                  <el-button class="admin-action-primary admin-action-primary--compact" type="primary" @click="openFeedbackDialog(row)">
+                    {{ t('admin.updateFeedback') }}
+                  </el-button>
+                </div>
               </template>
             </el-table-column>
           </el-table>
@@ -833,6 +869,130 @@ onMounted(loadAdminDashboard)
 .admin-credit-toolbar .el-button,
 .feedback-toolbar .el-button {
   margin-left: 0;
+}
+
+.admin-table-compact {
+  --el-table-row-hover-bg-color: rgba(31, 111, 235, 0.045);
+  overflow: hidden;
+  border: 1px solid rgba(223, 230, 240, 0.82);
+  border-radius: 8px;
+  color: #344054;
+  font-size: 13px;
+}
+
+.admin-table-compact :deep(.el-table__header th) {
+  height: 42px;
+  background: rgba(248, 251, 255, 0.92);
+  color: #475467;
+  font-weight: 800;
+}
+
+.admin-table-compact :deep(.el-table__cell) {
+  padding: 7px 0;
+}
+
+.admin-table-compact :deep(.el-table__row) {
+  transition: background-color 0.16s ease;
+}
+
+.admin-table-compact :deep(.el-table__row:hover > td.el-table__cell) {
+  background-color: rgba(31, 111, 235, 0.045) !important;
+}
+
+.admin-cell-strong {
+  color: #182230;
+  font-weight: 650;
+}
+
+.admin-cell-muted,
+.admin-cell-time {
+  color: #475467;
+  font-weight: 500;
+}
+
+.admin-cell-time {
+  font-size: 12px;
+}
+
+.admin-credit-badge {
+  display: inline-flex;
+  min-width: 48px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  border: 1px solid rgba(20, 184, 166, 0.2);
+  border-radius: 999px;
+  background: rgba(240, 253, 250, 0.82);
+  color: #0f766e;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.admin-status-tag {
+  font-weight: 700;
+}
+
+.admin-action-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.admin-action-buttons :deep(.el-button) {
+  min-width: 92px;
+  height: 34px;
+  margin-left: 0;
+  padding: 0 13px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+  transition:
+    box-shadow 0.16s ease,
+    transform 0.16s ease,
+    border-color 0.16s ease,
+    background 0.16s ease;
+}
+
+.admin-action-buttons :deep(.el-button:hover) {
+  box-shadow: 0 8px 18px rgba(31, 111, 235, 0.14);
+  transform: translateY(-1px);
+}
+
+.admin-action-primary {
+  border: 0;
+  background: linear-gradient(135deg, var(--pm-primary), var(--pm-teal));
+  color: #ffffff;
+}
+
+.admin-action-primary:hover,
+.admin-action-primary:focus {
+  color: #ffffff;
+}
+
+.admin-action-secondary {
+  border-color: rgba(31, 111, 235, 0.28);
+  background: rgba(255, 255, 255, 0.88);
+  color: #245089;
+}
+
+.admin-action-secondary:hover,
+.admin-action-secondary:focus {
+  border-color: rgba(20, 184, 166, 0.46);
+  background: rgba(240, 251, 249, 0.95);
+  color: #17436f;
+}
+
+.admin-action-buttons--single {
+  justify-content: flex-end;
+}
+
+.admin-action-primary--compact {
+  min-width: 104px;
 }
 
 .feedback-detail-stack {

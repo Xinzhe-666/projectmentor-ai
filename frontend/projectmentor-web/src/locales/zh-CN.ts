@@ -9,7 +9,7 @@ export default {
     logout: '退出登录',
     feedback: '反馈建议',
     donate: '请作者喝咖啡',
-    coffeeShort: '喝咖啡',
+    coffeeShort: '请作者喝咖啡',
     startNow: '立即开始',
     backHome: '返回首页',
     username: '用户名',
@@ -666,7 +666,7 @@ export default {
   },
   donate: {
     title: '请作者喝咖啡',
-    copy: '如果这个工具帮你节省了项目复盘和面试准备时间，可以自愿请作者喝杯咖啡。支持完全自愿，不影响任何功能使用。',
+    copy: '如果这个工具帮你节省了项目复盘和面试准备时间，可以自愿请作者喝咖啡。支持完全自愿，不影响任何功能使用。',
     wechat: '微信',
     alipay: '支付宝',
     qrMissing: '二维码未配置',

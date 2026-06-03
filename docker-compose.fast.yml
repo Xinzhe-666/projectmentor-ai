@@ -1,0 +1,5 @@
+services:
+  backend:
+    build:
+      context: ./backend/projectmentor-server
+      dockerfile: Dockerfile.fast

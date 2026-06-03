@@ -78,14 +78,42 @@ docker compose ps
 
 ## 后端更新流程
 
-后端如果修改 Java 代码，低配服务器可以构建但会较慢：
+低配服务器日常后端更新推荐使用快速方案：先在本地构建 jar，再上传服务器，服务器只用 `Dockerfile.fast` 打包运行镜像。
+
+本地 Windows PowerShell：
+
+```powershell
+cd C:\Users\LiXin\Desktop\projectmentor-ai\backend\projectmentor-server
+mvn clean package -DskipTests
+
+$jar = Get-ChildItem .\target\*.jar | Where-Object { $_.Name -notlike "*sources*" -and $_.Name -notlike "*javadoc*" -and $_.Name -notlike "*.original" } | Select-Object -First 1
+Copy-Item $jar.FullName .\target\projectmentor-server.jar -Force
+scp target\projectmentor-server.jar root@8.218.121.30:/opt/projectmentor-ai/backend/projectmentor-server/target/projectmentor-server.jar
+```
+
+服务器：
+
+```bash
+cd /opt/projectmentor-ai
+git pull
+mkdir -p backend/projectmentor-server/target
+ls -lh backend/projectmentor-server/target/projectmentor-server.jar
+docker compose -f docker-compose.yml -f docker-compose.fast.yml build backend
+docker compose up -d backend
+docker compose logs --tail=120 backend
+docker compose ps
+```
+
+`docker-compose.fast.yml` 只覆盖 backend 的 build 配置，其他服务仍使用原 `docker-compose.yml`。`Dockerfile.fast` 只复制 `target/projectmentor-server.jar`，不会在服务器内执行 Maven 或下载 Maven 依赖。
+
+如果没有本地 jar，或在本地 / 资源充足服务器上需要完整 Docker 构建，仍可使用原方案：
 
 ```bash
 docker compose build backend
 docker compose up -d backend
 ```
 
-如果服务器构建明显卡顿，后续可升级为 GitHub Actions 构建镜像，再由服务器拉取镜像部署。
+原方案会在 Docker build 内执行 Maven 构建；低配服务器可能很慢。不要提交 `target/` 或 jar 文件到 Git。
 
 ## 查看日志
 

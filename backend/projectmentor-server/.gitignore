@@ -1,6 +1,7 @@
 # Maven
 target/
 *.class
+*.jar
 
 # IDEA
 .idea/

@@ -83,9 +83,39 @@ docker compose restart frontend nginx
 docker compose ps
 ```
 
-## 后端更新流程
+## 后端快速部署流程
 
-如果修改 Java 后端代码，低配服务器可以构建但会较慢：
+2 核 2G 服务器日常更新后端时，推荐使用“本地构建 jar + 上传服务器 + 服务器快速构建运行镜像”。这样服务器只执行 Docker 镜像打包，不在服务器内运行 Maven，也不会在服务器内下载 Maven 依赖。
+
+本地 Windows PowerShell：
+
+```powershell
+cd C:\Users\LiXin\Desktop\projectmentor-ai\backend\projectmentor-server
+mvn clean package -DskipTests
+
+$jar = Get-ChildItem .\target\*.jar | Where-Object { $_.Name -notlike "*sources*" -and $_.Name -notlike "*javadoc*" -and $_.Name -notlike "*.original" } | Select-Object -First 1
+Copy-Item $jar.FullName .\target\projectmentor-server.jar -Force
+scp target\projectmentor-server.jar root@8.218.121.30:/opt/projectmentor-ai/backend/projectmentor-server/target/projectmentor-server.jar
+```
+
+服务器：
+
+```bash
+cd /opt/projectmentor-ai
+git pull
+
+mkdir -p backend/projectmentor-server/target
+ls -lh backend/projectmentor-server/target/projectmentor-server.jar
+
+docker compose -f docker-compose.yml -f docker-compose.fast.yml build backend
+docker compose up -d backend
+docker compose logs --tail=120 backend
+docker compose ps
+```
+
+快速方案使用 `backend/projectmentor-server/Dockerfile.fast`，只复制 `target/projectmentor-server.jar`，不执行 `mvn clean package`。`docker-compose.fast.yml` 只覆盖 backend 的 build 配置，MySQL、Redis、frontend 和 nginx 仍沿用原 `docker-compose.yml`。
+
+如果没有本地 jar，或需要在资源充足环境里完整验证 Docker 构建链路，仍可使用原方案：
 
 ```bash
 git pull
@@ -93,7 +123,7 @@ docker compose build backend
 docker compose up -d backend
 ```
 
-如果服务器构建明显卡顿，后续可升级为 GitHub Actions 构建镜像，再由服务器拉取镜像部署。
+原方案会在 Docker build 内执行 Maven 构建，低配服务器可能非常慢；日常部署推荐优先使用快速方案。不要提交 `target/` 或 jar 文件到 Git。
 
 ## 管理员后台配置
 

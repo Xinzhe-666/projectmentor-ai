@@ -268,14 +268,40 @@ docker compose restart frontend nginx
 docker compose ps
 ```
 
-后端如果修改 Java 代码，低配服务器可以构建但会较慢：
+后端快速部署流程：
+
+本地 Windows PowerShell 构建固定 jar：
+
+```powershell
+cd C:\Users\LiXin\Desktop\projectmentor-ai\backend\projectmentor-server
+mvn clean package -DskipTests
+
+$jar = Get-ChildItem .\target\*.jar | Where-Object { $_.Name -notlike "*sources*" -and $_.Name -notlike "*javadoc*" -and $_.Name -notlike "*.original" } | Select-Object -First 1
+Copy-Item $jar.FullName .\target\projectmentor-server.jar -Force
+scp target\projectmentor-server.jar root@8.218.121.30:/opt/projectmentor-ai/backend/projectmentor-server/target/projectmentor-server.jar
+```
+
+服务器快速构建并重启 backend：
+
+```bash
+cd /opt/projectmentor-ai
+git pull
+mkdir -p backend/projectmentor-server/target
+ls -lh backend/projectmentor-server/target/projectmentor-server.jar
+docker compose -f docker-compose.yml -f docker-compose.fast.yml build backend
+docker compose up -d backend
+docker compose logs --tail=120 backend
+docker compose ps
+```
+
+快速方案使用 `Dockerfile.fast`，只复制本地构建好的 `target/projectmentor-server.jar`，不会在服务器内执行 Maven 或下载依赖。原完整构建方案仍保留：
 
 ```bash
 docker compose build backend
 docker compose up -d backend
 ```
 
-如果服务器构建明显卡顿，后续可升级为 GitHub Actions 构建镜像后再拉取部署。
+不要提交 `backend/projectmentor-server/target/` 或 jar 文件到 Git。
 
 ## Cloudflare Tunnel 临时试用
 

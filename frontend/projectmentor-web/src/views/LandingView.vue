@@ -8,8 +8,9 @@
         <strong>ProjectMentor AI</strong>
       </RouterLink>
       <div class="nav-actions">
-        <LanguageSwitch />
+        <LanguageSwitch class="nav-language" />
         <el-button class="nav-feedback" text :icon="Message" @click="feedbackVisible = true">{{ t('common.feedback') }}</el-button>
+        <el-button class="nav-donate" text :icon="Coffee" @click="donateVisible = true">{{ t('common.coffeeShort') }}</el-button>
         <el-button class="nav-login" text @click="router.push('/login')">{{ t('common.login') }}</el-button>
         <el-button class="nav-start" type="primary" :icon="ArrowRight" @click="goStart">{{ t('common.startNow') }}</el-button>
       </div>
@@ -17,6 +18,7 @@
 
     <section class="landing-hero pm-cinematic-hero">
       <div class="hero-copy pm-scroll-reveal" style="--reveal-index: 0">
+        <p class="hero-kicker">{{ t('landing.heroEyebrow') }}</p>
         <h1>
           <span>ProjectMentor AI</span>
           <span class="pm-gradient-text">{{ t('landing.heroHeadline') }}</span>
@@ -44,18 +46,6 @@
             <span>{{ t('landing.mockup.windowTitle') }}</span>
           </div>
           <div class="mockup-body">
-            <aside class="mockup-project-list">
-              <div class="mockup-brand-mini">PMAI</div>
-              <button
-                v-for="(project, index) in mockupProjects"
-                :key="project"
-                :class="{ active: index === 0 }"
-                type="button"
-              >
-                <span>{{ project }}</span>
-                <small>{{ index === 0 ? '82' : '--' }}</small>
-              </button>
-            </aside>
             <main class="mockup-stage">
               <div class="mockup-stage-head">
                 <div>
@@ -65,19 +55,19 @@
                 <span class="pm-status-chip">{{ t('landing.mockup.evidenceStatus') }}</span>
               </div>
 
-              <div class="mockup-centerpiece">
-                <div class="score-orb">
+              <div class="mockup-summary">
+                <div class="mockup-score-card">
                   <span>{{ t('landing.mockup.score') }}</span>
                   <strong>82</strong>
                   <small>{{ t('landing.mockup.scoreNote') }}</small>
                 </div>
-                <div class="mockup-center-copy">
-                  <span>{{ t('landing.mockup.centerLabel') }}</span>
-                  <p>{{ t('landing.mockup.centerDesc') }}</p>
-                  <div class="mockup-glow-chips">
-                    <i>{{ t('landing.mockup.filesReviewed') }}</i>
-                    <i>{{ t('landing.mockup.riskScan') }}</i>
-                    <i>{{ t('landing.mockup.qaReady') }}</i>
+                <div class="mockup-evidence-card">
+                  <span>{{ t('landing.mockup.evidenceTrust') }}</span>
+                  <strong>{{ t('landing.mockup.strongEvidence') }}</strong>
+                  <div class="trust-bars" aria-hidden="true">
+                    <i />
+                    <i />
+                    <i />
                   </div>
                 </div>
               </div>
@@ -86,23 +76,13 @@
                 <span>{{ t('landing.mockup.askPlaceholder') }}</span>
                 <strong>{{ t('landing.mockup.shareReady') }}</strong>
               </div>
-            </main>
-            <aside class="mockup-evidence-panel">
-              <div>
-                <span>{{ t('landing.mockup.evidenceTrust') }}</span>
-                <strong>{{ t('landing.mockup.strongEvidence') }}</strong>
-              </div>
-              <div class="trust-bars" aria-hidden="true">
-                <i />
-                <i />
-                <i />
-              </div>
-              <div class="mockup-evidence-list">
-                <p>{{ t('landing.mockup.reason') }}</p>
+
+              <div class="mockup-file-row">
+                <span>{{ t('landing.mockup.reason') }}</span>
                 <code>src/api/projectQa.ts</code>
                 <code>src/views/ReportDetail.vue</code>
               </div>
-            </aside>
+            </main>
           </div>
         </div>
       </div>
@@ -202,6 +182,7 @@
     </main>
 
     <FeedbackDialog v-model="feedbackVisible" />
+    <DonateDialog v-model="donateVisible" />
   </div>
 </template>
 
@@ -212,6 +193,7 @@ import { useI18n } from 'vue-i18n'
 import {
   ArrowRight,
   ChatDotRound,
+  Coffee,
   DocumentChecked,
   Files,
   FolderAdd,
@@ -223,6 +205,7 @@ import {
 } from '@element-plus/icons-vue'
 
 import FeedbackDialog from '@/components/FeedbackDialog.vue'
+import DonateDialog from '@/components/DonateDialog.vue'
 import LanguageSwitch from '@/components/LanguageSwitch.vue'
 import { useUserStore } from '@/stores/user'
 
@@ -230,6 +213,7 @@ const router = useRouter()
 const { t } = useI18n()
 const userStore = useUserStore()
 const feedbackVisible = ref(false)
+const donateVisible = ref(false)
 const landingRoot = ref<HTMLElement | null>(null)
 let revealObserver: IntersectionObserver | undefined
 
@@ -238,12 +222,6 @@ const heroProofs = computed(() => [
   t('landing.capabilities.qa'),
   t('landing.capabilities.interview'),
   t('landing.capabilities.share')
-])
-
-const mockupProjects = computed(() => [
-  t('landing.mockup.projectOne'),
-  t('landing.mockup.projectTwo'),
-  t('landing.mockup.projectThree')
 ])
 
 const bentoFeatures = computed(() => [
@@ -782,6 +760,7 @@ onBeforeUnmount(() => {
 
 .landing-content {
   position: relative;
+  margin-top: clamp(0px, calc(100svh - 804px), 280px);
 }
 
 .landing-content::before {
@@ -1050,7 +1029,7 @@ onBeforeUnmount(() => {
     justify-content: flex-end;
     flex: 1 1 auto;
     flex-wrap: nowrap;
-    gap: 4px;
+    gap: 3px;
     min-width: 0;
     width: auto;
   }
@@ -1058,6 +1037,29 @@ onBeforeUnmount(() => {
   .nav-actions :deep(.el-button) {
     min-width: 0;
     padding: 7px 8px;
+  }
+
+  .nav-actions :deep(.nav-language) {
+    flex: 0 0 auto;
+    width: auto !important;
+    padding: 3px;
+  }
+
+  .nav-actions :deep(.nav-language button) {
+    flex: 0 0 auto;
+    min-width: 0 !important;
+    padding: 8px 8px !important;
+  }
+
+  :global(.landing-nav .language-switch) {
+    width: auto !important;
+    padding: 3px !important;
+  }
+
+  :global(.landing-nav .language-switch button) {
+    flex: 0 0 auto !important;
+    min-width: 0 !important;
+    padding: 8px 8px !important;
   }
 
   .nav-feedback {
@@ -1076,8 +1078,18 @@ onBeforeUnmount(() => {
   }
 
   .nav-start {
-    padding-right: 10px !important;
-    padding-left: 10px !important;
+    width: 34px;
+    padding-right: 7px !important;
+    padding-left: 7px !important;
+  }
+
+  .nav-start :deep(span) {
+    font-size: 0;
+  }
+
+  .nav-start :deep(.el-icon) {
+    margin-right: 0;
+    font-size: 16px;
   }
 
   .landing-hero {
@@ -1117,6 +1129,338 @@ onBeforeUnmount(() => {
 
   .flow-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* V4.4-0.3: keep the landing hero in a stable document-flow two-column layout. */
+.landing-page {
+  overflow-x: clip;
+}
+
+.landing-hero {
+  width: min(1280px, calc(100% - 48px));
+  min-height: clamp(660px, 84svh, 760px);
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 560px);
+  gap: 56px;
+  padding: 96px 0 56px;
+  box-sizing: border-box;
+}
+
+.hero-copy {
+  position: relative;
+  z-index: 2;
+  max-width: 680px;
+}
+
+.hero-kicker {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 18px;
+  padding: 7px 12px;
+  border: 1px solid rgba(31, 111, 235, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.68);
+  color: #245089;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  box-shadow: 0 12px 28px rgba(28, 43, 68, 0.06);
+  backdrop-filter: blur(14px);
+}
+
+.hero-copy h1 {
+  max-width: 680px;
+  margin-bottom: 22px;
+  font-size: clamp(52px, 6.4vw, 88px);
+  line-height: 1.02;
+  overflow: visible;
+}
+
+.hero-copy h1 span {
+  min-width: 0;
+}
+
+.hero-subtitle {
+  max-width: 610px;
+  font-size: clamp(17px, 1.7vw, 20px);
+  line-height: 1.68;
+}
+
+.hero-actions {
+  margin-top: 28px;
+}
+
+.hero-proof-row {
+  max-width: 620px;
+  margin-top: 22px;
+}
+
+.hero-visual {
+  position: relative;
+  z-index: 1;
+  justify-self: end;
+  width: 100%;
+  max-width: 560px;
+  min-width: 0;
+}
+
+.landing-mockup,
+.landing-mockup.pm-floating-mockup {
+  width: 100%;
+  max-width: 560px;
+  min-height: 0;
+  transform: none;
+  animation: none;
+}
+
+.mockup-body {
+  display: block;
+  min-height: 0;
+  padding: 24px;
+}
+
+.mockup-stage {
+  display: grid;
+  gap: 18px;
+  padding: 0;
+}
+
+.mockup-stage-head {
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.mockup-stage-head > div {
+  min-width: 0;
+}
+
+.mockup-stage-head strong {
+  max-width: 100%;
+  font-size: clamp(18px, 2vw, 22px);
+  line-height: 1.25;
+  overflow-wrap: normal;
+}
+
+.mockup-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 14px;
+}
+
+.mockup-score-card,
+.mockup-evidence-card {
+  min-width: 0;
+  min-height: 178px;
+  padding: 20px;
+  border: 1px solid rgba(214, 224, 236, 0.82);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 24% 10%, rgba(31, 111, 235, 0.12), transparent 34%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(248, 251, 255, 0.72));
+  box-shadow: 0 18px 46px rgba(28, 43, 68, 0.08);
+}
+
+.mockup-score-card {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+}
+
+.mockup-score-card span,
+.mockup-score-card small,
+.mockup-evidence-card span,
+.mockup-file-row span {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.mockup-score-card strong {
+  margin: 10px 0 6px;
+  color: #111827;
+  font-size: clamp(58px, 5vw, 76px);
+  line-height: 0.95;
+}
+
+.mockup-evidence-card {
+  display: grid;
+  align-content: center;
+  gap: 14px;
+}
+
+.mockup-evidence-card strong {
+  color: #111827;
+  font-size: clamp(24px, 2.5vw, 32px);
+  line-height: 1.1;
+  overflow-wrap: normal;
+}
+
+.trust-bars {
+  max-width: 220px;
+}
+
+.mockup-qa-bar {
+  align-items: center;
+  min-width: 0;
+  padding: 15px 16px;
+}
+
+.mockup-qa-bar span,
+.mockup-qa-bar strong {
+  min-width: 0;
+  line-height: 1.45;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.mockup-file-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.mockup-file-row code {
+  display: inline-flex;
+  max-width: 100%;
+  min-width: 0;
+  padding: 8px 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #111827;
+  color: #e5edf7;
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1024px) {
+  .landing-hero {
+    width: min(860px, calc(100% - 40px));
+    min-height: auto;
+    grid-template-columns: 1fr;
+    gap: 40px;
+    padding: 112px 0 60px;
+  }
+
+  .hero-copy,
+  .hero-copy h1,
+  .hero-subtitle,
+  .hero-proof-row {
+    max-width: 100%;
+  }
+
+  .hero-visual,
+  .landing-mockup {
+    justify-self: stretch;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .landing-nav {
+    width: calc(100% - 20px);
+  }
+
+  .nav-feedback,
+  .nav-donate {
+    width: 34px;
+    padding-right: 7px !important;
+    padding-left: 7px !important;
+  }
+
+  .nav-feedback :deep(span),
+  .nav-donate :deep(span) {
+    font-size: 0;
+  }
+
+  .nav-feedback :deep(.el-icon),
+  .nav-donate :deep(.el-icon) {
+    margin-right: 0;
+    font-size: 16px;
+  }
+
+  .nav-login {
+    padding-right: 6px !important;
+    padding-left: 6px !important;
+  }
+
+  .landing-hero {
+    width: min(520px, calc(100% - 28px));
+    gap: 30px;
+    padding: 48px 0 44px;
+  }
+
+  .hero-copy h1 {
+    font-size: clamp(30px, 8vw, 34px);
+    line-height: 1.04;
+  }
+
+  .hero-copy h1 span {
+    display: block;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-all;
+    line-break: anywhere;
+  }
+
+  .hero-subtitle {
+    font-size: 16px;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .hero-actions :deep(.el-button) {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .mockup-body {
+    padding: 16px;
+  }
+
+  .mockup-stage {
+    gap: 14px;
+  }
+
+  .mockup-stage-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .mockup-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .mockup-score-card,
+  .mockup-evidence-card {
+    min-height: 132px;
+    padding: 16px;
+  }
+
+  .mockup-score-card strong {
+    font-size: 56px;
+  }
+
+  .mockup-evidence-card strong {
+    font-size: 24px;
+  }
+
+  .mockup-qa-bar {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 </style>

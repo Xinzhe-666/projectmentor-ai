@@ -9,44 +9,30 @@
       </RouterLink>
       <div class="nav-actions">
         <LanguageSwitch />
-        <el-button text :icon="Message" @click="feedbackVisible = true">{{ t('common.feedback') }}</el-button>
-        <el-button text :icon="Coffee" @click="donateVisible = true">{{ t('common.donate') }}</el-button>
-        <el-button text @click="router.push('/login')">{{ t('common.login') }}</el-button>
-        <el-button type="primary" :icon="ArrowRight" @click="goStart">{{ t('common.startNow') }}</el-button>
+        <el-button class="nav-feedback" text :icon="Message" @click="feedbackVisible = true">{{ t('common.feedback') }}</el-button>
+        <el-button class="nav-login" text @click="router.push('/login')">{{ t('common.login') }}</el-button>
+        <el-button class="nav-start" type="primary" :icon="ArrowRight" @click="goStart">{{ t('common.startNow') }}</el-button>
       </div>
     </nav>
 
     <section class="landing-hero pm-cinematic-hero">
       <div class="hero-copy pm-scroll-reveal" style="--reveal-index: 0">
-        <p class="eyebrow">{{ t('landing.heroEyebrow') }}</p>
         <h1>
           <span>ProjectMentor AI</span>
           <span class="pm-gradient-text">{{ t('landing.heroHeadline') }}</span>
         </h1>
         <p class="hero-subtitle">{{ t('landing.subtitle') }}</p>
-        <p class="hero-subnote">{{ t('landing.heroSubnote') }}</p>
 
         <div class="hero-actions">
           <el-button size="large" type="primary" :icon="ArrowRight" @click="goStart">{{ t('common.startNow') }}</el-button>
           <el-button size="large" :icon="Search" @click="scrollToFeatures">{{ t('landing.ctaFeatures') }}</el-button>
-          <el-button size="large" :icon="Message" @click="feedbackVisible = true">{{ t('common.feedback') }}</el-button>
         </div>
 
         <div class="pm-chip-row hero-proof-row">
-          <span v-for="item in heroProofs" :key="item" class="pm-chip">
-            <el-icon><Check /></el-icon>
+          <span v-for="item in heroProofs" :key="item" class="pm-status-chip">
             {{ item }}
           </span>
         </div>
-
-        <el-alert
-          class="trial-alert pm-premium-alert"
-          :title="t('landing.trialTitle')"
-          type="warning"
-          show-icon
-          :closable="false"
-          :description="t('landing.trialDesc')"
-        />
       </div>
 
       <div class="hero-visual pm-scroll-reveal" style="--reveal-index: 1">
@@ -57,16 +43,21 @@
             <i class="pm-mockup-dot" />
             <span>{{ t('landing.mockup.windowTitle') }}</span>
           </div>
-          <div class="mockup-body cinematic-mockup-body">
-            <aside class="mockup-sidebar">
+          <div class="mockup-body">
+            <aside class="mockup-project-list">
               <div class="mockup-brand-mini">PMAI</div>
-              <button v-for="(item, index) in mockupNav" :key="item" :class="{ active: index === 0 }" type="button">
-                <span>{{ item }}</span>
-                <small v-if="index === 0">82</small>
+              <button
+                v-for="(project, index) in mockupProjects"
+                :key="project"
+                :class="{ active: index === 0 }"
+                type="button"
+              >
+                <span>{{ project }}</span>
+                <small>{{ index === 0 ? '82' : '--' }}</small>
               </button>
             </aside>
-            <main class="mockup-main">
-              <div class="mockup-dashboard-head">
+            <main class="mockup-stage">
+              <div class="mockup-stage-head">
                 <div>
                   <small>{{ t('landing.mockup.auditLabel') }}</small>
                   <strong>{{ t('landing.mockup.projectTitle') }}</strong>
@@ -74,100 +65,50 @@
                 <span class="pm-status-chip">{{ t('landing.mockup.evidenceStatus') }}</span>
               </div>
 
-              <div class="mockup-command-line">
-                <span>{{ t('landing.mockup.command') }}</span>
-                <strong>{{ t('landing.mockup.commandText') }}</strong>
-              </div>
-
-              <div class="mockup-score-layout">
-                <div class="mockup-score-orb">
+              <div class="mockup-centerpiece">
+                <div class="score-orb">
                   <span>{{ t('landing.mockup.score') }}</span>
                   <strong>82</strong>
                   <small>{{ t('landing.mockup.scoreNote') }}</small>
                 </div>
-                <div class="mockup-trust-panel">
-                  <div>
-                    <span>{{ t('landing.mockup.evidenceTrust') }}</span>
-                    <strong>{{ t('landing.mockup.strongEvidence') }}</strong>
-                  </div>
-                  <div class="trust-bars" aria-hidden="true">
-                    <i />
-                    <i />
-                    <i />
+                <div class="mockup-center-copy">
+                  <span>{{ t('landing.mockup.centerLabel') }}</span>
+                  <p>{{ t('landing.mockup.centerDesc') }}</p>
+                  <div class="mockup-glow-chips">
+                    <i>{{ t('landing.mockup.filesReviewed') }}</i>
+                    <i>{{ t('landing.mockup.riskScan') }}</i>
+                    <i>{{ t('landing.mockup.qaReady') }}</i>
                   </div>
                 </div>
               </div>
 
-              <div class="mockup-score-row">
-                <div class="pm-premium-card">
-                  <span>{{ t('landing.mockup.score') }}</span>
-                  <strong>82</strong>
-                </div>
-                <div class="pm-premium-card">
-                  <span>{{ t('landing.mockup.evidence') }}</span>
-                  <strong>14</strong>
-                </div>
-                <div class="pm-premium-card">
-                  <span>{{ t('landing.mockup.qa') }}</span>
-                  <strong>8</strong>
-                </div>
-              </div>
-
-              <div class="mockup-insight-grid">
-                <article class="pm-premium-card">
-                  <el-icon><DocumentChecked /></el-icon>
-                  <span>{{ t('landing.mockup.auditCard') }}</span>
-                  <p>{{ t('landing.mockup.auditCardDesc') }}</p>
-                </article>
-                <article class="pm-premium-card">
-                  <el-icon><ChatDotRound /></el-icon>
-                  <span>{{ t('landing.mockup.qaCard') }}</span>
-                  <p>{{ t('landing.mockup.qaCardDesc') }}</p>
-                </article>
-              </div>
-
-              <div class="mockup-evidence">
-                <div>
-                  <span>{{ t('landing.mockup.reason') }}</span>
-                  <p>{{ t('landing.mockup.reasonText') }}</p>
-                </div>
-                <code>src/api/projectQa.ts</code>
-              </div>
-
-              <div class="mockup-bottom-command">
+              <div class="mockup-qa-bar">
                 <span>{{ t('landing.mockup.askPlaceholder') }}</span>
                 <strong>{{ t('landing.mockup.shareReady') }}</strong>
               </div>
             </main>
+            <aside class="mockup-evidence-panel">
+              <div>
+                <span>{{ t('landing.mockup.evidenceTrust') }}</span>
+                <strong>{{ t('landing.mockup.strongEvidence') }}</strong>
+              </div>
+              <div class="trust-bars" aria-hidden="true">
+                <i />
+                <i />
+                <i />
+              </div>
+              <div class="mockup-evidence-list">
+                <p>{{ t('landing.mockup.reason') }}</p>
+                <code>src/api/projectQa.ts</code>
+                <code>src/views/ReportDetail.vue</code>
+              </div>
+            </aside>
           </div>
         </div>
       </div>
     </section>
 
     <main class="landing-content">
-      <section class="pm-section-shell pm-cinematic-section product-showcase pm-scroll-reveal" style="--reveal-index: 0">
-        <div class="pm-section-heading center">
-          <p class="eyebrow">{{ t('landing.showcaseEyebrow') }}</p>
-          <h2>{{ t('landing.showcaseTitle') }}</h2>
-          <p>{{ t('landing.showcaseDesc') }}</p>
-        </div>
-
-        <div class="showcase-grid">
-          <article v-for="(panel, index) in productPanels" :key="panel.title" class="showcase-card pm-premium-card pm-hover-lift" :style="{ '--reveal-index': index }">
-            <el-icon :size="22">
-              <component :is="panel.icon" />
-            </el-icon>
-            <div class="showcase-mini-visual">
-              <i />
-              <i />
-              <i />
-            </div>
-            <h3>{{ panel.title }}</h3>
-            <p>{{ panel.description }}</p>
-          </article>
-        </div>
-      </section>
-
       <section id="features" class="pm-section-shell pm-cinematic-section bento-section pm-scroll-reveal" style="--reveal-index: 0">
         <div class="pm-section-heading">
           <p class="eyebrow">{{ t('landing.bentoEyebrow') }}</p>
@@ -243,11 +184,12 @@
       </section>
 
       <section class="pm-section-shell pm-cinematic-section boundary-section pm-scroll-reveal">
-        <div class="boundary-card pm-premium-card">
+        <div class="boundary-card trial-glass-notice pm-premium-card pm-gradient-border">
           <div class="pm-section-heading">
             <p class="eyebrow">{{ t('landing.boundaryEyebrow') }}</p>
             <h2>{{ t('landing.boundaryTitle') }}</h2>
             <p>{{ t('landing.boundaryDesc') }}</p>
+            <div class="trial-glass-copy">{{ t('landing.trialDesc') }}</div>
           </div>
           <div class="boundary-list">
             <div v-for="boundary in boundaries" :key="boundary" class="boundary-item">
@@ -259,7 +201,6 @@
       </section>
     </main>
 
-    <DonateDialog v-model="donateVisible" />
     <FeedbackDialog v-model="feedbackVisible" />
   </div>
 </template>
@@ -271,8 +212,6 @@ import { useI18n } from 'vue-i18n'
 import {
   ArrowRight,
   ChatDotRound,
-  Check,
-  Coffee,
   DocumentChecked,
   Files,
   FolderAdd,
@@ -280,11 +219,9 @@ import {
   Message,
   Search,
   UploadFilled,
-  UserFilled,
   WarningFilled
 } from '@element-plus/icons-vue'
 
-import DonateDialog from '@/components/DonateDialog.vue'
 import FeedbackDialog from '@/components/FeedbackDialog.vue'
 import LanguageSwitch from '@/components/LanguageSwitch.vue'
 import { useUserStore } from '@/stores/user'
@@ -292,7 +229,6 @@ import { useUserStore } from '@/stores/user'
 const router = useRouter()
 const { t } = useI18n()
 const userStore = useUserStore()
-const donateVisible = ref(false)
 const feedbackVisible = ref(false)
 const landingRoot = ref<HTMLElement | null>(null)
 let revealObserver: IntersectionObserver | undefined
@@ -304,28 +240,10 @@ const heroProofs = computed(() => [
   t('landing.capabilities.share')
 ])
 
-const mockupNav = computed(() => [
-  t('landing.mockup.navAudit'),
-  t('landing.mockup.navQa'),
-  t('landing.mockup.navAdmin')
-])
-
-const productPanels = computed(() => [
-  {
-    title: t('landing.productPanels.audit.title'),
-    description: t('landing.productPanels.audit.description'),
-    icon: DocumentChecked
-  },
-  {
-    title: t('landing.productPanels.qa.title'),
-    description: t('landing.productPanels.qa.description'),
-    icon: ChatDotRound
-  },
-  {
-    title: t('landing.productPanels.admin.title'),
-    description: t('landing.productPanels.admin.description'),
-    icon: UserFilled
-  }
+const mockupProjects = computed(() => [
+  t('landing.mockup.projectOne'),
+  t('landing.mockup.projectTwo'),
+  t('landing.mockup.projectThree')
 ])
 
 const bentoFeatures = computed(() => [
@@ -478,18 +396,20 @@ onBeforeUnmount(() => {
 .landing-nav {
   position: fixed;
   z-index: 20;
-  top: 0;
-  left: 0;
-  right: 0;
+  top: 16px;
+  left: 50%;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  padding: 16px clamp(18px, 5vw, 72px);
-  border-bottom: 1px solid rgba(223, 230, 240, 0.62);
-  background: rgba(255, 255, 255, 0.66);
-  box-shadow: 0 10px 34px rgba(28, 43, 68, 0.05);
-  backdrop-filter: blur(22px);
+  width: min(1180px, calc(100% - 32px));
+  padding: 10px 12px 10px 14px;
+  border: 1px solid rgba(214, 224, 236, 0.68);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.62);
+  box-shadow: 0 18px 48px rgba(28, 43, 68, 0.08);
+  backdrop-filter: blur(24px);
+  transform: translateX(-50%);
 }
 
 .landing-brand {
@@ -501,8 +421,8 @@ onBeforeUnmount(() => {
 
 .landing-brand span {
   display: grid;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   place-items: center;
   border-radius: 8px;
   background: linear-gradient(135deg, #111827, #1f6feb);
@@ -516,38 +436,42 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
 .landing-hero {
   display: grid;
-  min-height: 104vh;
-  grid-template-columns: minmax(0, 0.92fr) minmax(520px, 1.08fr);
+  min-height: 100svh;
+  grid-template-columns: minmax(0, 0.86fr) minmax(560px, 1.14fr);
   align-items: center;
-  gap: clamp(38px, 7vw, 96px);
-  max-width: 1420px;
+  gap: clamp(42px, 7vw, 92px);
+  max-width: 1360px;
   margin: 0 auto;
-  padding: 132px clamp(18px, 5vw, 72px) 86px;
+  padding: 126px clamp(18px, 5vw, 72px) 72px;
 }
 
 .hero-copy h1 {
   display: grid;
   gap: 8px;
-  max-width: 820px;
-  margin: 14px 0 20px;
+  max-width: 720px;
+  margin: 0 0 22px;
   color: #111827;
-  font-size: clamp(52px, 7.8vw, 104px);
-  line-height: 0.94;
+  font-size: clamp(44px, 6.6vw, 86px);
+  line-height: 1.04;
   letter-spacing: 0;
 }
 
 .hero-subtitle {
-  max-width: 760px;
+  max-width: 640px;
   margin: 0;
   color: #475467;
-  font-size: clamp(18px, 2.2vw, 22px);
+  font-size: clamp(17px, 2vw, 21px);
   line-height: 1.72;
+}
+
+.hero-copy {
+  min-width: 0;
 }
 
 .hero-subnote {
@@ -561,17 +485,12 @@ onBeforeUnmount(() => {
 .hero-actions {
   display: flex;
   gap: 12px;
-  margin-top: 32px;
+  margin-top: 30px;
   flex-wrap: wrap;
 }
 
 .hero-proof-row {
-  margin-top: 24px;
-}
-
-.trial-alert {
-  max-width: 720px;
-  margin-top: 24px;
+  margin-top: 22px;
 }
 
 .hero-visual {
@@ -580,7 +499,7 @@ onBeforeUnmount(() => {
 
 .landing-mockup {
   position: relative;
-  min-height: 630px;
+  min-height: 560px;
 }
 
 .landing-mockup::before {
@@ -602,11 +521,11 @@ onBeforeUnmount(() => {
 
 .mockup-body {
   display: grid;
-  grid-template-columns: 150px minmax(0, 1fr);
-  min-height: 592px;
+  grid-template-columns: 144px minmax(0, 1fr) 230px;
+  min-height: 520px;
 }
 
-.mockup-sidebar {
+.mockup-project-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -630,7 +549,7 @@ onBeforeUnmount(() => {
   font-weight: 900;
 }
 
-.mockup-sidebar button {
+.mockup-project-list button {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -647,12 +566,12 @@ onBeforeUnmount(() => {
   text-align: left;
 }
 
-.mockup-sidebar button.active {
+.mockup-project-list button.active {
   background: rgba(31, 111, 235, 0.1);
   color: var(--pm-primary);
 }
 
-.mockup-sidebar button small {
+.mockup-project-list button small {
   display: grid;
   min-width: 28px;
   height: 22px;
@@ -663,44 +582,121 @@ onBeforeUnmount(() => {
   font-weight: 900;
 }
 
-.mockup-main {
+.mockup-stage {
   display: grid;
-  align-content: start;
-  gap: 14px;
-  padding: 20px;
+  align-content: stretch;
+  gap: 18px;
+  padding: 22px;
 }
 
-.mockup-dashboard-head {
+.mockup-stage-head {
   display: flex;
   justify-content: space-between;
   gap: 14px;
   align-items: flex-start;
 }
 
-.mockup-dashboard-head small,
-.mockup-score-row span,
-.mockup-evidence span {
+.mockup-stage-head small {
   display: block;
   color: #667085;
   font-size: 12px;
   font-weight: 800;
 }
 
-.mockup-dashboard-head strong {
+.mockup-stage-head strong {
   display: block;
   margin-top: 6px;
   color: #111827;
-  font-size: 20px;
+  font-size: 22px;
 }
 
-.mockup-command-line,
-.mockup-bottom-command {
+.mockup-centerpiece {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.72fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 20px;
+  min-height: 298px;
+  padding: 22px;
+  border: 1px solid rgba(214, 224, 236, 0.8);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 28% 18%, rgba(31, 111, 235, 0.18), transparent 38%),
+    radial-gradient(circle at 82% 18%, rgba(20, 184, 166, 0.14), transparent 36%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(248, 251, 255, 0.66));
+  box-shadow: 0 22px 62px rgba(31, 111, 235, 0.1);
+}
+
+.score-orb {
+  display: grid;
+  aspect-ratio: 1;
+  place-items: center;
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid rgba(31, 111, 235, 0.18);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.92) 0 48%, transparent 49%),
+    conic-gradient(from 220deg, var(--pm-primary), var(--pm-teal), rgba(214, 224, 236, 0.8), var(--pm-primary));
+  box-shadow:
+    0 26px 70px rgba(31, 111, 235, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  text-align: center;
+}
+
+.score-orb span,
+.score-orb small,
+.mockup-center-copy span,
+.mockup-evidence-panel span {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.score-orb strong {
+  color: #111827;
+  font-size: clamp(54px, 6vw, 74px);
+  line-height: 0.9;
+}
+
+.mockup-center-copy {
+  min-width: 0;
+}
+
+.mockup-center-copy p {
+  max-width: 340px;
+  margin: 10px 0 0;
+  color: #344054;
+  font-size: 16px;
+  line-height: 1.75;
+}
+
+.mockup-glow-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.mockup-glow-chips i {
+  display: inline-flex;
+  padding: 6px 10px;
+  border: 1px solid rgba(31, 111, 235, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.68);
+  color: #245089;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 900;
+  box-shadow: 0 10px 22px rgba(31, 111, 235, 0.08);
+}
+
+.mockup-qa-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   min-width: 0;
-  padding: 12px;
+  padding: 14px 16px;
   border: 1px solid rgba(31, 111, 235, 0.14);
   border-radius: 8px;
   background:
@@ -708,68 +704,31 @@ onBeforeUnmount(() => {
     rgba(255, 255, 255, 0.74);
 }
 
-.mockup-command-line span,
-.mockup-bottom-command span {
+.mockup-qa-bar span {
   color: #667085;
   font-size: 12px;
   font-weight: 900;
 }
 
-.mockup-command-line strong,
-.mockup-bottom-command strong {
+.mockup-qa-bar strong {
   min-width: 0;
   color: #111827;
   font-size: 13px;
   overflow-wrap: anywhere;
 }
 
-.mockup-score-layout {
-  display: grid;
-  grid-template-columns: minmax(160px, 0.8fr) minmax(0, 1.2fr);
-  gap: 12px;
-}
-
-.mockup-score-orb,
-.mockup-trust-panel {
-  border: 1px solid rgba(214, 224, 236, 0.78);
-  border-radius: 8px;
-  background:
-    radial-gradient(circle at 50% 0%, rgba(31, 111, 235, 0.12), transparent 36%),
-    rgba(255, 255, 255, 0.78);
-  box-shadow: 0 14px 34px rgba(28, 43, 68, 0.07);
-}
-
-.mockup-score-orb {
-  display: grid;
-  min-height: 150px;
-  place-items: center;
-  padding: 16px;
-  text-align: center;
-}
-
-.mockup-score-orb span,
-.mockup-score-orb small,
-.mockup-trust-panel span {
-  color: #667085;
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.mockup-score-orb strong {
-  color: #111827;
-  font-size: 58px;
-  line-height: 0.94;
-}
-
-.mockup-trust-panel {
+.mockup-evidence-panel {
   display: grid;
   align-content: space-between;
   gap: 18px;
-  min-height: 150px;
-  padding: 16px;
+  padding: 22px 18px;
+  border-left: 1px solid rgba(223, 230, 240, 0.78);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(248, 251, 255, 0.74)),
+    rgba(255, 255, 255, 0.72);
 }
 
-.mockup-trust-panel strong {
+.mockup-evidence-panel strong {
   display: block;
   margin-top: 8px;
   color: #111827;
@@ -798,73 +757,21 @@ onBeforeUnmount(() => {
   opacity: 0.42;
 }
 
-.mockup-score-row {
+.mockup-evidence-list {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
-.mockup-score-row div,
-.mockup-insight-grid article,
-.mockup-evidence {
-  border: 1px solid rgba(223, 230, 240, 0.84);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.76);
-}
-
-.mockup-score-row div {
-  padding: 14px;
-}
-
-.mockup-score-row strong {
-  display: block;
-  margin-top: 6px;
-  color: #111827;
-  font-size: 28px;
-  line-height: 1;
-}
-
-.mockup-insight-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.mockup-insight-grid article {
-  padding: 16px;
-}
-
-.mockup-insight-grid :deep(.el-icon) {
-  color: var(--pm-primary);
-}
-
-.mockup-insight-grid span {
-  display: block;
-  margin-top: 12px;
-  color: #111827;
+.mockup-evidence-list p {
+  margin: 0 0 4px;
+  color: #667085;
+  font-size: 12px;
   font-weight: 900;
 }
 
-.mockup-insight-grid p,
-.mockup-evidence p {
-  margin: 8px 0 0;
-  color: #667085;
-  font-size: 13px;
-  line-height: 1.7;
-}
-
-.mockup-evidence {
-  display: grid;
-  gap: 12px;
-  padding: 16px;
-  background:
-    linear-gradient(135deg, rgba(238, 246, 255, 0.74), rgba(240, 251, 249, 0.56)),
-    rgba(255, 255, 255, 0.8);
-}
-
-.mockup-evidence code {
+.mockup-evidence-list code {
   display: block;
-  padding: 10px 12px;
+  padding: 9px 10px;
   overflow-wrap: anywhere;
   border-radius: 8px;
   background: #111827;
@@ -883,25 +790,6 @@ onBeforeUnmount(() => {
   pointer-events: none;
   background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.42) 18%, transparent 70%);
   content: "";
-}
-
-.product-showcase {
-  padding-top: 44px;
-}
-
-.showcase-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.showcase-card {
-  min-height: 210px;
-  padding: 22px;
-}
-
-.showcase-card :deep(.el-icon) {
-  color: var(--pm-primary);
 }
 
 .showcase-mini-visual,
@@ -929,7 +817,6 @@ onBeforeUnmount(() => {
   width: 52%;
 }
 
-.showcase-card h3,
 .bento-card h3,
 .flow-card h3,
 .story-card h3 {
@@ -939,7 +826,6 @@ onBeforeUnmount(() => {
   line-height: 1.35;
 }
 
-.showcase-card p,
 .bento-card p,
 .flow-card p,
 .story-card p {
@@ -1059,6 +945,19 @@ onBeforeUnmount(() => {
   margin-bottom: 0;
 }
 
+.trial-glass-copy {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border: 1px solid rgba(214, 224, 236, 0.72);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.58);
+  color: #475467;
+  font-size: 14px;
+  line-height: 1.75;
+  box-shadow: 0 14px 34px rgba(28, 43, 68, 0.06);
+  backdrop-filter: blur(14px);
+}
+
 .boundary-list {
   display: grid;
   gap: 12px;
@@ -1069,9 +968,9 @@ onBeforeUnmount(() => {
   align-items: flex-start;
   gap: 10px;
   padding: 12px 14px;
-  border: 1px solid rgba(245, 158, 11, 0.24);
+  border: 1px solid rgba(214, 224, 236, 0.72);
   border-radius: 8px;
-  background: rgba(255, 251, 235, 0.76);
+  background: rgba(255, 255, 255, 0.62);
   color: #344054;
   line-height: 1.65;
 }
@@ -1079,7 +978,7 @@ onBeforeUnmount(() => {
 .boundary-item :deep(.el-icon) {
   flex: 0 0 auto;
   margin-top: 2px;
-  color: #f59e0b;
+  color: #64748b;
 }
 
 @media (max-width: 1060px) {
@@ -1095,10 +994,17 @@ onBeforeUnmount(() => {
   .landing-mockup {
     min-height: auto;
   }
+
+  .mockup-body {
+    grid-template-columns: 136px minmax(0, 1fr);
+  }
+
+  .mockup-evidence-panel {
+    display: none;
+  }
 }
 
 @media (max-width: 980px) {
-  .showcase-grid,
   .flow-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1115,18 +1021,69 @@ onBeforeUnmount(() => {
 
 @media (max-width: 700px) {
   .landing-nav {
-    position: static;
-    align-items: flex-start;
-    flex-direction: column;
+    position: sticky;
+    top: 10px;
+    left: auto;
+    width: calc(100% - 24px);
+    margin: 10px auto 0;
+    align-items: center;
+    flex-direction: row;
+    gap: 8px;
+    padding: 8px;
+    transform: none;
+  }
+
+  .landing-brand {
+    gap: 0;
+  }
+
+  .landing-brand strong {
+    display: none;
+  }
+
+  .landing-brand span {
+    width: 32px;
+    height: 32px;
   }
 
   .nav-actions {
-    justify-content: flex-start;
-    width: 100%;
+    justify-content: flex-end;
+    flex: 1 1 auto;
+    flex-wrap: nowrap;
+    gap: 4px;
+    min-width: 0;
+    width: auto;
+  }
+
+  .nav-actions :deep(.el-button) {
+    min-width: 0;
+    padding: 7px 8px;
+  }
+
+  .nav-feedback {
+    width: 34px;
+    padding-right: 7px !important;
+    padding-left: 7px !important;
+  }
+
+  .nav-feedback :deep(span) {
+    font-size: 0;
+  }
+
+  .nav-feedback :deep(.el-icon) {
+    margin-right: 0;
+    font-size: 16px;
+  }
+
+  .nav-start {
+    padding-right: 10px !important;
+    padding-left: 10px !important;
   }
 
   .landing-hero {
-    padding-top: 54px;
+    padding-top: 44px;
+    padding-right: 16px;
+    padding-left: 16px;
   }
 
   .hero-copy h1 {
@@ -1137,7 +1094,7 @@ onBeforeUnmount(() => {
     grid-template-columns: 1fr;
   }
 
-  .mockup-sidebar {
+  .mockup-project-list {
     flex-direction: row;
     align-items: center;
     overflow-x: auto;
@@ -1149,19 +1106,15 @@ onBeforeUnmount(() => {
     margin-bottom: 0;
   }
 
-  .mockup-score-layout {
+  .mockup-centerpiece {
     grid-template-columns: 1fr;
   }
 
-  .mockup-command-line,
-  .mockup-bottom-command {
+  .mockup-qa-bar {
     align-items: flex-start;
     flex-direction: column;
   }
 
-  .mockup-score-row,
-  .mockup-insight-grid,
-  .showcase-grid,
   .flow-grid {
     grid-template-columns: 1fr;
   }

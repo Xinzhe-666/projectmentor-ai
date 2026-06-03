@@ -18,6 +18,8 @@ public class UploadZipResultVO {
 
     private List<ParsedProjectFileVO> files;
 
+    private List<SkippedProjectFileVO> skippedFiles;
+
     private List<String> warnings;
 
     private Map<String, Integer> skippedByReason;

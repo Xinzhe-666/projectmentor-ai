@@ -12,6 +12,7 @@ import com.xinzhe.projectmentor.common.ErrorCode;
 import com.xinzhe.projectmentor.project.entity.Project;
 import com.xinzhe.projectmentor.project.mapper.ProjectMapper;
 import com.xinzhe.projectmentor.scanner.ProjectRuleScanner;
+import com.xinzhe.projectmentor.scanner.vo.EvidenceItemVO;
 import com.xinzhe.projectmentor.scanner.vo.RuleScanResultVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -334,22 +335,147 @@ public class AnalysisReportService {
     }
 
     private String buildResumeBasic(Project project, RuleScanResultVO scanResult) {
-        return "基于 " + safe(project.getTechStack()) + " 开发“" + project.getName()
-                + "”，实现项目基础功能，并整理 README 用于说明项目背景、技术栈和使用方式。";
+        String evidenceSources = buildEvidenceSources(scanResult);
+        String risk = buildResumeRisk(scanResult);
+        String description = "基于 " + safe(project.getTechStack()) + " 参与/整理“" + project.getName()
+                + "”，围绕" + safeProjectScope(project)
+                + "沉淀 README、项目结构和可验证材料；当前可优先表达已有文件证据能支撑的基础工作。";
+
+        return formatResumeVersion(
+                "保守投递、证据还不完整或需要先保证可解释时使用。",
+                description,
+                risk,
+                "为什么选择这些技术栈？哪些功能已有文件证据？哪些内容只是 README 描述或计划？",
+                evidenceSources
+        );
     }
 
     private String buildResumeStandard(Project project, RuleScanResultVO scanResult) {
-        return "基于 " + safe(project.getTechStack()) + " 开发“" + project.getName()
-                + "”，围绕项目管理、文档说明和功能展示进行实现，并通过规则扫描识别 README 表述与项目证据之间的一致性风险。";
+        String evidenceSources = buildEvidenceSources(scanResult);
+        String risk = buildResumeRisk(scanResult);
+        String description = "基于 " + safe(project.getTechStack()) + " 打磨“" + project.getName()
+                + "”，围绕" + safeProjectScope(project)
+                + "完成可展示的项目材料和实现边界梳理，并结合已上传代码/配置/文档证据说明项目能力与风险。";
+
+        return formatResumeVersion(
+                "适合作为简历主体描述，但仍需要按真实贡献调整措辞。",
+                description,
+                risk,
+                "项目核心流程如何跑通？关键文件分别承担什么职责？证据不足的能力为什么没有写成核心实现？",
+                evidenceSources
+        );
     }
 
     private String buildResumeAdvanced(Project project, RuleScanResultVO scanResult) {
-        if (scanResult.getHighRiskCount() != null && scanResult.getHighRiskCount() > 0) {
-            return "当前项目仍存在较高 README 夸大风险，暂不建议使用冲刺版简历描述；请先补充真实代码证据或降低夸大表述。";
+        String evidenceSources = buildEvidenceSources(scanResult);
+        boolean highRisk = scanResult.getHighRiskCount() != null && scanResult.getHighRiskCount() > 0;
+        boolean hasCodeEvidence = hasCodeEvidence(scanResult);
+        String risk = buildResumeRisk(scanResult);
+        String description;
+
+        if (highRisk || !hasCodeEvidence) {
+            description = "当前不建议把“" + project.getName()
+                    + "”写成核心实现亮点。可以把它作为项目复盘、工程化材料整理或功能边界说明来讲，先补充真实代码证据后再升级表达。";
+        } else {
+            description = "在“" + project.getName()
+                    + "”中围绕" + safeProjectScope(project)
+                    + "梳理关键实现、证据来源和面试解释路径，可在面试中延展说明设计取舍、实现流程和风险边界。";
         }
 
-        return "设计并实现“" + project.getName()
-                + "”，结合项目文件、README 和规则扫描结果进行项目真实性评估，提升项目展示可信度和面试可解释性。";
+        return formatResumeVersion(
+                "仅适合面试延展或项目讲解，不建议直接照搬成夸张简历亮点。",
+                description,
+                risk,
+                "哪些文件能证明核心流程？哪些技术点可以现场解释？如果被追问实现细节，哪些边界需要主动说明？",
+                evidenceSources
+        );
+    }
+
+    private String formatResumeVersion(String scenario,
+                                       String description,
+                                       String risk,
+                                       String followUp,
+                                       String evidenceSources) {
+        return """
+                推荐使用场景：%s
+                描述：%s
+                风险提示：%s
+                可被追问点：%s
+                证据来源：%s
+                """.formatted(scenario, description, risk, followUp, evidenceSources).trim();
+    }
+
+    private String safeProjectScope(Project project) {
+        if (!isBlank(project.getDescription())) {
+            return "“" + project.getDescription().trim() + "”这一项目目标，";
+        }
+
+        if (!isBlank(project.getProjectType())) {
+            return project.getProjectType().trim() + "项目方向，";
+        }
+
+        return "项目基础功能，";
+    }
+
+    private String buildResumeRisk(RuleScanResultVO scanResult) {
+        if (!hasCodeEvidence(scanResult)) {
+            return "当前代码证据不足，不建议写成核心实现；如果只有 README、Docker 或配置证据，需要在面试中主动说明边界。";
+        }
+
+        if (scanResult.getHighRiskCount() != null && scanResult.getHighRiskCount() > 0) {
+            return "当前仍有 HIGH 风险，请先降低 README 或简历中的确定性表达，避免把缺证据能力写成已完整实现。";
+        }
+
+        if (scanResult.getTotalRiskCount() != null && scanResult.getTotalRiskCount() > 0) {
+            return "存在部分证据不足或表述风险，建议复制后结合个人真实贡献继续收敛。";
+        }
+
+        return "当前未发现明显高风险表述，但仍建议只写自己能解释清楚、能指向文件证据的内容。";
+    }
+
+    private String buildEvidenceSources(RuleScanResultVO scanResult) {
+        if (scanResult.getEvidences() == null || scanResult.getEvidences().isEmpty()) {
+            return "暂无明确证据来源。";
+        }
+
+        java.util.LinkedHashSet<String> sources = new java.util.LinkedHashSet<>();
+        for (EvidenceItemVO evidence : scanResult.getEvidences()) {
+            if (sources.size() >= 4) {
+                break;
+            }
+
+            String sourceFile = evidence.getSourceFile();
+            if (isBlank(sourceFile)) {
+                continue;
+            }
+
+            String conclusion = isBlank(evidence.getConclusion()) ? "相关证据" : evidence.getConclusion();
+            sources.add(sourceFile + "（" + conclusion + "）");
+        }
+
+        if (sources.isEmpty()) {
+            return "暂无明确证据来源。";
+        }
+
+        return String.join("；", sources);
+    }
+
+    private boolean hasCodeEvidence(RuleScanResultVO scanResult) {
+        if (scanResult.getEvidences() == null) {
+            return false;
+        }
+
+        return scanResult.getEvidences().stream()
+                .map(EvidenceItemVO::getSourceFile)
+                .filter(sourceFile -> sourceFile != null)
+                .map(sourceFile -> sourceFile.toLowerCase(java.util.Locale.ROOT))
+                .anyMatch(sourceFile -> sourceFile.endsWith(".java")
+                        || sourceFile.contains("/src/")
+                        || sourceFile.contains("controller")
+                        || sourceFile.contains("service")
+                        || sourceFile.contains("mapper")
+                        || sourceFile.contains("entity")
+                        || sourceFile.contains("util"));
     }
 
     private String safe(String text) {

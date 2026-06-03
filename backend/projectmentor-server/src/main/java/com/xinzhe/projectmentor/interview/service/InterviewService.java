@@ -25,13 +25,23 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class InterviewService {
+
+    private static final int MAX_QUESTION_COUNT = 8;
+
+    private static final String SKIP_ANSWER_PREFIX = "[PM_INTERVIEW_SKIP]";
+
+    private static final String META_START = "[PM_INTERVIEW_META]";
+
+    private static final String META_END = "[/PM_INTERVIEW_META]";
 
     private final InterviewSessionMapper interviewSessionMapper;
 
@@ -63,13 +73,14 @@ public class InterviewService {
         interviewSessionMapper.insert(session);
 
         List<ProjectFile> projectFiles = listProjectFiles(project.getId());
-        String ruleFirstQuestion = buildFirstQuestion(project, mode);
-        String firstQuestion = generateAiFirstQuestion(project, mode, projectFiles, ruleFirstQuestion);
+        QuestionMeta ruleFirstMeta = buildQuestionMeta(projectFiles, categoryForQuestion(1), "第一题用于确认项目真实性、职责边界和可解释范围。");
+        String ruleFirstQuestion = buildFirstQuestion(project, mode, ruleFirstMeta);
+        QuestionDraft firstQuestion = generateAiFirstQuestion(project, mode, projectFiles, ruleFirstQuestion, ruleFirstMeta);
 
         InterviewMessage message = new InterviewMessage();
         message.setSessionId(session.getId());
         message.setRole("INTERVIEWER");
-        message.setContent(firstQuestion);
+        message.setContent(withQuestionMeta(firstQuestion.question(), firstQuestion.meta(), 1));
 
         interviewMessageMapper.insert(message);
 
@@ -88,38 +99,56 @@ public class InterviewService {
         Project project = projectMapper.selectById(session.getProjectId());
         List<ProjectFile> projectFiles = listProjectFiles(session.getProjectId());
         List<InterviewMessage> history = listSessionMessages(sessionId);
+        int currentQuestionCount = countInterviewerQuestions(history);
+        boolean skipped = isSkippedAnswer(request.getAnswer());
+        String answer = skipped ? "已跳过本题" : request.getAnswer();
 
         InterviewMessage userMessage = new InterviewMessage();
         userMessage.setSessionId(sessionId);
         userMessage.setRole("USER");
-        userMessage.setContent(request.getAnswer());
+        userMessage.setContent(skipped ? SKIP_ANSWER_PREFIX + " 已跳过本题" : answer);
 
-        AnswerEvaluation ruleEvaluation = evaluateAnswer(request.getAnswer());
         String mode = normalizeMode(session.getMode());
-        String ruleFollowUpQuestion = buildFollowUpQuestion(project, mode, request.getAnswer(), ruleEvaluation);
-        AnswerEvaluation evaluation = enhanceEvaluationWithAi(
-                project,
-                mode,
-                request.getAnswer(),
-                ruleEvaluation,
-                ruleFollowUpQuestion,
+        QuestionMeta followUpMeta = buildQuestionMeta(
                 projectFiles,
-                history
+                categoryForQuestion(currentQuestionCount + 1),
+                skipped ? "用户跳过上一题，下一题降低假设强度并继续确认可解释证据。" : "基于用户回答继续追问，但保持证据约束。"
         );
+        AnswerEvaluation ruleEvaluation = skipped
+                ? new AnswerEvaluation(0, "已跳过本题，本题不计入有效回答。", null, followUpMeta)
+                : evaluateAnswer(answer);
+        String ruleFollowUpQuestion = buildFollowUpQuestion(project, mode, answer, ruleEvaluation, followUpMeta);
+        AnswerEvaluation evaluation = skipped
+                ? new AnswerEvaluation(0, "已跳过本题，本题不计入有效回答。", ruleFollowUpQuestion, followUpMeta)
+                : enhanceEvaluationWithAi(
+                        project,
+                        mode,
+                        answer,
+                        ruleEvaluation,
+                        ruleFollowUpQuestion,
+                        projectFiles,
+                        history,
+                        followUpMeta
+                );
 
         userMessage.setScore(evaluation.score());
         userMessage.setFeedback(evaluation.feedback());
 
         interviewMessageMapper.insert(userMessage);
 
+        if (currentQuestionCount >= MAX_QUESTION_COUNT) {
+            return finishSession(session, "已达到本轮面试的核心问题数量上限。");
+        }
+
         String followUpQuestion = isBlank(evaluation.followUpQuestion())
                 ? ruleFollowUpQuestion
                 : evaluation.followUpQuestion();
+        QuestionMeta nextQuestionMeta = evaluation.questionMeta() == null ? followUpMeta : evaluation.questionMeta();
 
         InterviewMessage interviewerMessage = new InterviewMessage();
         interviewerMessage.setSessionId(sessionId);
         interviewerMessage.setRole("INTERVIEWER");
-        interviewerMessage.setContent(followUpQuestion);
+        interviewerMessage.setContent(withQuestionMeta(followUpQuestion, nextQuestionMeta, currentQuestionCount + 1));
 
         interviewMessageMapper.insert(interviewerMessage);
 
@@ -152,14 +181,31 @@ public class InterviewService {
         Long userId = getCurrentUserId();
         InterviewSession session = checkSessionOwner(sessionId, userId);
 
+        if ("FINISHED".equalsIgnoreCase(session.getStatus())) {
+            return getSessionDetail(sessionId);
+        }
+
+        return finishSession(session, "用户主动结束面试。");
+    }
+
+    private InterviewSessionVO finishSession(InterviewSession session, String finishReason) {
+        Long sessionId = session.getId();
         List<InterviewMessage> userMessages = interviewMessageMapper.selectList(
                 new LambdaQueryWrapper<InterviewMessage>()
                         .eq(InterviewMessage::getSessionId, sessionId)
                         .eq(InterviewMessage::getRole, "USER")
         );
+        List<InterviewMessage> interviewerMessages = interviewMessageMapper.selectList(
+                new LambdaQueryWrapper<InterviewMessage>()
+                        .eq(InterviewMessage::getSessionId, sessionId)
+                        .eq(InterviewMessage::getRole, "INTERVIEWER")
+        );
 
         int totalScore = calculateTotalScore(userMessages);
-        String summary = buildSummary(totalScore, userMessages.size());
+        int skippedCount = countSkippedAnswers(userMessages);
+        int answeredCount = Math.max(0, userMessages.size() - skippedCount);
+        int unansweredCount = Math.max(0, interviewerMessages.size() - userMessages.size());
+        String summary = buildSummary(totalScore, answeredCount, skippedCount, unansweredCount, finishReason);
 
         session.setStatus("FINISHED");
         session.setTotalScore(totalScore);
@@ -223,7 +269,20 @@ public class InterviewService {
         return normalizedMode;
     }
 
-    private String buildFirstQuestion(Project project, String mode) {
+    private String buildFirstQuestion(Project project, String mode, QuestionMeta meta) {
+        if ("NONE".equals(meta.evidenceStrength())) {
+            return "当前上传材料中还没有可用项目文件证据。请你先介绍项目“" + project.getName() + "”的真实完成范围、你负责的部分，以及后续能补充哪些代码或配置证据。";
+        }
+
+        if ("WEAK".equals(meta.evidenceStrength())) {
+            return "README 中有项目描述，但当前代码证据不足。请你先介绍项目“" + project.getName() + "”中你实际完成的部分，并说明哪些内容有代码或配置可以支撑。";
+        }
+
+        if (!"STRONG".equals(meta.evidenceStrength())
+                && ("JAVA_BACKEND".equals(mode) || "AI_PROJECT".equals(mode))) {
+            return "当前证据更多来自配置、文档或部署文件，代码证据还不充分。请你说明项目“" + project.getName() + "”中哪些能力是实际实现，哪些只是配置或 README 描述。";
+        }
+
         return switch (mode) {
             case "HR_REALITY" -> "请你先用 1 分钟介绍一下项目“" + project.getName() + "”。重点说明：这个项目是不是你独立完成的？你具体负责了哪些部分？AI 在里面帮了你什么？";
             case "PRESSURE" -> "我看你的项目 README 里可能有一些包装化表述。请你证明一下：这个项目哪些功能是真实实现的？哪些只是计划或描述？";
@@ -264,17 +323,24 @@ public class InterviewService {
             feedback = "回答偏空泛，抗追问能力较弱。建议用“背景-职责-实现-难点-结果”的结构重新组织。";
         }
 
-        return new AnswerEvaluation(score, feedback, null);
+        return new AnswerEvaluation(score, feedback, null, null);
     }
 
-    private String buildFollowUpQuestion(Project project, String mode, String answer, AnswerEvaluation evaluation) {
+    private String buildFollowUpQuestion(Project project, String mode, String answer, AnswerEvaluation evaluation, QuestionMeta meta) {
         String lower = answer.toLowerCase(Locale.ROOT);
+        boolean hasStrongEvidence = "STRONG".equals(meta.evidenceStrength()) || "MEDIUM".equals(meta.evidenceStrength());
 
         if (containsAny(lower, List.of("jwt", "token", "登录"))) {
+            if (!hasStrongEvidence) {
+                return "你刚才提到了登录或 token。当前证据不足，请说明你是否实际实现了这部分；如果实现了，请指出可以支撑它的文件、接口流程或配置。";
+            }
             return "你刚才提到了 JWT。请具体说一下：用户登录成功后 token 是怎么生成的？后端后续请求如何从 token 里拿到 userId？";
         }
 
         if (containsAny(lower, List.of("redis", "缓存"))) {
+            if (!hasStrongEvidence) {
+                return "你刚才提到了缓存。当前证据不足，请说明项目里是否实际接入了缓存；如果只是 README 描述，请区分计划、配置和真实代码实现。";
+            }
             return "你刚才提到了 Redis。请说明这个项目里 Redis 具体缓存了什么？key 怎么设计？过期时间怎么设置？";
         }
 
@@ -283,16 +349,17 @@ public class InterviewService {
         }
 
         if (evaluation.score() < 65) {
-            return "你的回答还比较泛。请你结合项目中的具体文件或类名，再说明一次你真正实现了哪些功能。";
+            return "你的回答还比较泛。请你结合当前项目中真实存在的文件或配置，再说明一次你真正实现了哪些功能；证据不足的部分请明确说不建议写成核心实现。";
         }
 
         return "如果面试官质疑这个项目是 AI 帮你生成的，你会如何证明自己理解了项目核心代码和设计思路？";
     }
 
-    private String generateAiFirstQuestion(Project project,
-                                           String mode,
-                                           List<ProjectFile> projectFiles,
-                                           String ruleFirstQuestion) {
+    private QuestionDraft generateAiFirstQuestion(Project project,
+                                                  String mode,
+                                                  List<ProjectFile> projectFiles,
+                                                  String ruleFirstQuestion,
+                                                  QuestionMeta ruleFirstMeta) {
         try {
             String content = llmClient.chat(
                     "INTERVIEW",
@@ -306,10 +373,15 @@ public class InterviewService {
                 question = stripCodeFence(content);
             }
 
-            return normalizeQuestion(question, ruleFirstQuestion);
+            QuestionMeta meta = parseQuestionMeta(root, projectFiles, ruleFirstMeta, "category");
+            if (shouldUseRuleQuestion(question, meta, projectFiles)) {
+                return new QuestionDraft(ruleFirstQuestion, ruleFirstMeta);
+            }
+
+            return new QuestionDraft(normalizeQuestion(question, ruleFirstQuestion), meta);
         } catch (Exception e) {
             log.info("AI first interview question unavailable, fallback to rule question: {}", e.getMessage());
-            return ruleFirstQuestion;
+            return new QuestionDraft(ruleFirstQuestion, ruleFirstMeta);
         }
     }
 
@@ -319,7 +391,8 @@ public class InterviewService {
                                                      AnswerEvaluation ruleEvaluation,
                                                      String ruleFollowUpQuestion,
                                                      List<ProjectFile> projectFiles,
-                                                     List<InterviewMessage> history) {
+                                                     List<InterviewMessage> history,
+                                                     QuestionMeta ruleFollowUpMeta) {
         try {
             String content = llmClient.chat(
                     "INTERVIEW",
@@ -336,19 +409,23 @@ public class InterviewService {
                     )
             );
 
-            AnswerEvaluation aiEvaluation = parseAiEvaluation(content, ruleFollowUpQuestion);
+            AnswerEvaluation aiEvaluation = parseAiEvaluation(content, ruleFollowUpQuestion, projectFiles, ruleFollowUpMeta);
             return aiEvaluation == null ? new AnswerEvaluation(
                     ruleEvaluation.score(),
                     ruleEvaluation.feedback(),
-                    ruleFollowUpQuestion
+                    ruleFollowUpQuestion,
+                    ruleFollowUpMeta
             ) : aiEvaluation;
         } catch (Exception e) {
             log.info("AI interview evaluation unavailable, fallback to rule evaluation: {}", e.getMessage());
-            return new AnswerEvaluation(ruleEvaluation.score(), ruleEvaluation.feedback(), ruleFollowUpQuestion);
+            return new AnswerEvaluation(ruleEvaluation.score(), ruleEvaluation.feedback(), ruleFollowUpQuestion, ruleFollowUpMeta);
         }
     }
 
-    private AnswerEvaluation parseAiEvaluation(String content, String ruleFollowUpQuestion) {
+    private AnswerEvaluation parseAiEvaluation(String content,
+                                               String ruleFollowUpQuestion,
+                                               List<ProjectFile> projectFiles,
+                                               QuestionMeta ruleFollowUpMeta) {
         JsonNode root = aiJsonUtil.safeReadTree(content);
         if (root == null || !root.isObject()) {
             return null;
@@ -360,12 +437,16 @@ public class InterviewService {
                 aiJsonUtil.getText(root, "followUpQuestion"),
                 ruleFollowUpQuestion
         );
+        QuestionMeta questionMeta = parseQuestionMeta(root, projectFiles, ruleFollowUpMeta, "followUpCategory");
 
-        if (score == null || isBlank(feedback) || isBlank(followUpQuestion)) {
+        if (score == null
+                || isBlank(feedback)
+                || isBlank(followUpQuestion)
+                || shouldUseRuleQuestion(followUpQuestion, questionMeta, projectFiles)) {
             return null;
         }
 
-        return new AnswerEvaluation(score, feedback, followUpQuestion);
+        return new AnswerEvaluation(score, feedback, followUpQuestion, questionMeta);
     }
 
     private Integer getScore(JsonNode root, String fieldName) {
@@ -424,29 +505,391 @@ public class InterviewService {
             return 0;
         }
 
-        int sum = userMessages.stream()
+        List<InterviewMessage> answeredMessages = userMessages.stream()
+                .filter(message -> !isSkippedAnswer(message.getContent()))
+                .toList();
+
+        if (answeredMessages.isEmpty()) {
+            return 0;
+        }
+
+        int sum = answeredMessages.stream()
                 .map(InterviewMessage::getScore)
                 .filter(score -> score != null)
                 .mapToInt(Integer::intValue)
                 .sum();
 
-        return Math.round((float) sum / userMessages.size());
+        return Math.round((float) sum / answeredMessages.size());
     }
 
-    private String buildSummary(int totalScore, int answerCount) {
-        if (answerCount == 0) {
-            return "本次面试没有有效回答，建议重新进行模拟面试。";
+    private String buildSummary(int totalScore,
+                                int answeredCount,
+                                int skippedCount,
+                                int unansweredCount,
+                                String finishReason) {
+        String mainIssue;
+        String suggestion;
+
+        if (answeredCount == 0) {
+            mainIssue = "本次面试没有有效回答，暂时无法判断项目表达质量。";
+            suggestion = "建议先梳理 README、关键代码文件和真实职责，再重新进行一轮 6 到 8 题的核心追问。";
+        } else if (totalScore >= 80) {
+            mainIssue = "整体表达较具体，能体现一定项目理解；后续重点是把回答继续绑定到真实文件和证据。";
+            suggestion = "继续补充关键接口、配置、数据流和可追问边界，避免把证据不足的内容写成核心实现。";
+        } else if (totalScore >= 60) {
+            mainIssue = "能够说明项目基本情况，但部分回答仍偏概括，抗追问时需要更明确的文件和实现依据。";
+            suggestion = "按“功能-文件-流程-边界”的顺序重写回答，并标出哪些能力只有 README 或配置证据。";
+        } else {
+            mainIssue = "回答偏空泛或证据绑定不足，面试中容易被继续追问实现细节。";
+            suggestion = "优先复习项目核心流程、关键代码和证据链设计；证据不足的能力不建议写成核心实现。";
         }
 
-        if (totalScore >= 80) {
-            return "本次模拟面试整体表现较好，回答较具体，具备一定项目表达和抗追问能力。";
+        return """
+                本次模拟面试已结束。%s
+
+                - 总分：%s
+                - 已回答：%s
+                - 已跳过：%s
+                - 未回答：%s
+
+                主要问题：
+                %s
+
+                改进建议：
+                %s
+                """.formatted(
+                isBlank(finishReason) ? "" : finishReason,
+                totalScore,
+                answeredCount,
+                skippedCount,
+                unansweredCount,
+                mainIssue,
+                suggestion
+        ).trim();
+    }
+
+    private int countInterviewerQuestions(List<InterviewMessage> messages) {
+        if (messages == null) {
+            return 0;
         }
 
-        if (totalScore >= 60) {
-            return "本次模拟面试表现中等，能够说明项目基本情况，但部分回答仍偏概括，需要加强具体实现细节。";
+        return (int) messages.stream()
+                .filter(message -> "INTERVIEWER".equalsIgnoreCase(message.getRole()))
+                .count();
+    }
+
+    private int countSkippedAnswers(List<InterviewMessage> userMessages) {
+        if (userMessages == null) {
+            return 0;
         }
 
-        return "本次模拟面试风险较高，回答偏空泛，建议重点复习项目核心流程、关键代码和证据链设计。";
+        return (int) userMessages.stream()
+                .filter(message -> isSkippedAnswer(message.getContent()))
+                .count();
+    }
+
+    private boolean isSkippedAnswer(String answer) {
+        return answer != null && answer.trim().startsWith(SKIP_ANSWER_PREFIX);
+    }
+
+    private String categoryForQuestion(int questionIndex) {
+        return switch (questionIndex) {
+            case 1 -> "PROJECT_REALITY";
+            case 2, 6 -> "TECH_IMPLEMENTATION";
+            case 3, 7 -> "EVIDENCE_EXPLANATION";
+            case 4 -> "RESUME_RISK";
+            default -> "PRESSURE_FOLLOW_UP";
+        };
+    }
+
+    private String normalizeCategory(String category, String fallback) {
+        if (category == null || category.isBlank()) {
+            return fallback;
+        }
+
+        String normalized = category.trim().toUpperCase(Locale.ROOT);
+        if (List.of(
+                "PROJECT_REALITY",
+                "TECH_IMPLEMENTATION",
+                "EVIDENCE_EXPLANATION",
+                "RESUME_RISK",
+                "PRESSURE_FOLLOW_UP"
+        ).contains(normalized)) {
+            return normalized;
+        }
+
+        return fallback;
+    }
+
+    private String normalizeEvidenceStrength(String evidenceStrength, String fallback) {
+        if (evidenceStrength == null || evidenceStrength.isBlank()) {
+            return fallback;
+        }
+
+        String normalized = evidenceStrength.trim().toUpperCase(Locale.ROOT);
+        if (List.of("STRONG", "MEDIUM", "WEAK", "NONE").contains(normalized)) {
+            return normalized;
+        }
+
+        return fallback;
+    }
+
+    private QuestionMeta buildQuestionMeta(List<ProjectFile> projectFiles, String category, String reason) {
+        ProjectFile file = selectEvidenceFile(projectFiles, category);
+        if (file == null) {
+            return new QuestionMeta(category, "NONE", "", reason + " 当前没有可绑定的项目文件证据。", null);
+        }
+
+        String sourceFile = file.getFilePath();
+        String strength = inferEvidenceStrength(file);
+        String detailReason = reason + " 关联文件：" + sourceFile + "。";
+        return new QuestionMeta(category, strength, sourceFile, detailReason, null);
+    }
+
+    private ProjectFile selectEvidenceFile(List<ProjectFile> files, String category) {
+        if (files == null || files.isEmpty()) {
+            return null;
+        }
+
+        if ("TECH_IMPLEMENTATION".equals(category)) {
+            ProjectFile codeFile = firstMatchingFile(files, this::isCodeEvidence);
+            if (codeFile != null) {
+                return codeFile;
+            }
+        }
+
+        if ("EVIDENCE_EXPLANATION".equals(category) || "PROJECT_REALITY".equals(category)) {
+            ProjectFile configFile = firstMatchingFile(files, this::isConfigEvidence);
+            if (configFile != null) {
+                return configFile;
+            }
+        }
+
+        if ("RESUME_RISK".equals(category)) {
+            ProjectFile readmeFile = firstMatchingFile(files, this::isDocEvidence);
+            if (readmeFile != null) {
+                return readmeFile;
+            }
+        }
+
+        ProjectFile codeFile = firstMatchingFile(files, this::isCodeEvidence);
+        if (codeFile != null) {
+            return codeFile;
+        }
+
+        ProjectFile configFile = firstMatchingFile(files, this::isConfigEvidence);
+        if (configFile != null) {
+            return configFile;
+        }
+
+        ProjectFile docFile = firstMatchingFile(files, this::isDocEvidence);
+        return docFile == null ? files.get(0) : docFile;
+    }
+
+    private ProjectFile firstMatchingFile(List<ProjectFile> files, FilePredicate predicate) {
+        for (ProjectFile file : files) {
+            if (predicate.matches(file)) {
+                return file;
+            }
+        }
+        return null;
+    }
+
+    private boolean isCodeEvidence(ProjectFile file) {
+        String type = safeUpper(file.getFileType());
+        String path = safeLower(file.getFilePath());
+        return path.endsWith(".java")
+                || List.of("CONTROLLER", "SERVICE", "MAPPER", "ENTITY", "UTIL").contains(type);
+    }
+
+    private boolean isConfigEvidence(ProjectFile file) {
+        String type = safeUpper(file.getFileType());
+        String path = safeLower(file.getFilePath());
+        return List.of("CONFIG", "POM", "PACKAGE", "DOCKER", "DOCKER_COMPOSE", "SQL", "GITIGNORE").contains(type)
+                || path.endsWith(".yml")
+                || path.endsWith(".yaml")
+                || path.endsWith(".properties")
+                || path.endsWith(".xml")
+                || path.endsWith(".sql")
+                || path.endsWith(".json")
+                || path.endsWith("dockerfile");
+    }
+
+    private boolean isDocEvidence(ProjectFile file) {
+        String type = safeUpper(file.getFileType());
+        String path = safeLower(file.getFilePath());
+        return "README".equals(type) || path.endsWith(".md");
+    }
+
+    private String inferEvidenceStrength(ProjectFile file) {
+        if (file == null) {
+            return "NONE";
+        }
+
+        if (isCodeEvidence(file)) {
+            return "STRONG";
+        }
+
+        if (isConfigEvidence(file)) {
+            return "MEDIUM";
+        }
+
+        if (isDocEvidence(file)) {
+            return "WEAK";
+        }
+
+        return "WEAK";
+    }
+
+    private QuestionMeta parseQuestionMeta(JsonNode root,
+                                           List<ProjectFile> projectFiles,
+                                           QuestionMeta fallback,
+                                           String categoryField) {
+        if (root == null || !root.isObject()) {
+            return fallback;
+        }
+
+        String aiSourceFile = aiJsonUtil.getText(root, "sourceFile");
+        String normalizedSourceFile = normalizeSourceFile(aiSourceFile, projectFiles);
+        if (!isBlank(aiSourceFile) && isBlank(normalizedSourceFile)) {
+            return fallback;
+        }
+
+        String category = normalizeCategory(aiJsonUtil.getText(root, categoryField), fallback.category());
+        String evidenceStrength = normalizeEvidenceStrength(aiJsonUtil.getText(root, "evidenceStrength"), fallback.evidenceStrength());
+        String sourceFile = isBlank(normalizedSourceFile) ? fallback.sourceFile() : normalizedSourceFile;
+        String reason = aiJsonUtil.getText(root, "reason");
+        if (isBlank(reason)) {
+            reason = fallback.reason();
+        }
+
+        return new QuestionMeta(category, evidenceStrength, sourceFile, reason, null);
+    }
+
+    private boolean shouldUseRuleQuestion(String question, QuestionMeta meta, List<ProjectFile> projectFiles) {
+        return isBlank(question)
+                || question.trim().length() > 600
+                || referencesUnknownFile(question, projectFiles)
+                || (meta != null && !isBlank(meta.sourceFile()) && !sourceFileExists(meta.sourceFile(), projectFiles));
+    }
+
+    private boolean referencesUnknownFile(String question, List<ProjectFile> projectFiles) {
+        String lower = safeLower(question);
+        boolean hasFileLikeText = lower.matches("(?s).*(\\.java|\\.xml|\\.ya?ml|\\.properties|\\.sql|\\.json|\\.md|dockerfile|docker-compose).*");
+        if (!hasFileLikeText) {
+            return false;
+        }
+
+        if (projectFiles == null || projectFiles.isEmpty()) {
+            return true;
+        }
+
+        for (ProjectFile file : projectFiles) {
+            String path = safeLower(file.getFilePath());
+            String fileName = fileName(path);
+            if (!path.isBlank() && (lower.contains(path) || lower.contains(fileName))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private String normalizeSourceFile(String sourceFile, List<ProjectFile> projectFiles) {
+        if (isBlank(sourceFile) || projectFiles == null) {
+            return "";
+        }
+
+        String lowerSource = safeLower(sourceFile);
+        for (ProjectFile file : projectFiles) {
+            String path = safeLower(file.getFilePath());
+            if (path.equals(lowerSource) || fileName(path).equals(lowerSource)) {
+                return file.getFilePath();
+            }
+        }
+
+        return "";
+    }
+
+    private boolean sourceFileExists(String sourceFile, List<ProjectFile> projectFiles) {
+        return !isBlank(normalizeSourceFile(sourceFile, projectFiles));
+    }
+
+    private String withQuestionMeta(String question, QuestionMeta meta, int questionIndex) {
+        QuestionMeta safeMeta = meta == null
+                ? new QuestionMeta(categoryForQuestion(questionIndex), "NONE", "", "未找到可绑定证据。", null)
+                : meta;
+
+        return META_START + "\n"
+                + "questionIndex=" + questionIndex + "\n"
+                + "category=" + sanitizeMetaValue(safeMeta.category()) + "\n"
+                + "evidenceStrength=" + sanitizeMetaValue(safeMeta.evidenceStrength()) + "\n"
+                + "sourceFile=" + sanitizeMetaValue(safeMeta.sourceFile()) + "\n"
+                + "reason=" + sanitizeMetaValue(safeMeta.reason()) + "\n"
+                + META_END + "\n"
+                + question;
+    }
+
+    private ParsedMessageContent parseMessageContent(String content) {
+        if (content == null || !content.startsWith(META_START)) {
+            return new ParsedMessageContent(content, null);
+        }
+
+        int metaEndIndex = content.indexOf(META_END);
+        if (metaEndIndex < 0) {
+            return new ParsedMessageContent(content, null);
+        }
+
+        String metaBlock = content.substring(META_START.length(), metaEndIndex).trim();
+        String visibleContent = content.substring(metaEndIndex + META_END.length()).trim();
+        Map<String, String> metaMap = new HashMap<>();
+        for (String line : metaBlock.split("\\R")) {
+            int splitIndex = line.indexOf('=');
+            if (splitIndex <= 0) {
+                continue;
+            }
+            metaMap.put(line.substring(0, splitIndex).trim(), line.substring(splitIndex + 1).trim());
+        }
+
+        Integer questionIndex = null;
+        try {
+            questionIndex = Integer.parseInt(metaMap.getOrDefault("questionIndex", ""));
+        } catch (NumberFormatException ignored) {
+            questionIndex = null;
+        }
+
+        QuestionMeta meta = new QuestionMeta(
+                metaMap.getOrDefault("category", ""),
+                metaMap.getOrDefault("evidenceStrength", ""),
+                metaMap.getOrDefault("sourceFile", ""),
+                metaMap.getOrDefault("reason", ""),
+                questionIndex
+        );
+
+        return new ParsedMessageContent(visibleContent, meta);
+    }
+
+    private String sanitizeMetaValue(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replace("\r", " ").replace("\n", " ").trim();
+    }
+
+    private String safeLower(String value) {
+        return value == null ? "" : value.toLowerCase(Locale.ROOT);
+    }
+
+    private String safeUpper(String value) {
+        return value == null ? "" : value.toUpperCase(Locale.ROOT);
+    }
+
+    private String fileName(String path) {
+        if (path == null) {
+            return "";
+        }
+        int slashIndex = path.lastIndexOf('/');
+        return slashIndex < 0 ? path : path.substring(slashIndex + 1);
     }
 
     private boolean containsAny(String text, List<String> keywords) {
@@ -494,16 +937,40 @@ public class InterviewService {
     }
 
     private InterviewMessageVO toMessageVO(InterviewMessage message) {
+        ParsedMessageContent parsedContent = parseMessageContent(message.getContent());
+        QuestionMeta meta = parsedContent.meta();
+        boolean skipped = isSkippedAnswer(message.getContent());
+
         return InterviewMessageVO.builder()
                 .id(message.getId())
                 .role(message.getRole())
-                .content(message.getContent())
+                .content(skipped ? "已跳过本题" : parsedContent.content())
                 .score(message.getScore())
                 .feedback(message.getFeedback())
+                .questionCategory(meta == null ? null : meta.category())
+                .evidenceStrength(meta == null ? null : meta.evidenceStrength())
+                .sourceFile(meta == null ? null : meta.sourceFile())
+                .reason(meta == null ? null : meta.reason())
+                .questionIndex(meta == null ? null : meta.questionIndex())
+                .skipped(skipped)
                 .createTime(message.getCreateTime())
                 .build();
     }
 
-    private record AnswerEvaluation(int score, String feedback, String followUpQuestion) {
+    private record AnswerEvaluation(int score, String feedback, String followUpQuestion, QuestionMeta questionMeta) {
+    }
+
+    private record QuestionDraft(String question, QuestionMeta meta) {
+    }
+
+    private record QuestionMeta(String category, String evidenceStrength, String sourceFile, String reason, Integer questionIndex) {
+    }
+
+    private record ParsedMessageContent(String content, QuestionMeta meta) {
+    }
+
+    @FunctionalInterface
+    private interface FilePredicate {
+        boolean matches(ProjectFile file);
     }
 }

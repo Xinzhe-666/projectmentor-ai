@@ -48,11 +48,17 @@ export interface ParsedProjectFile {
   contentLength: number
 }
 
+export interface SkippedProjectFile {
+  filePath: string
+  reason: string
+}
+
 export interface UploadZipResult {
   projectId: number
   savedFileCount: number
   skippedFileCount: number
   files: ParsedProjectFile[]
+  skippedFiles?: SkippedProjectFile[]
   warnings: string[]
   skippedByReason: Record<string, number>
 }
@@ -238,6 +244,12 @@ export interface InterviewMessage {
   content: string
   score?: number
   feedback?: string
+  questionCategory?: string
+  evidenceStrength?: 'STRONG' | 'MEDIUM' | 'WEAK' | 'NONE' | string
+  sourceFile?: string
+  reason?: string
+  questionIndex?: number
+  skipped?: boolean
   createTime?: string
 }
 

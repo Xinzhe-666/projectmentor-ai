@@ -19,5 +19,17 @@ public class InterviewMessageVO {
 
     private String feedback;
 
+    private String questionCategory;
+
+    private String evidenceStrength;
+
+    private String sourceFile;
+
+    private String reason;
+
+    private Integer questionIndex;
+
+    private Boolean skipped;
+
     private LocalDateTime createTime;
 }

@@ -18,8 +18,13 @@ public class InterviewPromptBuilder {
         return """
                 你是 ProjectMentor AI 的项目面试官。你必须基于项目基础信息、项目文件摘要、历史问答和用户回答进行追问。
                 不要编造项目没有的功能；README 声明不等于代码证据。
+                每个问题都必须绑定证据强度：STRONG / MEDIUM / WEAK / NONE。
+                如果只有 README 描述，没有代码证据，必须明确说“README 中有描述，但当前代码证据不足……”。
+                如果只有文档、配置或部署证据，不要追问核心训练、算法或复杂实现细节，除非文件摘要里有对应代码证据。
+                如果证据不足，使用“当前证据不足，请说明你是否实际实现了……”这类克制表达。
+                sourceFile 只能填写项目文件摘要中真实存在的 path；没有真实关联文件时留空。
                 每次只问一个问题。
-                如果用户回答空泛，追问具体类名、接口、表结构、配置或实现流程。
+                如果用户回答空泛，优先追问可解释流程、证据来源和边界，不要无证据地追问过细类名。
                 如果用户提到 JWT、Redis、规则扫描、证据链，继续追问实现细节。
                 只输出 JSON，不要输出 Markdown，不要解释。
                 """;
@@ -28,11 +33,21 @@ public class InterviewPromptBuilder {
     public String buildFirstQuestionPrompt(Project project, String mode, List<ProjectFile> files) {
         return """
                 请基于下面的项目上下文，生成模拟面试的第一个问题。
-                要求：每次只问一个问题；不要编造项目没有的功能；优先追问项目真实性和具体实现细节。
+                要求：
+                1. 每次只问一个问题。
+                2. 不要编造项目没有的功能。
+                3. 默认一轮面试最多 8 个核心问题，本题是第 1 题，优先放在“项目真实性”。
+                4. 问题分类只能从 PROJECT_REALITY、TECH_IMPLEMENTATION、EVIDENCE_EXPLANATION、RESUME_RISK、PRESSURE_FOLLOW_UP 中选择。
+                5. 如果没有代码证据，不要确定性假设用户实现了某功能。
+                6. sourceFile 只能填写项目文件摘要里真实存在的 path。
 
                 输出 JSON：
                 {
-                  "question": "一个自然、具体、可回答的面试问题"
+                  "question": "一个自然、具体、可回答的面试问题",
+                  "category": "PROJECT_REALITY",
+                  "evidenceStrength": "STRONG/MEDIUM/WEAK/NONE",
+                  "sourceFile": "真实存在的关联文件路径，没有则留空",
+                  "reason": "为什么这个问题由当前证据触发"
                 }
 
                 面试模式：%s
@@ -70,14 +85,21 @@ public class InterviewPromptBuilder {
                 2. feedback 要指出回答中具体、不足和需要补证据的地方。
                 3. followUpQuestion 每次只问一个问题。
                 4. 不要编造项目没有的功能。
-                5. 如果用户回答空泛，追问具体实现。
-                6. 如果用户提到 JWT、Redis、规则扫描、证据链，继续追问实现细节。
+                5. 如果用户回答空泛，追问可解释流程、证据来源和边界。
+                6. 如果用户提到 JWT、Redis、规则扫描、证据链，只有存在代码/配置证据时才追问实现细节；证据不足时使用克制表达。
+                7. 当前面试最多 8 个核心问题，不要制造无限追问。
+                8. followUpCategory 只能从 PROJECT_REALITY、TECH_IMPLEMENTATION、EVIDENCE_EXPLANATION、RESUME_RISK、PRESSURE_FOLLOW_UP 中选择。
+                9. sourceFile 只能填写项目文件摘要里真实存在的 path。
 
                 输出 JSON：
                 {
                   "score": 0-100,
                   "feedback": "对用户回答的反馈",
-                  "followUpQuestion": "下一轮追问"
+                  "followUpQuestion": "下一轮追问",
+                  "followUpCategory": "TECH_IMPLEMENTATION",
+                  "evidenceStrength": "STRONG/MEDIUM/WEAK/NONE",
+                  "sourceFile": "真实存在的关联文件路径，没有则留空",
+                  "reason": "为什么这个追问由当前证据或回答触发"
                 }
 
                 面试模式：%s

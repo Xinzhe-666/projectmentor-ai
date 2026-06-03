@@ -7,6 +7,7 @@ import com.xinzhe.projectmentor.common.ErrorCode;
 import com.xinzhe.projectmentor.file.entity.ProjectFile;
 import com.xinzhe.projectmentor.file.mapper.ProjectFileMapper;
 import com.xinzhe.projectmentor.file.vo.ParsedProjectFileVO;
+import com.xinzhe.projectmentor.file.vo.SkippedProjectFileVO;
 import com.xinzhe.projectmentor.file.vo.UploadZipResultVO;
 import com.xinzhe.projectmentor.project.entity.Project;
 import com.xinzhe.projectmentor.project.mapper.ProjectMapper;
@@ -85,6 +86,7 @@ public class ProjectZipUploadService {
                     if (context.entryCount > MAX_TOTAL_ENTRY_COUNT) {
                         context.skipFileOnceWarning(
                                 REASON_ENTRY_LIMIT,
+                                entry.getName(),
                                 "ZIP 内文件数量过多，已停止继续解析"
                         );
                         break;
@@ -104,6 +106,7 @@ public class ProjectZipUploadService {
                 .savedFileCount(context.savedFiles.size())
                 .skippedFileCount(context.skippedFileCount)
                 .files(context.savedFiles)
+                .skippedFiles(context.skippedFiles)
                 .warnings(context.warnings)
                 .skippedByReason(context.skippedByReason)
                 .build();
@@ -116,13 +119,13 @@ public class ProjectZipUploadService {
         String entryName = entry.getName();
 
         if (ZipFileUtil.isDangerousPath(entryName)) {
-            context.skipFile(REASON_DANGEROUS_PATH, "跳过危险路径：" + entryName);
+            context.skipFile(REASON_DANGEROUS_PATH, entryName, "跳过危险路径：" + entryName);
             return;
         }
 
         String filePath = ZipFileUtil.normalizeEntryName(entryName);
         if (filePath.isBlank()) {
-            context.skipFile(REASON_DANGEROUS_PATH, "跳过空文件路径");
+            context.skipFile(REASON_DANGEROUS_PATH, entryName, "跳过空文件路径");
             return;
         }
 
@@ -132,7 +135,7 @@ public class ProjectZipUploadService {
                 context.addWarning("跳过 " + skippedDirectory + " 目录");
             }
             if (!entry.isDirectory()) {
-                context.skipFileSilently(REASON_FILTERED_DIRECTORY);
+                context.skipFileSilently(REASON_FILTERED_DIRECTORY, filePath);
             }
             return;
         }
@@ -142,18 +145,19 @@ public class ProjectZipUploadService {
         }
 
         if (ZipFileUtil.isBlockedBinaryFile(filePath)) {
-            context.skipFileSilently(REASON_BINARY_FILE);
+            context.skipFileSilently(REASON_BINARY_FILE, filePath);
             return;
         }
 
         if (!ZipFileUtil.isWhiteListFile(filePath)) {
-            context.skipFileSilently(REASON_NOT_WHITELIST);
+            context.skipFileSilently(REASON_NOT_WHITELIST, filePath);
             return;
         }
 
         if (context.savedFiles.size() >= MAX_VALID_FILE_COUNT) {
             context.skipFileOnceWarning(
                     REASON_VALID_FILE_LIMIT,
+                    filePath,
                     "有效文件数量已达到 150 个，后续文件不再保存"
             );
             return;
@@ -162,25 +166,26 @@ public class ProjectZipUploadService {
         if (context.totalTextLimitReached) {
             context.skipFileOnceWarning(
                     REASON_TOTAL_TEXT_LIMIT,
+                    filePath,
                     "累计保存文本已达到 8MB，后续文件不再保存"
             );
             return;
         }
 
         if (entry.getSize() > MAX_SINGLE_TEXT_FILE_BYTES) {
-            context.skipFile(REASON_FILE_TOO_LARGE, "跳过超过 500KB 的文本文件：" + filePath);
+            context.skipFile(REASON_FILE_TOO_LARGE, filePath, "跳过超过 500KB 的文本文件：" + filePath);
             return;
         }
 
         ReadFileResult readFileResult = readTextFile(zipInputStream);
         if (readFileResult.tooLarge) {
-            context.skipFile(REASON_FILE_TOO_LARGE, "跳过超过 500KB 的文本文件：" + filePath);
+            context.skipFile(REASON_FILE_TOO_LARGE, filePath, "跳过超过 500KB 的文本文件：" + filePath);
             return;
         }
 
         String content = decodeUtf8(readFileResult.bytes);
         if (content == null) {
-            context.skipFile(REASON_BINARY_FILE, "跳过二进制或非 UTF-8 文件：" + filePath);
+            context.skipFile(REASON_BINARY_FILE, filePath, "跳过二进制或非 UTF-8 文件：" + filePath);
             return;
         }
 
@@ -188,6 +193,7 @@ public class ProjectZipUploadService {
             context.totalTextLimitReached = true;
             context.skipFileOnceWarning(
                     REASON_TOTAL_TEXT_LIMIT,
+                    filePath,
                     "累计保存文本已达到 8MB，后续文件不再保存"
             );
             return;
@@ -317,6 +323,8 @@ public class ProjectZipUploadService {
 
         private final List<ParsedProjectFileVO> savedFiles = new ArrayList<>();
 
+        private final List<SkippedProjectFileVO> skippedFiles = new ArrayList<>();
+
         private final List<String> warnings = new ArrayList<>();
 
         private final Set<String> warnedDirectories = new HashSet<>();
@@ -333,23 +341,33 @@ public class ProjectZipUploadService {
 
         private boolean totalTextLimitReached;
 
-        private void skipFile(String reason, String warning) {
+        private void skipFile(String reason, String filePath, String warning) {
             skippedFileCount++;
             skippedByReason.merge(reason, 1, Integer::sum);
+            addSkippedFile(filePath, reason);
             addWarning(warning);
         }
 
-        private void skipFileSilently(String reason) {
+        private void skipFileSilently(String reason, String filePath) {
             skippedFileCount++;
             skippedByReason.merge(reason, 1, Integer::sum);
+            addSkippedFile(filePath, reason);
         }
 
-        private void skipFileOnceWarning(String reason, String warning) {
+        private void skipFileOnceWarning(String reason, String filePath, String warning) {
             skippedFileCount++;
             skippedByReason.merge(reason, 1, Integer::sum);
+            addSkippedFile(filePath, reason);
             if (warnedReasons.add(reason)) {
                 addWarning(warning);
             }
+        }
+
+        private void addSkippedFile(String filePath, String reason) {
+            skippedFiles.add(SkippedProjectFileVO.builder()
+                    .filePath(filePath == null || filePath.isBlank() ? "-" : filePath)
+                    .reason(reason)
+                    .build());
         }
 
         private void addWarning(String warning) {

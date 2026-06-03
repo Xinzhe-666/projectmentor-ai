@@ -102,11 +102,84 @@
             />
           </div>
 
-          <el-table :data="uploadResult.files" stripe>
-            <el-table-column prop="filePath" :label="t('projects.filePath')" min-width="260" show-overflow-tooltip />
-            <el-table-column prop="fileType" :label="t('projects.fileType')" width="150" />
-            <el-table-column prop="contentLength" :label="t('projects.contentLength')" width="120" />
-          </el-table>
+          <div class="file-list-section">
+            <div class="file-list-header">
+              <div>
+                <h4>{{ t('projects.savedFiles') }}</h4>
+                <p class="muted">{{ filePageSummary(filteredUploadSavedFiles.length, uploadSavedFilePage, uploadSavedFilePageSize) }}</p>
+              </div>
+              <div class="file-list-filters">
+                <el-input
+                  v-model="uploadSavedFileKeyword"
+                  clearable
+                  :placeholder="t('projects.fileSearchPlaceholder')"
+                />
+                <el-select v-model="uploadSavedFileType" :placeholder="t('projects.fileTypeFilter')">
+                  <el-option :label="t('projects.fileTypeAll')" value="" />
+                  <el-option v-for="option in fileTypeGroupOptions" :key="option.value" :label="option.label" :value="option.value" />
+                </el-select>
+              </div>
+            </div>
+            <el-table :data="paginatedUploadSavedFiles" stripe max-height="420">
+              <el-table-column prop="filePath" :label="t('projects.filePath')" min-width="260" show-overflow-tooltip />
+              <el-table-column :label="t('projects.fileTypeGroup')" width="130">
+                <template #default="{ row }">{{ fileTypeGroupLabel(fileTypeGroup(row)) }}</template>
+              </el-table-column>
+              <el-table-column prop="fileType" :label="t('projects.fileType')" width="150" />
+              <el-table-column prop="contentLength" :label="t('projects.contentLength')" width="120" />
+            </el-table>
+            <div class="file-list-pagination">
+              <el-pagination
+                v-if="filteredUploadSavedFiles.length > 0"
+                v-model:current-page="uploadSavedFilePage"
+                v-model:page-size="uploadSavedFilePageSize"
+                background
+                layout="total, sizes, prev, pager, next"
+                :page-sizes="FILE_PAGE_SIZES"
+                :total="filteredUploadSavedFiles.length"
+              />
+            </div>
+          </div>
+
+          <div class="file-list-section">
+            <div class="file-list-header">
+              <div>
+                <h4>{{ t('projects.skippedFiles') }}</h4>
+                <p class="muted">{{ filePageSummary(filteredUploadSkippedFiles.length, uploadSkippedFilePage, uploadSkippedFilePageSize) }}</p>
+              </div>
+              <div class="file-list-filters">
+                <el-input
+                  v-model="uploadSkippedFileKeyword"
+                  clearable
+                  :placeholder="t('projects.fileSearchPlaceholder')"
+                />
+                <el-select v-model="uploadSkippedFileType" :placeholder="t('projects.fileTypeFilter')">
+                  <el-option :label="t('projects.fileTypeAll')" value="" />
+                  <el-option v-for="option in fileTypeGroupOptions" :key="option.value" :label="option.label" :value="option.value" />
+                </el-select>
+              </div>
+            </div>
+            <el-table :data="paginatedUploadSkippedFiles" stripe max-height="420" :empty-text="t('projects.noMatchedFiles')">
+              <el-table-column prop="filePath" :label="t('projects.filePath')" min-width="260" show-overflow-tooltip />
+              <el-table-column :label="t('projects.fileTypeGroup')" width="130">
+                <template #default="{ row }">{{ fileTypeGroupLabel(fileTypeGroup(row)) }}</template>
+              </el-table-column>
+              <el-table-column :label="t('projects.skipReasonTitle')" width="170">
+                <template #default="{ row }">{{ skipReasonLabel(row.reason) }}</template>
+              </el-table-column>
+            </el-table>
+            <div class="file-list-pagination">
+              <el-pagination
+                v-if="filteredUploadSkippedFiles.length > 0"
+                v-model:current-page="uploadSkippedFilePage"
+                v-model:page-size="uploadSkippedFilePageSize"
+                background
+                layout="total, sizes, prev, pager, next"
+                :page-sizes="FILE_PAGE_SIZES"
+                :total="filteredUploadSkippedFiles.length"
+              />
+            </div>
+          </div>
         </div>
         <EmptyState v-else :title="t('projects.uploadEmptyTitle')" :description="t('projects.uploadEmptyDesc')" />
       </div>
@@ -121,12 +194,45 @@
         <el-button :icon="Refresh" :loading="fileLoading" @click="loadFiles">{{ t('common.refresh') }}</el-button>
       </div>
       <div class="panel-body">
-        <el-table v-if="files.length || fileLoading" v-loading="fileLoading" :data="files" stripe>
-          <el-table-column prop="filePath" :label="t('projects.filePath')" min-width="280" show-overflow-tooltip />
-          <el-table-column prop="fileType" :label="t('projects.fileType')" width="150" />
-          <el-table-column prop="contentLength" :label="t('projects.contentLength')" width="120" />
-          <el-table-column prop="updateTime" :label="t('common.updateTime')" min-width="180" />
-        </el-table>
+        <div v-if="files.length || fileLoading" class="file-list-section">
+          <div class="file-list-header">
+            <div>
+              <h4>{{ t('projects.projectFiles') }}</h4>
+              <p class="muted">{{ filePageSummary(filteredProjectFiles.length, projectFilePage, projectFilePageSize) }}</p>
+            </div>
+            <div class="file-list-filters">
+              <el-input
+                v-model="projectFileKeyword"
+                clearable
+                :placeholder="t('projects.fileSearchPlaceholder')"
+              />
+              <el-select v-model="projectFileType" :placeholder="t('projects.fileTypeFilter')">
+                <el-option :label="t('projects.fileTypeAll')" value="" />
+                <el-option v-for="option in fileTypeGroupOptions" :key="option.value" :label="option.label" :value="option.value" />
+              </el-select>
+            </div>
+          </div>
+          <el-table v-loading="fileLoading" :data="paginatedProjectFiles" stripe max-height="460" :empty-text="t('projects.noMatchedFiles')">
+            <el-table-column prop="filePath" :label="t('projects.filePath')" min-width="280" show-overflow-tooltip />
+            <el-table-column :label="t('projects.fileTypeGroup')" width="130">
+              <template #default="{ row }">{{ fileTypeGroupLabel(fileTypeGroup(row)) }}</template>
+            </el-table-column>
+            <el-table-column prop="fileType" :label="t('projects.fileType')" width="150" />
+            <el-table-column prop="contentLength" :label="t('projects.contentLength')" width="120" />
+            <el-table-column prop="updateTime" :label="t('common.updateTime')" min-width="180" />
+          </el-table>
+          <div class="file-list-pagination">
+            <el-pagination
+              v-if="filteredProjectFiles.length > 0"
+              v-model:current-page="projectFilePage"
+              v-model:page-size="projectFilePageSize"
+              background
+              layout="total, sizes, prev, pager, next"
+              :page-sizes="FILE_PAGE_SIZES"
+              :total="filteredProjectFiles.length"
+            />
+          </div>
+        </div>
         <EmptyState v-else :title="t('projects.noFilesTitle')" :description="t('projects.noFilesDesc')" />
       </div>
     </section>
@@ -203,7 +309,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Cpu, Refresh, Search, Upload } from '@element-plus/icons-vue'
@@ -216,7 +322,7 @@ import EvidenceList from '@/components/EvidenceList.vue'
 import ProjectQaPanel from '@/components/ProjectQaPanel.vue'
 import RiskList from '@/components/RiskList.vue'
 import TaskProgress from '@/components/TaskProgress.vue'
-import type { AnalysisTask, Project, ProjectFile, RuleScanResult, UploadZipResult } from '@/types/api'
+import type { AnalysisTask, ParsedProjectFile, Project, ProjectFile, RuleScanResult, SkippedProjectFile, UploadZipResult } from '@/types/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -238,6 +344,34 @@ const task = ref<AnalysisTask>()
 let pollTimer: number | undefined
 
 const MAX_ZIP_SIZE_BYTES = 200 * 1024 * 1024
+const FILE_PAGE_SIZES = [20, 50, 100]
+
+type FileTypeGroup = '' | 'CODE' | 'CONFIG' | 'DOC' | 'OTHER'
+type FileListRow = {
+  filePath: string
+  fileType?: string
+  contentLength?: number
+}
+
+const uploadSavedFileKeyword = ref('')
+const uploadSavedFileType = ref<FileTypeGroup>('')
+const uploadSavedFilePage = ref(1)
+const uploadSavedFilePageSize = ref(20)
+const uploadSkippedFileKeyword = ref('')
+const uploadSkippedFileType = ref<FileTypeGroup>('')
+const uploadSkippedFilePage = ref(1)
+const uploadSkippedFilePageSize = ref(20)
+const projectFileKeyword = ref('')
+const projectFileType = ref<FileTypeGroup>('')
+const projectFilePage = ref(1)
+const projectFilePageSize = ref(20)
+
+const fileTypeGroupOptions = computed<Array<{ label: string; value: FileTypeGroup }>>(() => [
+  { label: t('projects.fileTypeGroups.CODE'), value: 'CODE' },
+  { label: t('projects.fileTypeGroups.CONFIG'), value: 'CONFIG' },
+  { label: t('projects.fileTypeGroups.DOC'), value: 'DOC' },
+  { label: t('projects.fileTypeGroups.OTHER'), value: 'OTHER' }
+])
 
 const skipReasonLabels = computed<Record<string, string>>(() => ({
   FILTERED_DIRECTORY: t('projects.skipReason.FILTERED_DIRECTORY'),
@@ -261,6 +395,125 @@ const skipReasonEntries = computed(() => {
       count
     }))
 })
+
+const filteredUploadSavedFiles = computed(() =>
+  filterFileRows(uploadResult.value?.files || [], uploadSavedFileKeyword.value, uploadSavedFileType.value)
+)
+
+const paginatedUploadSavedFiles = computed(() =>
+  paginateRows(filteredUploadSavedFiles.value, uploadSavedFilePage.value, uploadSavedFilePageSize.value)
+)
+
+const uploadSkippedFiles = computed(() => uploadResult.value?.skippedFiles || [])
+
+const filteredUploadSkippedFiles = computed(() =>
+  filterSkippedRows(uploadSkippedFiles.value, uploadSkippedFileKeyword.value, uploadSkippedFileType.value)
+)
+
+const paginatedUploadSkippedFiles = computed(() =>
+  paginateRows(filteredUploadSkippedFiles.value, uploadSkippedFilePage.value, uploadSkippedFilePageSize.value)
+)
+
+const filteredProjectFiles = computed(() =>
+  filterFileRows(files.value, projectFileKeyword.value, projectFileType.value)
+)
+
+const paginatedProjectFiles = computed(() =>
+  paginateRows(filteredProjectFiles.value, projectFilePage.value, projectFilePageSize.value)
+)
+
+watch([uploadSavedFileKeyword, uploadSavedFileType, uploadSavedFilePageSize], () => {
+  uploadSavedFilePage.value = 1
+})
+
+watch([uploadSkippedFileKeyword, uploadSkippedFileType, uploadSkippedFilePageSize], () => {
+  uploadSkippedFilePage.value = 1
+})
+
+watch([projectFileKeyword, projectFileType, projectFilePageSize], () => {
+  projectFilePage.value = 1
+})
+
+function filterFileRows<T extends FileListRow>(rows: T[], keyword: string, group: FileTypeGroup) {
+  const normalizedKeyword = keyword.trim().toLowerCase()
+
+  return rows.filter((row) => {
+    const pathMatched = !normalizedKeyword || row.filePath.toLowerCase().includes(normalizedKeyword)
+    const typeMatched = !group || fileTypeGroup(row) === group
+    return pathMatched && typeMatched
+  })
+}
+
+function filterSkippedRows(rows: SkippedProjectFile[], keyword: string, group: FileTypeGroup) {
+  const normalizedKeyword = keyword.trim().toLowerCase()
+
+  return rows.filter((row) => {
+    const pathMatched = !normalizedKeyword || row.filePath.toLowerCase().includes(normalizedKeyword)
+    const typeMatched = !group || fileTypeGroup(row) === group
+    return pathMatched && typeMatched
+  })
+}
+
+function paginateRows<T>(rows: T[], page: number, pageSize: number) {
+  const start = (Math.max(1, page) - 1) * pageSize
+  return rows.slice(start, start + pageSize)
+}
+
+function filePageSummary(total: number, page: number, pageSize: number) {
+  const pages = Math.max(1, Math.ceil(total / pageSize))
+  return t('projects.filePageSummary', {
+    page: Math.min(page, pages),
+    pages,
+    total
+  })
+}
+
+function fileTypeGroup(row: { filePath: string; fileType?: string }): Exclude<FileTypeGroup, ''> {
+  const type = row.fileType?.toUpperCase() || ''
+  const path = row.filePath.toLowerCase()
+
+  if (
+    path.endsWith('.java') ||
+    ['CONTROLLER', 'SERVICE', 'MAPPER', 'ENTITY', 'UTIL'].includes(type)
+  ) {
+    return 'CODE'
+  }
+
+  if (
+    ['CONFIG', 'POM', 'PACKAGE', 'DOCKER', 'DOCKER_COMPOSE', 'SQL', 'GITIGNORE'].includes(type) ||
+    path.endsWith('.xml') ||
+    path.endsWith('.yml') ||
+    path.endsWith('.yaml') ||
+    path.endsWith('.properties') ||
+    path.endsWith('.sql') ||
+    path.endsWith('.json') ||
+    path.endsWith('dockerfile')
+  ) {
+    return 'CONFIG'
+  }
+
+  if (type === 'README' || path.endsWith('.md')) {
+    return 'DOC'
+  }
+
+  return 'OTHER'
+}
+
+function fileTypeGroupLabel(group: FileTypeGroup) {
+  if (!group) {
+    return t('projects.fileTypeAll')
+  }
+
+  return t(`projects.fileTypeGroups.${group}`)
+}
+
+function skipReasonLabel(reason?: string) {
+  if (!reason) {
+    return '-'
+  }
+
+  return skipReasonLabels.value[reason] || reason
+}
 
 function statusTagType(status?: string) {
   const statusMap: Record<string, 'info' | 'primary' | 'success' | 'danger' | 'warning'> = {
@@ -452,6 +705,49 @@ onUnmounted(clearPolling)
   white-space: normal;
 }
 
+.file-list-section {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid rgba(223, 230, 240, 0.9);
+  border-radius: 8px;
+  background: #fbfdff;
+}
+
+.file-list-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.file-list-header h4 {
+  margin: 0 0 6px;
+  color: var(--pm-ink);
+}
+
+.file-list-header p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.file-list-filters {
+  display: grid;
+  grid-template-columns: minmax(220px, 320px) 150px;
+  gap: 10px;
+  min-width: min(100%, 480px);
+}
+
+.file-list-pagination {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.file-list-section :deep(.el-table__cell) {
+  padding: 8px 0;
+}
+
 .subsection h4 {
   margin: 0 0 12px;
 }
@@ -476,9 +772,20 @@ onUnmounted(clearPolling)
     grid-template-columns: 1fr;
   }
 
+  .file-list-header,
   .zip-upload-actions {
     align-items: flex-start;
     max-width: none;
+  }
+
+  .file-list-header {
+    flex-direction: column;
+  }
+
+  .file-list-filters {
+    width: 100%;
+    grid-template-columns: 1fr;
+    min-width: 0;
   }
 
   .upload-tip {

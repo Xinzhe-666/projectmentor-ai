@@ -164,9 +164,22 @@
         <div class="resume-copy-grid">
           <article v-for="section in resumeSections" :key="section.title" class="resume-copy-card">
             <div class="resume-copy-head">
-              <h4>{{ section.title }}</h4>
-              <span>{{ section.description }}</span>
+              <div>
+                <h4>{{ section.title }}</h4>
+                <span>{{ section.description }}</span>
+              </div>
+              <el-button size="small" :icon="CopyDocument" @click="handleCopyResume(section)">
+                {{ t('report.copyResume') }}
+              </el-button>
             </div>
+            <el-alert
+              v-if="resumeNeedsAttention(section.content)"
+              class="resume-boundary-alert"
+              :title="t('report.resumeBoundaryNotice')"
+              type="warning"
+              show-icon
+              :closable="false"
+            />
             <MarkdownBlock :content="section.content" />
           </article>
         </div>
@@ -263,6 +276,8 @@ const resumeSections = computed(() => [
   }
 ])
 
+type ResumeSection = (typeof resumeSections.value)[number]
+
 function formatScore(value?: number) {
   if (!Number.isFinite(value)) {
     return '-'
@@ -322,6 +337,31 @@ async function handleCopyShare() {
   }
 
   ElMessage.error(t('report.shareCopyFailed'))
+}
+
+async function handleCopyResume(section: ResumeSection) {
+  const content = [
+    section.title,
+    section.description,
+    '',
+    section.content || ''
+  ].join('\n')
+
+  const copied = await copyText(content)
+  if (copied) {
+    ElMessage.success(t('report.resumeCopied'))
+    return
+  }
+
+  ElMessage.error(t('report.resumeCopyFailed'))
+}
+
+function resumeNeedsAttention(content?: string) {
+  if (!content) {
+    return false
+  }
+
+  return /证据不足|不建议|缺少证据|风险|not recommend|insufficient evidence|risk/i.test(content)
 }
 
 async function copyText(text: string) {
@@ -538,6 +578,13 @@ onMounted(() => {
   gap: 12px;
 }
 
+.resume-copy-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .resume-copy-head h4 {
   margin: 0;
   color: var(--pm-ink);
@@ -549,6 +596,10 @@ onMounted(() => {
   color: var(--pm-muted);
   font-size: 13px;
   line-height: 1.5;
+}
+
+.resume-boundary-alert {
+  --el-alert-padding: 8px 10px;
 }
 
 @media (max-width: 920px) {

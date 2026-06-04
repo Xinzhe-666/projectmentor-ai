@@ -38,6 +38,7 @@ ProjectMentor AI 的定位不是“让 AI 直接打分”，而是先做规则�
 | 异步任务 | 已完成 | 支持异步分析任务，Redis 缓存任务进度 |
 | Docker 部署 | 已完成 | 支持 Docker Compose 启动 MySQL、Redis、后端、前端和 Nginx |
 | 线上备份与恢复 | 已完成 | V4.4-1 提供 MySQL 备份、恢复和线上状态检查脚本，便于服务器迁移和故障排查 |
+| Nginx 安全收口 | 已完成 | V4.4-1.1 拦截 `.env`、SQL 备份、调试入口和常见扫描路径，减少公网扫描噪音 |
 
 ## 产品流程图
 
@@ -173,6 +174,16 @@ V4.4-0.5 基于真实用户测试反馈做可用性和证据边界优化，不�
 - 面试问题增强证据约束，返回 evidenceStrength、sourceFile 和 reason；没有代码证据时不会确定性追问过细实现。
 - 简历描述生成逻辑更基于证据，三版文案都包含推荐使用场景、风险提示、可被追问点和证据来源。
 - 报告页简历描述区域支持复制某一版内容，并在证据不足或存在风险边界时给出克制提示。
+
+## V4.4-1.1 Nginx 敏感路径拦截
+
+V4.4-1.1 在 Nginx 层拦截明显公网扫描路径，用于减少日志噪音和误访问风险，不替代后端鉴权：
+
+- 拦截 `.env`、`env.json`、`runtime-env.json`、`assets/env.json`、`static/env.json`、`static/config.json`。
+- 拦截 `.sql`、`.dump`、`.bak`、`.backup`、`.tar`、`.tar.gz`、`.tgz`、`.gz`、`.zip`、`.7z`、`.rar` 等备份或压缩文件请求。
+- 拦截 `/@fs/`、`/__better_errors`、`/_debug`、`/trace.axd`、`/swagger`、`/swagger-ui`、`/v2/api-docs`、`/v3/api-docs`、`/actuator`、`/graphql`、`/v2/graphql`、`/api/install` 等调试或探测路径。
+- 拦截包含 `/shell`、`wget`、`chmod`、`rm+-rf`、`GponForm`、`geoserver` 的明显扫描请求。
+- 保留 `/api/**` 后端代理、前端路由 fallback、`/share/**`、`/assets/**` 和 `/donate/**` 正常访问。
 
 ## 项目结构
 
@@ -382,6 +393,32 @@ docker compose up -d backend
 - 生产环境只开放 `22`、`80`、`443`；云防火墙不应开放 `3306`、`6379`。
 - `.env` 不提交到仓库。
 - `AI_API_KEY`、`JWT_SECRET`、`MYSQL_ROOT_PASSWORD` 必须通过环境变量配置，不要写入代码或公开文档。
+- Nginx 会直接拦截常见敏感文件、备份文件、调试入口和漏洞扫描路径，避免进入 SPA fallback；这不替代后端接口鉴权。
+
+部署 Nginx 配置后先检查语法：
+
+```bash
+cd /opt/projectmentor-ai
+docker compose exec nginx nginx -t
+```
+
+如果 `nginx -t` 失败，不要 reload / restart。检查通过后重启：
+
+```bash
+docker compose restart nginx
+```
+
+常用验证：
+
+```bash
+curl -I http://127.0.0.1/.env
+curl -I http://127.0.0.1/backup.sql
+curl -I 'http://127.0.0.1/@fs/etc/passwd?raw'
+curl -I http://127.0.0.1/
+curl -I http://127.0.0.1/api/auth/me
+```
+
+期望 `.env`、`backup.sql`、`/@fs/...` 返回 404 或 403，首页返回 200，`/api/auth/me` 返回 401 或正常业务响应，不能被 Nginx 误拦截。
 
 ## API 模块概览
 

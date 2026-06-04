@@ -156,6 +156,44 @@ bash scripts/check-prod.sh
 
 该脚本只读输出当前时间、当前 Git commit、`docker compose ps`、backend / frontend / mysql / redis / nginx 容器状态、磁盘空间、内存、`docker stats --no-stream`、backend 最近 80 行日志、nginx 最近 50 行日志和常用排查命令。
 
+## Nginx 敏感路径拦截
+
+V4.4-1.1 在 Nginx 层拦截明显敏感路径，用于减少公网扫描噪音和误访问风险，不替代后端鉴权。
+
+当前会直接返回 404 或 403 的典型请求：
+
+- `.env`、`.env.local`、`.env.production.local`、`env.json`、`runtime-env.json`、`assets/env.json`、`static/env.json`、`static/config.json`。
+- `.sql`、`.dump`、`.bak`、`.backup`、`.tar`、`.tar.gz`、`.tgz`、`.gz`、`.zip`、`.7z`、`.rar` 等备份或压缩文件请求。
+- `/@fs/`、`/__better_errors`、`/_debug`、`/trace.axd`、`/rails/info/routes`、`/swagger`、`/swagger-ui`、`/v2/api-docs`、`/v3/api-docs`、`/actuator`、`/graphql`、`/v2/graphql`、`/api/install`。
+- 包含 `/shell`、`wget`、`chmod`、`rm+-rf`、`GponForm`、`geoserver` 的明显扫描请求。
+
+该配置不影响 `/api/**` 正常代理，不影响前端路由 fallback，不影响 `/share/**`、`/assets/**` 和 `/donate/**`。
+
+部署前先检查 Nginx 配置：
+
+```bash
+cd /opt/projectmentor-ai
+docker compose exec nginx nginx -t
+```
+
+如果 `nginx -t` 失败，不要 reload / restart。检查通过后重启：
+
+```bash
+docker compose restart nginx
+```
+
+测试命令：
+
+```bash
+curl -I http://127.0.0.1/.env
+curl -I http://127.0.0.1/backup.sql
+curl -I 'http://127.0.0.1/@fs/etc/passwd?raw'
+curl -I http://127.0.0.1/
+curl -I http://127.0.0.1/api/auth/me
+```
+
+期望 `.env`、`backup.sql`、`/@fs/...` 返回 404 或 403，首页返回 200，`/api/auth/me` 返回 401 或正常业务响应。
+
 ## 访问
 
 - 前端入口：http://localhost
@@ -185,6 +223,7 @@ bash scripts/check-prod.sh
 - 生产环境只开放 `22`、`80`、`443`；云防火墙不应开放 `3306`、`6379`。
 - `.env` 不提交到 Git。
 - `AI_API_KEY`、`JWT_SECRET`、`MYSQL_ROOT_PASSWORD` 必须通过环境变量配置，不要写入代码、镜像或公开文档。
+- Nginx 敏感路径拦截用于减少公网扫描噪音，不替代后端鉴权和接口权限校验。
 
 ## 停止
 

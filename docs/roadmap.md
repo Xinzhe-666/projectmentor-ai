@@ -174,6 +174,16 @@ V4.4-1 已完成：
 - 备份目录 `backups/` 和 SQL 文件 `*.sql` 已加入忽略规则，不提交数据库备份。
 - 本轮不新增业务功能，不改数据库结构，不改后端核心业务逻辑，不改前端页面功能，不改 AI / 额度逻辑，不写真实密码、AI Key 或 JWT_SECRET。
 
+V4.4-1.1 已完成：
+
+- 在 `deploy/nginx/nginx.conf` 增加 Nginx 敏感路径拦截，用于减少公网扫描噪音和误访问风险。
+- 拦截 `.env`、`env.json`、SQL / dump / bak / backup / 压缩包等敏感文件和备份文件请求。
+- 拦截 `/@fs/`、`/__better_errors`、`/_debug`、`/trace.axd`、`/swagger`、`/swagger-ui`、`/v2/api-docs`、`/v3/api-docs`、`/actuator`、`/graphql`、`/v2/graphql`、`/api/install` 等调试或探测路径。
+- 拦截包含 `/shell`、`wget`、`chmod`、`rm+-rf`、`GponForm`、`geoserver` 的明显扫描请求。
+- 保留 `/api/**` 后端代理、前端路由 fallback、`/share/**`、`/assets/**` 和 `/donate/**` 正常访问。
+- 文档补充 `docker compose exec nginx nginx -t`、`docker compose restart nginx` 和 `curl -I` 验证命令；该能力不替代后端鉴权。
+- 本轮不改后端业务逻辑，不改数据库结构，不改前端业务功能，不改 AI / 额度逻辑，不引入复杂 WAF 配置。
+
 计划目标：
 
 - 继续补充域名、HTTPS 和更完整的日志保留策略。

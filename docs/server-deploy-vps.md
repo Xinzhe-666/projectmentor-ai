@@ -85,6 +85,50 @@ bash scripts/restore-mysql.sh backups/mysql/xxx.sql
 
 恢复脚本会提示“恢复操作会覆盖或影响当前数据库，请确认已备份当前数据。”，并要求输入 `YES` 后才继续。恢复前请务必先备份当前数据库。
 
+## Nginx 敏感路径拦截
+
+V4.4-1.1 在 `deploy/nginx/nginx.conf` 增加 Nginx 层敏感路径拦截，用于减少公网扫描噪音和误访问风险，不替代后端鉴权。
+
+当前会拦截：
+
+- `.env`、`.env.local`、`.env.production`、`.env.production.local`、`.env.development`、`.env.development.local`、`env.json`、`runtime-env.json`、`assets/env.json`、`static/env.json`、`static/config.json`。
+- `.sql`、`.dump`、`.bak`、`.backup`、`.tar`、`.tar.gz`、`.tgz`、`.gz`、`.zip`、`.7z`、`.rar` 等备份或压缩文件请求。
+- `/@fs/`、`/__better_errors`、`/_debug`、`/trace.axd`、`/rails/info/routes`、`/swagger`、`/swagger-ui`、`/v2/api-docs`、`/v3/api-docs`、`/actuator`、`/graphql`、`/v2/graphql`、`/api/install`。
+- 包含 `/shell`、`wget`、`chmod`、`rm+-rf`、`GponForm`、`geoserver` 的明显扫描请求。
+
+该配置保留 `/api/**` 正常代理、前端路由 fallback、`/share/**`、`/assets/**` 和 `/donate/**` 正常访问。
+
+部署前先检查 Nginx 配置：
+
+```bash
+cd /opt/projectmentor-ai
+docker compose exec nginx nginx -t
+```
+
+如果 `nginx -t` 失败，不要 reload / restart。检查通过后重启 Nginx：
+
+```bash
+docker compose restart nginx
+```
+
+测试命令：
+
+```bash
+curl -I http://127.0.0.1/.env
+curl -I http://127.0.0.1/backup.sql
+curl -I 'http://127.0.0.1/@fs/etc/passwd?raw'
+curl -I http://127.0.0.1/
+curl -I http://127.0.0.1/api/auth/me
+```
+
+期望：
+
+- `/.env` 返回 404 或 403。
+- `/backup.sql` 返回 404 或 403。
+- `/@fs/etc/passwd?raw` 返回 404 或 403。
+- `/` 返回 200。
+- `/api/auth/me` 返回 401 或正常业务响应，不能被 Nginx 误拦截。
+
 ## 前端轻量更新流程
 
 本地 Windows PowerShell：
@@ -359,6 +403,7 @@ docker compose logs -f nginx
 - 不要提交 `.env`。
 - MySQL 和 Redis 不映射公网端口，只在 Docker Compose 内部网络中被后端通过 `mysql`、`redis` 服务名访问。
 - 生产环境只开放 `22`、`80`、`443`；云防火墙不应开放 `3306`、`6379`。
+- Nginx 会拦截常见敏感文件、备份文件、调试入口和扫描路径，避免进入 SPA fallback；这不替代后端鉴权。
 - `JWT_SECRET` 必须换成长随机字符串，长度至少 32 个字符。
 - `ADMIN_EMAILS` 只配置管理员邮箱白名单，不要把个人 `.env` 提交到仓库。
 - `AI_API_KEY` 只放在后端 `.env`，不要写进前端代码或公开文档。

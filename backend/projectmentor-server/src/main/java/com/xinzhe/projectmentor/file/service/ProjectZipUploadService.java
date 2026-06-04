@@ -37,33 +37,33 @@ import java.util.zip.ZipInputStream;
 @RequiredArgsConstructor
 public class ProjectZipUploadService {
 
-    private static final long MAX_ZIP_SIZE_BYTES = 200L * 1024 * 1024;
+    private static final long MAX_ZIP_SIZE_BYTES = 800L * 1024 * 1024;
 
-    private static final int MAX_VALID_FILE_COUNT = 150;
+    private static final int MAX_VALID_FILE_COUNT = 8000;
 
-    private static final int MAX_SINGLE_TEXT_FILE_BYTES = 500 * 1024;
+    private static final int MAX_SINGLE_TEXT_FILE_BYTES = 2 * 1024 * 1024;
 
-    private static final int MAX_TOTAL_SAVED_TEXT_BYTES = 8 * 1024 * 1024;
+    private static final long MAX_TOTAL_PROCESSED_TEXT_BYTES = 1024L * 1024 * 1024;
 
-    private static final int MAX_TOTAL_ENTRY_COUNT = 3000;
+    private static final int MAX_TOTAL_ENTRY_COUNT = 50000;
 
     private static final int MAX_WARNING_COUNT = 30;
 
-    private static final String REASON_FILTERED_DIRECTORY = "FILTERED_DIRECTORY";
+    private static final String REASON_IGNORED_DIRECTORY = "ignored_directory";
 
-    private static final String REASON_NOT_WHITELIST = "NOT_WHITELIST";
+    private static final String REASON_UNSUPPORTED_TYPE = "unsupported_type";
 
-    private static final String REASON_BINARY_FILE = "BINARY_FILE";
+    private static final String REASON_FILE_TOO_LARGE = "file_too_large";
 
-    private static final String REASON_FILE_TOO_LARGE = "FILE_TOO_LARGE";
+    private static final String REASON_UNSAFE_PATH = "unsafe_path";
 
-    private static final String REASON_VALID_FILE_LIMIT = "VALID_FILE_LIMIT";
+    private static final String REASON_MAX_FILE_COUNT_EXCEEDED = "max_file_count_exceeded";
 
-    private static final String REASON_TOTAL_TEXT_LIMIT = "TOTAL_TEXT_LIMIT";
+    private static final String REASON_MAX_TOTAL_SIZE_EXCEEDED = "max_total_size_exceeded";
 
-    private static final String REASON_DANGEROUS_PATH = "DANGEROUS_PATH";
+    private static final String REASON_EMPTY_FILE = "empty_file";
 
-    private static final String REASON_ENTRY_LIMIT = "ENTRY_LIMIT";
+    private static final String REASON_BINARY_FILE = "binary_file";
 
     private final ProjectMapper projectMapper;
 
@@ -85,9 +85,9 @@ public class ProjectZipUploadService {
                     context.entryCount++;
                     if (context.entryCount > MAX_TOTAL_ENTRY_COUNT) {
                         context.skipFileOnceWarning(
-                                REASON_ENTRY_LIMIT,
+                                REASON_MAX_FILE_COUNT_EXCEEDED,
                                 entry.getName(),
-                                "ZIP 内文件数量过多，已停止继续解析"
+                                "ZIP 内文件数量超过安全上限，已停止继续解析"
                         );
                         break;
                     }
@@ -119,13 +119,13 @@ public class ProjectZipUploadService {
         String entryName = entry.getName();
 
         if (ZipFileUtil.isDangerousPath(entryName)) {
-            context.skipFile(REASON_DANGEROUS_PATH, entryName, "跳过危险路径：" + entryName);
+            context.skipFile(REASON_UNSAFE_PATH, entryName, "跳过不安全路径：" + entryName);
             return;
         }
 
         String filePath = ZipFileUtil.normalizeEntryName(entryName);
         if (filePath.isBlank()) {
-            context.skipFile(REASON_DANGEROUS_PATH, entryName, "跳过空文件路径");
+            context.skipFile(REASON_UNSAFE_PATH, entryName, "跳过空文件路径");
             return;
         }
 
@@ -135,7 +135,7 @@ public class ProjectZipUploadService {
                 context.addWarning("跳过 " + skippedDirectory + " 目录");
             }
             if (!entry.isDirectory()) {
-                context.skipFileSilently(REASON_FILTERED_DIRECTORY, filePath);
+                context.skipFileSilently(REASON_IGNORED_DIRECTORY, filePath);
             }
             return;
         }
@@ -144,42 +144,74 @@ public class ProjectZipUploadService {
             return;
         }
 
-        if (ZipFileUtil.isBlockedBinaryFile(filePath)) {
-            context.skipFileSilently(REASON_BINARY_FILE, filePath);
+        if (ZipFileUtil.isUnsupportedFileType(filePath)) {
+            context.skipFileSilently(REASON_UNSUPPORTED_TYPE, filePath);
             return;
         }
 
         if (!ZipFileUtil.isWhiteListFile(filePath)) {
-            context.skipFileSilently(REASON_NOT_WHITELIST, filePath);
+            context.skipFileSilently(REASON_UNSUPPORTED_TYPE, filePath);
             return;
         }
 
         if (context.savedFiles.size() >= MAX_VALID_FILE_COUNT) {
             context.skipFileOnceWarning(
-                    REASON_VALID_FILE_LIMIT,
+                    REASON_MAX_FILE_COUNT_EXCEEDED,
                     filePath,
-                    "有效文件数量已达到 150 个，后续文件不再保存"
+                    "有效文件数量已达到 8000 个，后续文件不再保存"
             );
             return;
         }
 
-        if (context.totalTextLimitReached) {
+        if (context.maxTotalSizeReached) {
             context.skipFileOnceWarning(
-                    REASON_TOTAL_TEXT_LIMIT,
+                    REASON_MAX_TOTAL_SIZE_EXCEEDED,
                     filePath,
-                    "累计保存文本已达到 8MB，后续文件不再保存"
+                    "累计有效处理大小已达到 1GB，后续文件不再保存"
             );
+            return;
+        }
+
+        long entrySize = entry.getSize();
+        if (entrySize == 0) {
+            context.skipFileSilently(REASON_EMPTY_FILE, filePath);
             return;
         }
 
         if (entry.getSize() > MAX_SINGLE_TEXT_FILE_BYTES) {
-            context.skipFile(REASON_FILE_TOO_LARGE, filePath, "跳过超过 500KB 的文本文件：" + filePath);
+            context.skipFile(REASON_FILE_TOO_LARGE, filePath, "文件超过 2MB，已跳过内容解析：" + filePath);
             return;
         }
 
-        ReadFileResult readFileResult = readTextFile(zipInputStream);
+        if (entrySize > 0 && context.totalProcessedTextBytes + entrySize > MAX_TOTAL_PROCESSED_TEXT_BYTES) {
+            context.maxTotalSizeReached = true;
+            context.skipFileOnceWarning(
+                    REASON_MAX_TOTAL_SIZE_EXCEEDED,
+                    filePath,
+                    "累计有效处理大小已达到 1GB，后续文件不再保存"
+            );
+            return;
+        }
+
+        long remainingTotalBytes = MAX_TOTAL_PROCESSED_TEXT_BYTES - context.totalProcessedTextBytes;
+        ReadFileResult readFileResult = readTextFile(zipInputStream, remainingTotalBytes);
+        if (readFileResult.totalSizeExceeded) {
+            context.maxTotalSizeReached = true;
+            context.skipFileOnceWarning(
+                    REASON_MAX_TOTAL_SIZE_EXCEEDED,
+                    filePath,
+                    "累计有效处理大小已达到 1GB，后续文件不再保存"
+            );
+            return;
+        }
+
         if (readFileResult.tooLarge) {
-            context.skipFile(REASON_FILE_TOO_LARGE, filePath, "跳过超过 500KB 的文本文件：" + filePath);
+            context.skipFile(REASON_FILE_TOO_LARGE, filePath, "文件超过 2MB，已跳过内容解析：" + filePath);
+            return;
+        }
+
+        if (readFileResult.bytes.length == 0) {
+            context.skipFileSilently(REASON_EMPTY_FILE, filePath);
             return;
         }
 
@@ -189,19 +221,9 @@ public class ProjectZipUploadService {
             return;
         }
 
-        if ((long) context.totalSavedTextBytes + readFileResult.bytes.length > MAX_TOTAL_SAVED_TEXT_BYTES) {
-            context.totalTextLimitReached = true;
-            context.skipFileOnceWarning(
-                    REASON_TOTAL_TEXT_LIMIT,
-                    filePath,
-                    "累计保存文本已达到 8MB，后续文件不再保存"
-            );
-            return;
-        }
-
         ProjectFile savedFile = upsertProjectFile(projectId, filePath, content);
         context.savedFiles.add(toParsedVO(savedFile));
-        context.totalSavedTextBytes += readFileResult.bytes.length;
+        context.totalProcessedTextBytes += readFileResult.bytes.length;
     }
 
     private void checkZipFile(MultipartFile file) {
@@ -215,7 +237,7 @@ public class ProjectZipUploadService {
         }
 
         if (file.getSize() > MAX_ZIP_SIZE_BYTES) {
-            throw new BusinessException(ErrorCode.PARAM_ERROR, "ZIP 文件超过 200MB，请删除无关依赖目录后重试");
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "ZIP 文件超过 800MB，请先删除 node_modules / target / dist / .git 等无关目录后重试");
         }
     }
 
@@ -266,14 +288,17 @@ public class ProjectZipUploadService {
         return projectFileMapper.selectById(existingFile.getId());
     }
 
-    private ReadFileResult readTextFile(ZipInputStream zipInputStream) throws IOException {
+    private ReadFileResult readTextFile(ZipInputStream zipInputStream, long remainingTotalBytes) throws IOException {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        byte[] buffer = new byte[4096];
-        int totalSize = 0;
+        byte[] buffer = new byte[8192];
+        long totalSize = 0;
         int length;
 
         while ((length = zipInputStream.read(buffer)) != -1) {
             totalSize += length;
+            if (totalSize > remainingTotalBytes) {
+                return ReadFileResult.totalSizeExceeded();
+            }
             if (totalSize > MAX_SINGLE_TEXT_FILE_BYTES) {
                 return ReadFileResult.tooLarge();
             }
@@ -337,9 +362,9 @@ public class ProjectZipUploadService {
 
         private int entryCount;
 
-        private int totalSavedTextBytes;
+        private long totalProcessedTextBytes;
 
-        private boolean totalTextLimitReached;
+        private boolean maxTotalSizeReached;
 
         private void skipFile(String reason, String filePath, String warning) {
             skippedFileCount++;
@@ -379,14 +404,14 @@ public class ProjectZipUploadService {
 
         private static Map<String, Integer> initSkippedByReason() {
             Map<String, Integer> reasonMap = new LinkedHashMap<>();
-            reasonMap.put(REASON_FILTERED_DIRECTORY, 0);
-            reasonMap.put(REASON_NOT_WHITELIST, 0);
-            reasonMap.put(REASON_BINARY_FILE, 0);
+            reasonMap.put(REASON_IGNORED_DIRECTORY, 0);
+            reasonMap.put(REASON_UNSUPPORTED_TYPE, 0);
             reasonMap.put(REASON_FILE_TOO_LARGE, 0);
-            reasonMap.put(REASON_VALID_FILE_LIMIT, 0);
-            reasonMap.put(REASON_TOTAL_TEXT_LIMIT, 0);
-            reasonMap.put(REASON_DANGEROUS_PATH, 0);
-            reasonMap.put(REASON_ENTRY_LIMIT, 0);
+            reasonMap.put(REASON_UNSAFE_PATH, 0);
+            reasonMap.put(REASON_MAX_FILE_COUNT_EXCEEDED, 0);
+            reasonMap.put(REASON_MAX_TOTAL_SIZE_EXCEEDED, 0);
+            reasonMap.put(REASON_EMPTY_FILE, 0);
+            reasonMap.put(REASON_BINARY_FILE, 0);
             return reasonMap;
         }
     }
@@ -397,17 +422,24 @@ public class ProjectZipUploadService {
 
         private final boolean tooLarge;
 
-        private ReadFileResult(byte[] bytes, boolean tooLarge) {
+        private final boolean totalSizeExceeded;
+
+        private ReadFileResult(byte[] bytes, boolean tooLarge, boolean totalSizeExceeded) {
             this.bytes = bytes;
             this.tooLarge = tooLarge;
+            this.totalSizeExceeded = totalSizeExceeded;
         }
 
         private static ReadFileResult success(byte[] bytes) {
-            return new ReadFileResult(bytes, false);
+            return new ReadFileResult(bytes, false, false);
         }
 
         private static ReadFileResult tooLarge() {
-            return new ReadFileResult(new byte[0], true);
+            return new ReadFileResult(new byte[0], true, false);
+        }
+
+        private static ReadFileResult totalSizeExceeded() {
+            return new ReadFileResult(new byte[0], false, true);
         }
     }
 }

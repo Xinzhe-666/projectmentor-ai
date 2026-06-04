@@ -343,7 +343,7 @@ const scanResult = ref<RuleScanResult>()
 const task = ref<AnalysisTask>()
 let pollTimer: number | undefined
 
-const MAX_ZIP_SIZE_BYTES = 200 * 1024 * 1024
+const MAX_ZIP_SIZE_BYTES = 800 * 1024 * 1024
 const FILE_PAGE_SIZES = [20, 50, 100]
 
 type FileTypeGroup = '' | 'CODE' | 'CONFIG' | 'DOC' | 'OTHER'
@@ -374,14 +374,14 @@ const fileTypeGroupOptions = computed<Array<{ label: string; value: FileTypeGrou
 ])
 
 const skipReasonLabels = computed<Record<string, string>>(() => ({
-  FILTERED_DIRECTORY: t('projects.skipReason.FILTERED_DIRECTORY'),
-  NOT_WHITELIST: t('projects.skipReason.NOT_WHITELIST'),
-  BINARY_FILE: t('projects.skipReason.BINARY_FILE'),
-  FILE_TOO_LARGE: t('projects.skipReason.FILE_TOO_LARGE'),
-  VALID_FILE_LIMIT: t('projects.skipReason.VALID_FILE_LIMIT'),
-  TOTAL_TEXT_LIMIT: t('projects.skipReason.TOTAL_TEXT_LIMIT'),
-  DANGEROUS_PATH: t('projects.skipReason.DANGEROUS_PATH'),
-  ENTRY_LIMIT: t('projects.skipReason.ENTRY_LIMIT')
+  ignored_directory: t('projects.skipReason.ignored_directory'),
+  unsupported_type: t('projects.skipReason.unsupported_type'),
+  file_too_large: t('projects.skipReason.file_too_large'),
+  unsafe_path: t('projects.skipReason.unsafe_path'),
+  max_file_count_exceeded: t('projects.skipReason.max_file_count_exceeded'),
+  max_total_size_exceeded: t('projects.skipReason.max_total_size_exceeded'),
+  empty_file: t('projects.skipReason.empty_file'),
+  binary_file: t('projects.skipReason.binary_file')
 }))
 
 const skipReasonEntries = computed(() => {
@@ -473,8 +473,8 @@ function fileTypeGroup(row: { filePath: string; fileType?: string }): Exclude<Fi
   const path = row.filePath.toLowerCase()
 
   if (
-    path.endsWith('.java') ||
-    ['CONTROLLER', 'SERVICE', 'MAPPER', 'ENTITY', 'UTIL'].includes(type)
+    ['CODE', 'CONTROLLER', 'SERVICE', 'MAPPER', 'ENTITY', 'UTIL'].includes(type) ||
+    ['.java', '.kt', '.js', '.jsx', '.ts', '.tsx', '.vue', '.css', '.scss', '.less', '.html', '.py', '.go', '.rs', '.c', '.cpp', '.h', '.hpp', '.cs', '.sh'].some((extension) => path.endsWith(extension))
   ) {
     return 'CODE'
   }

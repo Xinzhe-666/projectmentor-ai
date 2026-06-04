@@ -386,13 +386,22 @@ docker compose logs -f nginx
 
 分享接口只开放 `/api/share/reports/**` 的只读公开访问，普通报告详情仍需要登录。
 
-### 上传 ZIP 超过 200MB
+### 上传 ZIP 超过 800MB
 
-当前普通项目 ZIP 最大支持 200MB，nginx 请求体限制为 220MB。建议删除 `target`、`node_modules`、`dist`、`build` 等目录后重新压缩。
+当前普通项目 ZIP 最大支持 800MB，nginx 请求体限制为 820m，Spring Multipart 文件和请求限制均为 820MB。建议删除 `target`、`node_modules`、`dist`、`build`、`.git`、`logs`、`coverage` 等目录后重新压缩，或先制作源码核心包。
 
 ### 上传大 ZIP 超时
 
-当前 nginx 已为大文件上传设置 `client_body_timeout 900s`、`send_timeout 900s`、`proxy_send_timeout 900s`、`proxy_read_timeout 900s`，并对 `/api/` 关闭 `proxy_request_buffering`。如果网络较慢，大文件上传可能需要数分钟，请不要刷新页面；建议删除 `node_modules`、`target`、`.git` 后再压缩，可显著提升速度。
+当前 nginx 已为大文件上传设置 `client_body_timeout 1200s`、`send_timeout 1200s`、`proxy_send_timeout 1200s`、`proxy_read_timeout 1200s`，并对 `/api/` 关闭 `proxy_request_buffering`。如果网络较慢，大文件上传可能需要数分钟，请不要刷新页面；建议删除 `node_modules`、`target`、`dist`、`.git` 后再压缩，可显著提升速度。
+
+### 项目字段长度不足
+
+V4.4-2 将项目描述上限调整为 10000 字符、技术栈上限调整为 5000 字符。`init.sql` 中 `pm_project.description` 和 `pm_project.tech_stack` 均为 `TEXT`。如果线上已有库仍使用旧字段长度，可执行：
+
+```sql
+ALTER TABLE pm_project MODIFY COLUMN description TEXT NULL COMMENT '项目描述';
+ALTER TABLE pm_project MODIFY COLUMN tech_stack TEXT NULL COMMENT '技术栈';
+```
 
 ### 前端刷新 404
 

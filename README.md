@@ -20,7 +20,7 @@ ProjectMentor AI 的定位不是“让 AI 直接打分”，而是先做规则�
 | 用户认证 | 已完成 | 支持注册、登录、JWT 鉴权、BCrypt 密码加密 |
 | 项目管理 | 已完成 | 支持创建、列表、详情、删除项目 |
 | README 保存 | 已完成 | 支持粘贴 README 并保存为项目文件 |
-| ZIP 上传解析 | 已完成 | 支持普通项目 ZIP，最大 200MB，解析白名单文本文件并过滤无关目录；文件结果支持分页、路径搜索和基础类型筛选 |
+| ZIP 上传解析 | 已完成 | 支持普通项目 ZIP，最大 800MB，解析源码核心文本并过滤依赖、构建、缓存、二进制和超大文件；文件结果支持分页、路径搜索和基础类型筛选 |
 | 规则扫描 | 已完成 | 基于 README 与项目文件做风险识别 |
 | 证据链 | 已完成 | 对关键结论关联文件、配置或代码证据 |
 | 审计报告 | 已完成 | 输出评分、风险点、建议和三版证据化简历描述，已支持报告详情页浏览器打印 / 另存为 PDF |
@@ -77,7 +77,7 @@ AI Key 未配置或调用失败时，系统会自动降级为规则版报告。
 - V4.4-0.5 强化证据约束：面试问题会返回证据强度和关联文件；证据不足时使用克制表达，不把 README 或配置描述包装成确定性代码实现。
 - V4.4-0.5 增强简历描述：三版文案都包含推荐使用场景、描述、风险提示、可被追问点和证据来源，报告页支持复制单版内容。
 - 用户数据按 `userId` 隔离：项目、任务、报告、额度和面试会话都按当前用户校验。
-- ZIP 上传安全过滤：支持普通项目 ZIP，最大 200MB，自动过滤 `.git`、`target`、`node_modules`、`dist`、`build` 等目录，只解析核心文本文件；大文件上传可能需要数分钟，请不要刷新页面。
+- ZIP 上传安全过滤：支持普通项目 ZIP，最大 800MB，自动过滤 `.git`、`target`、`node_modules`、`dist`、`build`、`coverage`、`.next`、`.nuxt`、`vendor`、`__pycache__`、`.cache`、`.gradle`、`uploads`、`tmp` 等无价值目录；单个文本文件最多解析 2MB，最多保存 8000 个有效文件，累计有效处理大小最多 1GB。
 - 异步任务避免接口阻塞：分析任务进入后台执行，前端轮询任务状态。
 - 额度流水可追踪：当前只实现额度账户、消耗、返还和流水记录，尚未接入支付系统。
 - 管理员后台保持克制边界：通过环境变量配置管理员邮箱，可查看统计和最近记录，也可为指定用户增加额度、筛选反馈和更新反馈状态；额度发放必须写入流水，不返回密码、密钥或项目源码内容。
@@ -184,6 +184,30 @@ V4.4-1.1 在 Nginx 层拦截明显公网扫描路径，用于减少日志噪音�
 - 拦截 `/@fs/`、`/__better_errors`、`/_debug`、`/trace.axd`、`/swagger`、`/swagger-ui`、`/v2/api-docs`、`/v3/api-docs`、`/actuator`、`/graphql`、`/v2/graphql`、`/api/install` 等调试或探测路径。
 - 拦截包含 `/shell`、`wget`、`chmod`、`rm+-rf`、`GponForm`、`geoserver` 的明显扫描请求。
 - 保留 `/api/**` 后端代理、前端路由 fallback、`/share/**`、`/assets/**` 和 `/donate/**` 正常访问。
+
+## V4.4-2 大项目上传与源码核心包
+
+V4.4-2 优化大项目上传和自查体验，不修改 AI / 额度逻辑，不新增 AI 调用，不绕过现有 ZIP 安全校验：
+
+- ZIP 业务上传上限调整为 800MB；Nginx `client_max_body_size` 调整为 820m；Spring Multipart 文件和请求限制均调整为 820MB。
+- 前端 ZIP 上传 timeout 调整为 `1200000ms`，并提示大项目上传可能需要数分钟。
+- 项目描述上限调整为 10000 字符，技术栈上限调整为 5000 字符；创建项目表单同步显示字数统计。
+- ZIP 解析会跳过依赖目录、构建产物、缓存目录、二进制文件、压缩包、模型/大数据文件和超大文本文件。
+- skippedFiles reason 统一为 `ignored_directory`、`unsupported_type`、`file_too_large`、`unsafe_path`、`max_file_count_exceeded`、`max_total_size_exceeded`、`empty_file`、`binary_file`。
+- 数据库初始化脚本中 `pm_project.description` 与 `pm_project.tech_stack` 均使用 `TEXT`。线上已有库如仍为旧字段长度，可执行：
+
+```sql
+ALTER TABLE pm_project MODIFY COLUMN description TEXT NULL COMMENT '项目描述';
+ALTER TABLE pm_project MODIFY COLUMN tech_stack TEXT NULL COMMENT '技术栈';
+```
+
+## 如何用 PMAI 自查 PMAI 自己？
+
+不建议直接压缩整个项目根目录。PMAI 自身项目完整压缩包可能包含 `node_modules`、`target`、`dist`、`.git`、构建产物和缓存，体积很容易膨胀，也会稀释真正有价值的源码证据。
+
+建议先制作“源码核心包”：删除或排除 `node_modules`、`target`、`dist`、`build`、`.git`、`logs`、`coverage` 和临时文件；保留 `backend`、`frontend/src`、`frontend/package.json`、`README.md`、`docs`、`docker-compose.yml`、`Dockerfile`、`deploy/nginx`、SQL、配置示例等材料。PMAI 审计重点是源码、配置、README、部署文件和证据链，不是依赖包和构建产物。
+
+如果完整包超过 800MB，请先制作源码核心包再上传。系统会自动跳过无意义目录和超大文件，但提前清理能显著减少上传时间。
 
 ## 项目结构
 
@@ -464,7 +488,7 @@ curl -I http://127.0.0.1/api/auth/me
 - 面试深挖当前是规则版 V1，追问逻辑还需要继续扩展。
 - 管理员后台当前不做复杂 RBAC，不提供用户删除、封号、扣减额度或数据导出能力；V4.3-3 支持管理员手动增加额度和反馈状态管理，不是支付系统或工单系统。
 - 尚未接入真实支付，当前只有额度账户和流水；“请作者喝咖啡”只是自愿二维码支持入口。
-- ZIP 上传当前最大支持 200MB，会自动过滤常见依赖、构建和 IDE 目录，只解析核心文本文件，不保存二进制文件。
+- ZIP 上传当前最大支持 800MB，会自动过滤常见依赖、构建、缓存和 IDE 目录，只解析核心文本文件，不保存二进制文件；大项目建议上传源码核心包。
 - 审计报告只读分享当前为基础版能力，不包含访问统计和密码保护。
 - 反馈入口支持登录用户站内提交，并保留模板复制和 GitHub Issues 备用入口；当前不是正式工单系统。
 - 还需要真实用户测试，用于调整规则、文案和演示流程。

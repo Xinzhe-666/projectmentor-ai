@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS pm_project
     github_url   VARCHAR(255) NULL COMMENT 'GitHub地址',
     description  TEXT         NULL COMMENT '项目描述',
     project_type VARCHAR(50)  NULL COMMENT '项目类型，例如 BACKEND/FRONTEND/AI/FULLSTACK',
-    tech_stack   VARCHAR(255) NULL COMMENT '技术栈标签，逗号分隔',
+    tech_stack   TEXT         NULL COMMENT '技术栈',
     status       VARCHAR(30) DEFAULT 'PENDING' COMMENT '分析状态：PENDING/ANALYZING/FINISHED/FAILED',
     create_time  DATETIME    DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time  DATETIME    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',

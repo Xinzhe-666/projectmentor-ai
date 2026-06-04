@@ -61,7 +61,7 @@ export function uploadZip(projectId: number, file: File) {
     url: `/api/projects/${projectId}/upload-zip`,
     method: 'post',
     data: formData,
-    timeout: 900000,
+    timeout: 1200000,
     headers: {
       'Content-Type': 'multipart/form-data'
     }

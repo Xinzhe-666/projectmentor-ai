@@ -15,7 +15,14 @@
           <el-input v-model="form.githubUrl" :placeholder="t('projects.githubPlaceholder')" />
         </el-form-item>
         <el-form-item :label="t('common.description')">
-          <el-input v-model="form.description" type="textarea" :rows="4" :placeholder="t('projects.descPlaceholder')" />
+          <el-input
+            v-model="form.description"
+            type="textarea"
+            :rows="5"
+            maxlength="10000"
+            show-word-limit
+            :placeholder="t('projects.descPlaceholder')"
+          />
         </el-form-item>
         <el-form-item :label="t('common.projectType')">
           <el-select v-model="form.projectType" :placeholder="t('projects.typePlaceholder')" clearable class="wide-control">
@@ -26,7 +33,14 @@
           </el-select>
         </el-form-item>
         <el-form-item :label="t('common.techStack')">
-          <el-input v-model="form.techStack" :placeholder="t('projects.techPlaceholder')" />
+          <el-input
+            v-model="form.techStack"
+            type="textarea"
+            :rows="3"
+            maxlength="5000"
+            show-word-limit
+            :placeholder="t('projects.techPlaceholder')"
+          />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" :loading="loading" @click="handleSubmit">{{ t('common.createProject') }}</el-button>

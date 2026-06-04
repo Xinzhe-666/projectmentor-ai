@@ -11,7 +11,7 @@
 - 用户注册、登录、JWT 鉴权和 BCrypt 密码加密。
 - 项目创建、列表、详情和删除。
 - README 粘贴保存。
-- 普通项目 ZIP 上传、多文件解析和安全过滤，当前最大支持 200MB。
+- 普通项目 ZIP 上传、多文件解析和安全过滤，当前最大支持 800MB。
 - README 风险规则扫描。
 - 证据链展示。
 - 项目审计报告生成。
@@ -183,6 +183,17 @@ V4.4-1.1 已完成：
 - 保留 `/api/**` 后端代理、前端路由 fallback、`/share/**`、`/assets/**` 和 `/donate/**` 正常访问。
 - 文档补充 `docker compose exec nginx nginx -t`、`docker compose restart nginx` 和 `curl -I` 验证命令；该能力不替代后端鉴权。
 - 本轮不改后端业务逻辑，不改数据库结构，不改前端业务功能，不改 AI / 额度逻辑，不引入复杂 WAF 配置。
+
+V4.4-2 已完成：
+
+- ZIP 业务上传上限调整为 800MB，Nginx `client_max_body_size` 调整为 820m，Spring Multipart 文件和请求限制调整为 820MB。
+- 前端 ZIP 上传 timeout 调整为 `1200000ms`，上传提示改为推荐源码核心包，提醒删除 `node_modules`、`target`、`dist`、`build`、`.git`、`logs`、`coverage` 等目录。
+- ZIP 解析继续防 zip slip，并扩展忽略目录、二进制/压缩包/模型/大数据文件跳过规则；单个文本文件最多解析 2MB，最多保存 8000 个有效文件，累计有效处理大小最多 1GB。
+- skippedFiles reason 统一为 `ignored_directory`、`unsupported_type`、`file_too_large`、`unsafe_path`、`max_file_count_exceeded`、`max_total_size_exceeded`、`empty_file`、`binary_file`。
+- 项目描述上限调整为 10000 字符，技术栈上限调整为 5000 字符；前端创建项目表单同步 maxlength、字数统计和 placeholder。
+- `pm_project.description` 和 `pm_project.tech_stack` 在初始化脚本中均为 `TEXT`，文档补充线上 ALTER TABLE SQL。
+- README 和演示文档补充“如何用 PMAI 自查 PMAI 自己”，建议制作源码核心包。
+- 本轮不改 AI / 额度逻辑，不新增 AI 调用，不引入复杂依赖，不影响上传、报告、问答和面试主流程。
 
 计划目标：
 

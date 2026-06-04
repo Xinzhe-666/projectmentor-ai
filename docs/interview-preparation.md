@@ -124,16 +124,16 @@ JWT 在这个项目里主要解决“请求是谁发起的”。后端不是相�
 
 ## 7. ZIP 上传安全怎么讲
 
-ZIP 上传用于让系统读取项目里的 README、配置、代码和 SQL 文件。当前支持普通项目 ZIP，最大 200MB。
+ZIP 上传用于让系统读取项目里的 README、配置、代码和 SQL 文件。当前支持普通项目 ZIP，最大 800MB。
 
 主要限制：
 
-- 自动过滤 `.git`、`target`、`node_modules`、`dist`、`build` 等目录。
+- 自动过滤 `.git`、`target`、`node_modules`、`dist`、`build`、`coverage`、`.next`、`.nuxt`、`vendor`、`__pycache__`、`.cache`、`.gradle`、`uploads`、`tmp` 等目录。
 - 过滤 `.idea`、`.vscode`、`logs` 等和分析无关的目录。
 - 拦截绝对路径、盘符路径、`..` 路径和空字节，降低 Zip Slip 风险。
-- 只解析常见文本文件，例如 `.md`、`.xml`、`.yml`、`.yaml`、`.properties`、`.java`、`.sql`、`.json`、`Dockerfile`。
-- 跳过图片、Office 文档、压缩包、可执行文件、音视频等二进制文件。
-- 对单文件大小、保存文本总量和 ZIP entry 数做限制。
+- 只解析常见源码、配置和文档文本文件，例如 `.md`、`.xml`、`.yml`、`.yaml`、`.properties`、`.java`、`.ts`、`.vue`、`.sql`、`.json`、`Dockerfile`。
+- 跳过图片、Office 文档、压缩包、可执行文件、音视频、模型和大数据文件。
+- 对单文件解析大小、最多保存文件数和累计有效处理大小做限制。
 
 重点背诵：
 

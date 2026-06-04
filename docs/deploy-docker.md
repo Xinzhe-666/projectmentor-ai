@@ -272,14 +272,21 @@ try_files $uri $uri/ /index.html;
 Nginx 已设置：
 
 ```nginx
-client_max_body_size 220m;
-client_body_timeout 900s;
-client_header_timeout 60s;
-send_timeout 900s;
+client_max_body_size 820m;
+client_body_timeout 1200s;
+client_header_timeout 120s;
+send_timeout 1200s;
 proxy_connect_timeout 60s;
-proxy_send_timeout 900s;
-proxy_read_timeout 900s;
+proxy_send_timeout 1200s;
+proxy_read_timeout 1200s;
 proxy_request_buffering off;
 ```
 
-后端 Spring Boot multipart 文件限制为 200MB，请求限制为 220MB。ZIP 上传会自动过滤常见依赖、构建和 IDE 目录；大文件上传可能需要数分钟，请不要刷新页面。仍建议删除 `node_modules`、`target`、`.git` 后再压缩，可显著提升上传速度。
+后端 Spring Boot multipart 文件和请求限制均为 820MB，业务上传上限为 800MB。ZIP 上传会自动过滤常见依赖、构建、缓存和 IDE 目录；单个文本文件最多解析 2MB，最多保存 8000 个有效文件，累计有效处理大小最多 1GB。大文件上传可能需要数分钟，请不要刷新页面。仍建议删除 `node_modules`、`target`、`dist`、`.git`、`logs`、`coverage` 后再压缩，或直接制作源码核心包，可显著提升上传速度。
+
+如果线上 `pm_project` 字段仍是旧长度，可执行：
+
+```sql
+ALTER TABLE pm_project MODIFY COLUMN description TEXT NULL COMMENT '项目描述';
+ALTER TABLE pm_project MODIFY COLUMN tech_stack TEXT NULL COMMENT '技术栈';
+```

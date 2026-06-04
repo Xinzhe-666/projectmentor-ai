@@ -165,10 +165,18 @@ V4.4-0.5 已完成：
 - 报告页简历描述区域支持复制某一版，并在证据不足或存在风险边界时显示提示。
 - 本轮不改数据库结构，不改额度系统，不新增大型依赖，不改登录、后台权限或 AI Key 配置。
 
+V4.4-1 已完成：
+
+- 新增 `scripts/backup-mysql.sh`，用于在服务器通过 `docker exec projectmentor-mysql` 调用容器内 `mysqldump` 备份 MySQL。
+- 新增 `scripts/restore-mysql.sh`，用于从指定 SQL 文件恢复 MySQL，并要求输入 `YES` 确认风险。
+- 新增 `scripts/check-prod.sh`，用于只读输出线上时间、Git commit、Compose 状态、核心容器状态、磁盘、内存、Docker stats 和关键日志。
+- 补充 README、Docker 部署文档和 VPS 部署文档中的备份、恢复、线上检查、迁移资料清单和推荐迁移流程。
+- 备份目录 `backups/` 和 SQL 文件 `*.sql` 已加入忽略规则，不提交数据库备份。
+- 本轮不新增业务功能，不改数据库结构，不改后端核心业务逻辑，不改前端页面功能，不改 AI / 额度逻辑，不写真实密码、AI Key 或 JWT_SECRET。
+
 计划目标：
 
-- 整理更正式的服务器部署说明。
-- 补充域名、HTTPS、日志和基础运维说明。
+- 继续补充域名、HTTPS 和更完整的日志保留策略。
 - 完善用户体系，例如邮箱校验、密码重置、用户状态管理等。
 - 梳理更清晰的试用流程和用户数据边界。
 

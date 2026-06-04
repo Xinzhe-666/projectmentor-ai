@@ -19,6 +19,10 @@ logs/
 **/*.log
 **/*.log.*
 
+# Backups
+backups/
+*.sql
+
 # Local config and secrets
 .env
 *.env.local

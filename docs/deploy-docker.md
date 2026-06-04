@@ -127,12 +127,57 @@ docker compose logs -f backend
 docker compose logs -f
 ```
 
+## 备份、恢复与线上检查
+
+备份 MySQL：
+
+```bash
+cd /opt/projectmentor-ai
+bash scripts/backup-mysql.sh
+```
+
+备份文件输出到 `backups/mysql/`，文件名形如 `pmai_mysql_20260603_223000.sql`。脚本通过 `docker exec projectmentor-mysql` 在容器内执行 `mysqldump`，并从容器环境变量读取 `MYSQL_ROOT_PASSWORD` 和 `MYSQL_DATABASE`。
+
+恢复 MySQL：
+
+```bash
+cd /opt/projectmentor-ai
+bash scripts/restore-mysql.sh backups/mysql/xxx.sql
+```
+
+恢复脚本需要输入 `YES` 才会继续。恢复前请先备份当前数据库。
+
+线上状态检查：
+
+```bash
+cd /opt/projectmentor-ai
+bash scripts/check-prod.sh
+```
+
+该脚本只读输出当前时间、当前 Git commit、`docker compose ps`、backend / frontend / mysql / redis / nginx 容器状态、磁盘空间、内存、`docker stats --no-stream`、backend 最近 80 行日志、nginx 最近 50 行日志和常用排查命令。
+
 ## 访问
 
 - 前端入口：http://localhost
 - 后端健康检查：http://localhost/api/health
 
 生产构建中前端 API 使用同源 `/api`，由 Nginx 反向代理到后端 `backend:8080`，不会把 `AI_API_KEY` 放进前端。
+
+## 迁移资料清单
+
+迁移服务器时至少需要带走：
+
+- MySQL SQL 备份。
+- `.env`。
+- `frontend/projectmentor-web/public/donate/wechat.png`。
+- `frontend/projectmentor-web/public/donate/alipay.png`。
+- `docker-compose.yml`。
+- `docker-compose.fast.yml`。
+- `deploy/nginx/nginx.conf`。
+- 后端 jar 可重新本地构建。
+- 前端 `dist.zip` 可重新本地构建。
+
+推荐迁移流程见 [server-deploy-vps.md](server-deploy-vps.md)：旧服务器先执行 `bash scripts/backup-mysql.sh`，下载 SQL 备份并保存 `.env` 与 donate 二维码；新服务器安装 Docker / Docker Compose、clone 仓库、复制 `.env` 和二维码、启动 `mysql redis`、执行恢复脚本，再按快速方案构建 backend、覆盖 frontend dist 并启动 nginx。
 
 ## 安全说明
 

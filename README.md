@@ -37,6 +37,7 @@ ProjectMentor AI 的定位不是“让 AI 直接打分”，而是先做规则�
 | 反馈入口 | 已完成 | 登录用户可站内提交反馈，管理员可筛选和更新反馈状态；保留 GitHub Issues 作为备用入口，不做复杂工单系统 |
 | 异步任务 | 已完成 | 支持异步分析任务，Redis 缓存任务进度 |
 | Docker 部署 | 已完成 | 支持 Docker Compose 启动 MySQL、Redis、后端、前端和 Nginx |
+| 线上备份与恢复 | 已完成 | V4.4-1 提供 MySQL 备份、恢复和线上状态检查脚本，便于服务器迁移和故障排查 |
 
 ## 产品流程图
 
@@ -183,7 +184,8 @@ projectmentor-ai
 │   └── projectmentor-web
 ├── deploy
 │   └── nginx
-└── docs
+├── docs
+└── scripts
 ```
 
 ## 本地运行方式
@@ -240,6 +242,49 @@ http://localhost
 ```
 
 更完整的 Docker 说明见 [docs/deploy-docker.md](docs/deploy-docker.md)。
+
+## 线上备份、恢复与状态检查
+
+服务器日常备份 MySQL：
+
+```bash
+cd /opt/projectmentor-ai
+bash scripts/backup-mysql.sh
+```
+
+备份文件会输出到 `backups/mysql/`，文件名形如 `pmai_mysql_20260603_223000.sql`。`backups/` 和 `*.sql` 已被 `.gitignore` 忽略，不要提交备份文件。
+
+从指定 SQL 文件恢复 MySQL：
+
+```bash
+cd /opt/projectmentor-ai
+bash scripts/restore-mysql.sh backups/mysql/xxx.sql
+```
+
+恢复脚本会提示风险，并要求输入 `YES` 后才继续。恢复前请先确认已经备份当前数据库。
+
+线上状态检查：
+
+```bash
+cd /opt/projectmentor-ai
+bash scripts/check-prod.sh
+```
+
+该脚本只读输出当前时间、Git commit、`docker compose ps`、核心容器状态、磁盘、内存、`docker stats`、backend 最近日志和 nginx 最近日志，适合复制给排查问题使用。
+
+迁移服务器时至少需要带走：
+
+- MySQL SQL 备份。
+- `.env`。
+- `frontend/projectmentor-web/public/donate/wechat.png`。
+- `frontend/projectmentor-web/public/donate/alipay.png`。
+- `docker-compose.yml`。
+- `docker-compose.fast.yml`。
+- `deploy/nginx/nginx.conf`。
+- 后端 jar 可重新本地构建。
+- 前端 `dist.zip` 可重新本地构建。
+
+完整迁移流程见 [docs/server-deploy-vps.md](docs/server-deploy-vps.md)。
 
 ## 轻量服务器更新建议
 

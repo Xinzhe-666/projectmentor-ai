@@ -52,11 +52,38 @@ docker compose logs -f backend
 docker compose logs -f nginx
 ```
 
+也可以输出一份适合复制给排查问题使用的线上状态报告：
+
+```bash
+cd /opt/projectmentor-ai
+bash scripts/check-prod.sh
+```
+
 ## 访问
 
 ```text
 http://服务器IP
 ```
+
+## 数据库备份与恢复
+
+备份线上 MySQL：
+
+```bash
+cd /opt/projectmentor-ai
+bash scripts/backup-mysql.sh
+```
+
+备份文件会写入 `backups/mysql/`，文件名形如 `pmai_mysql_20260603_223000.sql`。脚本从 `projectmentor-mysql` 容器环境变量读取 `MYSQL_ROOT_PASSWORD` 和 `MYSQL_DATABASE`，不会在脚本中写死真实密码。
+
+从指定 SQL 文件恢复：
+
+```bash
+cd /opt/projectmentor-ai
+bash scripts/restore-mysql.sh backups/mysql/xxx.sql
+```
+
+恢复脚本会提示“恢复操作会覆盖或影响当前数据库，请确认已备份当前数据。”，并要求输入 `YES` 后才继续。恢复前请务必先备份当前数据库。
 
 ## 前端轻量更新流程
 
@@ -124,6 +151,66 @@ docker compose up -d backend
 ```
 
 原方案会在 Docker build 内执行 Maven 构建，低配服务器可能非常慢；日常部署推荐优先使用快速方案。不要提交 `target/` 或 jar 文件到 Git。
+
+## 服务器迁移与恢复流程
+
+迁移服务器时至少需要带走：
+
+- MySQL SQL 备份。
+- `.env`。
+- `frontend/projectmentor-web/public/donate/wechat.png`。
+- `frontend/projectmentor-web/public/donate/alipay.png`。
+- `docker-compose.yml`。
+- `docker-compose.fast.yml`。
+- `deploy/nginx/nginx.conf`。
+- 后端 jar 可重新本地构建。
+- 前端 `dist.zip` 可重新本地构建。
+
+旧服务器：
+
+```bash
+cd /opt/projectmentor-ai
+bash scripts/backup-mysql.sh
+ls -lh backups/mysql/
+```
+
+然后下载或 `scp` SQL 备份，保存 `.env`，并保存 `frontend/projectmentor-web/public/donate/wechat.png` 和 `frontend/projectmentor-web/public/donate/alipay.png`。不要把 `.env` 或 SQL 备份提交到 Git。
+
+新服务器：
+
+```bash
+# 1. 安装 Docker / Docker Compose
+# 2. 克隆仓库
+git clone https://github.com/Xinzhe-666/projectmentor-ai.git /opt/projectmentor-ai
+cd /opt/projectmentor-ai
+
+# 3. 复制 .env、donate 二维码和 SQL 备份到新服务器
+mkdir -p backups/mysql frontend/projectmentor-web/public/donate
+
+# 4. 先启动 MySQL 和 Redis
+docker compose up -d mysql redis
+
+# 5. 恢复数据库
+bash scripts/restore-mysql.sh backups/mysql/xxx.sql
+```
+
+恢复数据库后，按现有轻量部署方式继续：
+
+```bash
+# 本地重新构建 backend jar 后上传到：
+# /opt/projectmentor-ai/backend/projectmentor-server/target/projectmentor-server.jar
+docker compose -f docker-compose.yml -f docker-compose.fast.yml build backend
+docker compose up -d backend
+
+# 本地重新 build frontend dist.zip 后上传并覆盖静态文件
+# 覆盖完成后启动 frontend 和 nginx
+docker compose up -d frontend nginx
+
+# 检查状态
+bash scripts/check-prod.sh
+```
+
+迁移完成后重点测试：登录、项目、报告、问答、反馈、额度和管理员后台。
 
 ## 管理员后台配置
 

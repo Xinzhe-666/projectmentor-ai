@@ -20,9 +20,14 @@
               <el-option
                 v-for="project in projects"
                 :key="project.id"
-                :label="`${project.name}（#${project.id}）`"
+                :label="project.name"
                 :value="project.id"
-              />
+              >
+                <div class="project-option">
+                  <strong>{{ project.name }}</strong>
+                  <span>{{ project.techStack || t('common.notFilled') }} · {{ project.createTime || '-' }}</span>
+                </div>
+              </el-option>
             </el-select>
           </el-form-item>
           <el-form-item :label="t('interview.mode')">
@@ -172,17 +177,19 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { Printer } from '@element-plus/icons-vue'
 
-import { finishInterview, startInterview, submitAnswer } from '@/api/interview'
+import { finishInterview, getInterviewSession, startInterview, submitAnswer } from '@/api/interview'
 import { listProjects } from '@/api/project'
 import EmptyState from '@/components/EmptyState.vue'
 import MarkdownBlock from '@/components/MarkdownBlock.vue'
 import type { InterviewSession, Project } from '@/types/api'
 
 const starting = ref(false)
+const route = useRoute()
 const { t } = useI18n()
 const submitting = ref(false)
 const finishing = ref(false)
@@ -321,6 +328,25 @@ async function loadProjects() {
   }
 }
 
+async function loadSessionFromQuery() {
+  const rawSessionId = Array.isArray(route.query.sessionId) ? route.query.sessionId[0] : route.query.sessionId
+  const sessionId = Number(rawSessionId)
+
+  if (!Number.isFinite(sessionId) || sessionId <= 0) {
+    return
+  }
+
+  starting.value = true
+  try {
+    session.value = await getInterviewSession(sessionId)
+    form.projectId = session.value.projectId
+    form.mode = session.value.mode || form.mode
+    answer.value = ''
+  } finally {
+    starting.value = false
+  }
+}
+
 async function handleStart() {
   if (!form.projectId) {
     ElMessage.warning(t('interview.selectProject'))
@@ -388,12 +414,26 @@ async function handleFinish() {
   }
 }
 
-onMounted(loadProjects)
+onMounted(() => {
+  loadProjects()
+  loadSessionFromQuery()
+})
 </script>
 
 <style scoped>
 .wide-control {
   width: min(420px, 100%);
+}
+
+.project-option {
+  display: grid;
+  gap: 2px;
+  line-height: 1.35;
+}
+
+.project-option span {
+  color: var(--pm-muted);
+  font-size: 12px;
 }
 
 .interview-title-actions {

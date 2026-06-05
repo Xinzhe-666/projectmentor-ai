@@ -9,10 +9,12 @@ const DashboardView = () => import('@/views/DashboardView.vue')
 const ProjectListView = () => import('@/views/ProjectListView.vue')
 const ProjectCreateView = () => import('@/views/ProjectCreateView.vue')
 const ProjectDetailView = () => import('@/views/ProjectDetailView.vue')
+const ReportListView = () => import('@/views/ReportListView.vue')
 const ReportDetailView = () => import('@/views/ReportDetailView.vue')
 const PublicReportView = () => import('@/views/PublicReportView.vue')
 const HallucinationCheckView = () => import('@/views/HallucinationCheckView.vue')
 const InterviewView = () => import('@/views/InterviewView.vue')
+const InterviewListView = () => import('@/views/InterviewListView.vue')
 const CreditView = () => import('@/views/CreditView.vue')
 const AdminDashboardView = () => import('@/views/AdminDashboardView.vue')
 
@@ -64,6 +66,12 @@ const router = createRouter({
       children: [{ path: '', name: 'project-detail', component: ProjectDetailView }]
     },
     {
+      path: '/reports',
+      component: MainLayout,
+      meta: { requiresAuth: true },
+      children: [{ path: '', name: 'reports', component: ReportListView }]
+    },
+    {
       path: '/reports/:id',
       component: MainLayout,
       meta: { requiresAuth: true },
@@ -80,6 +88,12 @@ const router = createRouter({
       component: MainLayout,
       meta: { requiresAuth: true },
       children: [{ path: '', name: 'interview', component: InterviewView }]
+    },
+    {
+      path: '/interviews',
+      component: MainLayout,
+      meta: { requiresAuth: true },
+      children: [{ path: '', name: 'interviews', component: InterviewListView }]
     },
     {
       path: '/credits',

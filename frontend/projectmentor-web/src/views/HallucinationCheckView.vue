@@ -9,8 +9,36 @@
       </div>
       <div class="panel-body">
         <el-form :model="form" label-width="110px">
-          <el-form-item :label="t('hallucination.projectId')">
-            <el-input v-model="form.projectId" :placeholder="t('hallucination.projectPlaceholder')" />
+          <el-form-item :label="t('hallucination.projectMode')">
+            <el-radio-group v-model="form.projectMode">
+              <el-radio-button label="TEXT_ONLY">{{ t('hallucination.textOnlyMode') }}</el-radio-button>
+              <el-radio-button label="PROJECT">{{ t('hallucination.bindProjectMode') }}</el-radio-button>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item v-if="form.projectMode === 'PROJECT'" :label="t('hallucination.project')">
+            <el-select
+              v-model="form.projectId"
+              clearable
+              filterable
+              :placeholder="t('hallucination.projectPlaceholder')"
+              :loading="projectLoading"
+              class="wide-control"
+            >
+              <el-option
+                v-for="project in projects"
+                :key="project.id"
+                :label="project.name"
+                :value="project.id"
+              >
+                <div class="project-option">
+                  <strong>{{ project.name }}</strong>
+                  <span>{{ project.techStack || t('common.notFilled') }} · {{ project.createTime || '-' }}</span>
+                </div>
+              </el-option>
+            </el-select>
+            <p v-if="selectedProject" class="selected-project-hint">
+              {{ t('hallucination.selectedProject', { name: selectedProject.name }) }}
+            </p>
           </el-form-item>
           <el-form-item :label="t('hallucination.aiAnswer')" required>
             <el-input
@@ -103,23 +131,31 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 
 import { checkHallucination } from '@/api/hallucination'
+import { listProjects } from '@/api/project'
 import EmptyState from '@/components/EmptyState.vue'
 import MarkdownBlock from '@/components/MarkdownBlock.vue'
 import ScoreRing from '@/components/ScoreRing.vue'
-import type { HallucinationCheckResult } from '@/types/api'
+import type { HallucinationCheckResult, Project } from '@/types/api'
 
 const loading = ref(false)
+const projectLoading = ref(false)
+const route = useRoute()
 const { t } = useI18n()
 const result = ref<HallucinationCheckResult>()
+const projects = ref<Project[]>([])
 const form = reactive({
-  projectId: '',
+  projectMode: 'TEXT_ONLY' as 'TEXT_ONLY' | 'PROJECT',
+  projectId: undefined as number | undefined,
   aiAnswer: ''
 })
+
+const selectedProject = computed(() => projects.value.find((project) => project.id === form.projectId))
 
 function riskLevelClass(level?: string) {
   const normalized = (level || 'INFO').toUpperCase()
@@ -137,19 +173,75 @@ async function handleCheck() {
     return
   }
 
+  if (form.projectMode === 'PROJECT' && !form.projectId) {
+    ElMessage.warning(t('hallucination.selectProjectOrTextOnly'))
+    return
+  }
+
   loading.value = true
   try {
     result.value = await checkHallucination({
-      projectId: form.projectId ? Number(form.projectId) : undefined,
+      projectId: form.projectMode === 'PROJECT' ? form.projectId : undefined,
       aiAnswer: form.aiAnswer
     })
   } finally {
     loading.value = false
   }
 }
+
+async function loadProjects() {
+  projectLoading.value = true
+  try {
+    projects.value = await listProjects()
+    applyProjectIdFromQuery()
+  } finally {
+    projectLoading.value = false
+  }
+}
+
+function applyProjectIdFromQuery() {
+  const rawProjectId = Array.isArray(route.query.projectId) ? route.query.projectId[0] : route.query.projectId
+  const projectId = Number(rawProjectId)
+
+  if (!Number.isFinite(projectId) || projectId <= 0) {
+    return
+  }
+
+  const matchedProject = projects.value.find((project) => project.id === projectId)
+  if (!matchedProject) {
+    ElMessage.warning(t('hallucination.projectNotFound'))
+    return
+  }
+
+  form.projectMode = 'PROJECT'
+  form.projectId = matchedProject.id
+}
+
+onMounted(loadProjects)
 </script>
 
 <style scoped>
+.wide-control {
+  width: min(520px, 100%);
+}
+
+.project-option {
+  display: grid;
+  gap: 2px;
+  line-height: 1.35;
+}
+
+.project-option span {
+  color: var(--pm-muted);
+  font-size: 12px;
+}
+
+.selected-project-hint {
+  margin: 8px 0 0;
+  color: var(--pm-muted);
+  font-size: 13px;
+}
+
 .ring-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

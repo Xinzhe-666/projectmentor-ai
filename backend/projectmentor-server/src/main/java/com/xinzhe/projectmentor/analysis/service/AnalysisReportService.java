@@ -5,20 +5,33 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.xinzhe.projectmentor.analysis.entity.AnalysisReport;
 import com.xinzhe.projectmentor.analysis.mapper.AnalysisReportMapper;
+import com.xinzhe.projectmentor.analysis.vo.AnalysisReportListItemVO;
 import com.xinzhe.projectmentor.analysis.vo.AnalysisReportVO;
 import com.xinzhe.projectmentor.auth.interceptor.UserContext;
 import com.xinzhe.projectmentor.common.BusinessException;
 import com.xinzhe.projectmentor.common.ErrorCode;
+import com.xinzhe.projectmentor.common.PageResult;
 import com.xinzhe.projectmentor.project.entity.Project;
 import com.xinzhe.projectmentor.project.mapper.ProjectMapper;
 import com.xinzhe.projectmentor.scanner.ProjectRuleScanner;
 import com.xinzhe.projectmentor.scanner.vo.EvidenceItemVO;
 import com.xinzhe.projectmentor.scanner.vo.RuleScanResultVO;
+import com.xinzhe.projectmentor.share.entity.ReportShare;
+import com.xinzhe.projectmentor.share.mapper.ReportShareMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -28,6 +41,8 @@ public class AnalysisReportService {
     private final AnalysisReportMapper analysisReportMapper;
 
     private final ProjectMapper projectMapper;
+
+    private final ReportShareMapper reportShareMapper;
 
     private final ProjectRuleScanner projectRuleScanner;
 
@@ -155,6 +170,81 @@ public class AnalysisReportService {
                 .toList();
     }
 
+    public PageResult<AnalysisReportListItemVO> listMyReports(Integer page,
+                                                              Integer size,
+                                                              Long projectId,
+                                                              String keyword) {
+        Long userId = getCurrentUserId();
+        int safePage = sanitizePage(page);
+        int safeSize = sanitizeSize(size);
+        List<Project> ownedProjects = listOwnedProjects(userId, projectId);
+
+        if (projectId != null && ownedProjects.isEmpty()) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "Project not found or no permission");
+        }
+
+        if (ownedProjects.isEmpty()) {
+            return emptyPage(safePage, safeSize);
+        }
+
+        Set<Long> ownedProjectIds = ownedProjects.stream()
+                .map(Project::getId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Set<Long> keywordProjectIds = matchProjectIdsByKeyword(ownedProjects, keyword);
+
+        Long total = analysisReportMapper.selectCount(buildMyReportWrapper(ownedProjectIds, keyword, keywordProjectIds));
+        if (total == null || total == 0) {
+            return PageResult.<AnalysisReportListItemVO>builder()
+                    .records(Collections.emptyList())
+                    .total(0L)
+                    .page(safePage)
+                    .size(safeSize)
+                    .build();
+        }
+
+        int offset = (safePage - 1) * safeSize;
+        List<AnalysisReport> reports = analysisReportMapper.selectList(
+                buildMyReportWrapper(ownedProjectIds, keyword, keywordProjectIds)
+                        .orderByDesc(AnalysisReport::getCreateTime)
+                        .orderByDesc(AnalysisReport::getId)
+                        .last("LIMIT " + offset + ", " + safeSize)
+        );
+
+        Map<Long, Project> projectMap = ownedProjects.stream()
+                .collect(Collectors.toMap(Project::getId, Function.identity(), (left, right) -> left, HashMap::new));
+        Map<Long, ReportShare> shareMap = loadShareMap(
+                reports.stream().map(AnalysisReport::getId).collect(Collectors.toCollection(LinkedHashSet::new)),
+                userId
+        );
+
+        return PageResult.<AnalysisReportListItemVO>builder()
+                .records(reports.stream()
+                        .map(report -> toListItemVO(report, projectMap, shareMap))
+                        .toList())
+                .total(total)
+                .page(safePage)
+                .size(safeSize)
+                .build();
+    }
+
+    public List<AnalysisReportListItemVO> listRecentMyReports(Integer limit) {
+        return listMyReports(1, sanitizeLimit(limit), null, null).getRecords();
+    }
+
+    public Long countMyReports() {
+        Long userId = getCurrentUserId();
+        List<Project> ownedProjects = listOwnedProjects(userId, null);
+
+        if (ownedProjects.isEmpty()) {
+            return 0L;
+        }
+
+        return analysisReportMapper.selectCount(new LambdaQueryWrapper<AnalysisReport>()
+                .in(AnalysisReport::getProjectId, ownedProjects.stream()
+                        .map(Project::getId)
+                        .collect(Collectors.toCollection(LinkedHashSet::new))));
+    }
+
     public AnalysisReportVO getReportDetail(Long reportId) {
         Long userId = UserContext.getUserId();
 
@@ -201,6 +291,102 @@ public class AnalysisReportService {
         }
 
         return project;
+    }
+
+    private Long getCurrentUserId() {
+        Long userId = UserContext.getUserId();
+
+        if (userId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+
+        return userId;
+    }
+
+    private List<Project> listOwnedProjects(Long userId, Long projectId) {
+        LambdaQueryWrapper<Project> wrapper = new LambdaQueryWrapper<Project>()
+                .select(Project::getId, Project::getName, Project::getTechStack, Project::getCreateTime)
+                .eq(Project::getUserId, userId);
+
+        if (projectId != null) {
+            wrapper.eq(Project::getId, projectId);
+        }
+
+        return projectMapper.selectList(wrapper);
+    }
+
+    private LambdaQueryWrapper<AnalysisReport> buildMyReportWrapper(Set<Long> projectIds,
+                                                                    String keyword,
+                                                                    Set<Long> keywordProjectIds) {
+        LambdaQueryWrapper<AnalysisReport> wrapper = new LambdaQueryWrapper<AnalysisReport>()
+                .in(AnalysisReport::getProjectId, projectIds);
+
+        if (!StringUtils.hasText(keyword)) {
+            return wrapper;
+        }
+
+        String normalizedKeyword = keyword.trim();
+        wrapper.and(query -> {
+            query.like(AnalysisReport::getSummary, normalizedKeyword);
+            if (keywordProjectIds != null && !keywordProjectIds.isEmpty()) {
+                query.or().in(AnalysisReport::getProjectId, keywordProjectIds);
+            }
+        });
+
+        return wrapper;
+    }
+
+    private Set<Long> matchProjectIdsByKeyword(List<Project> projects, String keyword) {
+        if (!StringUtils.hasText(keyword)) {
+            return Collections.emptySet();
+        }
+
+        String lowerKeyword = keyword.trim().toLowerCase(Locale.ROOT);
+        return projects.stream()
+                .filter(project -> project.getName() != null
+                        && project.getName().toLowerCase(Locale.ROOT).contains(lowerKeyword))
+                .map(Project::getId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private Map<Long, ReportShare> loadShareMap(Set<Long> reportIds, Long userId) {
+        if (reportIds == null || reportIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        return reportShareMapper.selectList(new LambdaQueryWrapper<ReportShare>()
+                        .in(ReportShare::getReportId, reportIds)
+                        .eq(ReportShare::getUserId, userId))
+                .stream()
+                .collect(Collectors.toMap(
+                        ReportShare::getReportId,
+                        Function.identity(),
+                        (left, right) -> left,
+                        HashMap::new
+                ));
+    }
+
+    private PageResult<AnalysisReportListItemVO> emptyPage(int page, int size) {
+        return PageResult.<AnalysisReportListItemVO>builder()
+                .records(Collections.emptyList())
+                .total(0L)
+                .page(page)
+                .size(size)
+                .build();
+    }
+
+    private int sanitizePage(Integer page) {
+        return Math.max(1, page == null ? 1 : page);
+    }
+
+    private int sanitizeSize(Integer size) {
+        int safeSize = size == null ? 10 : size;
+        return Math.max(1, Math.min(safeSize, 50));
+    }
+
+    private int sanitizeLimit(Integer limit) {
+        int safeLimit = limit == null ? 5 : limit;
+        return Math.max(1, Math.min(safeLimit, 20));
     }
 
     private int calculateAuthenticityScore(RuleScanResultVO scanResult) {
@@ -488,6 +674,42 @@ public class AnalysisReportService {
         } catch (JsonProcessingException e) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "报告 JSON 序列化失败");
         }
+    }
+
+    private AnalysisReportListItemVO toListItemVO(AnalysisReport report,
+                                                  Map<Long, Project> projectMap,
+                                                  Map<Long, ReportShare> shareMap) {
+        Project project = projectMap.get(report.getProjectId());
+        ReportShare share = shareMap.get(report.getId());
+        boolean shared = share != null && Integer.valueOf(1).equals(share.getEnabled());
+
+        return AnalysisReportListItemVO.builder()
+                .reportId(report.getId())
+                .projectId(report.getProjectId())
+                .projectName(project == null ? null : project.getName())
+                .authenticityScore(report.getAuthenticityScore())
+                .healthScore(report.getTotalScore())
+                .totalScore(report.getTotalScore())
+                .status("FINISHED")
+                .createTime(report.getCreateTime())
+                .updateTime(report.getCreateTime())
+                .shared(shared)
+                .shareToken(shared ? share.getShareToken() : null)
+                .summary(trimSummary(report.getSummary()))
+                .build();
+    }
+
+    private String trimSummary(String summary) {
+        if (summary == null || summary.isBlank()) {
+            return summary;
+        }
+
+        String normalized = summary.trim();
+        if (normalized.length() <= 180) {
+            return normalized;
+        }
+
+        return normalized.substring(0, 180) + "...";
     }
 
     private AnalysisReportVO toVO(AnalysisReport report) {

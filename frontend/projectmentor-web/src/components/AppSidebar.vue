@@ -25,9 +25,17 @@
         <el-icon><Warning /></el-icon>
         <span>{{ t('route.hallucination') }}</span>
       </el-menu-item>
+      <el-menu-item index="/reports">
+        <el-icon><DocumentChecked /></el-icon>
+        <span>{{ t('route.reports') }}</span>
+      </el-menu-item>
       <el-menu-item index="/interview">
         <el-icon><ChatDotRound /></el-icon>
         <span>{{ t('route.interview') }}</span>
+      </el-menu-item>
+      <el-menu-item index="/interviews">
+        <el-icon><Tickets /></el-icon>
+        <span>{{ t('route.interviews') }}</span>
       </el-menu-item>
       <el-menu-item index="/credits">
         <el-icon><Coin /></el-icon>
@@ -49,7 +57,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { ChatDotRound, CirclePlus, Coin, DataBoard, FolderOpened, Monitor, Warning } from '@element-plus/icons-vue'
+import { ChatDotRound, CirclePlus, Coin, DataBoard, DocumentChecked, FolderOpened, Monitor, Tickets, Warning } from '@element-plus/icons-vue'
 import { getAdminMe } from '@/api/admin'
 
 const route = useRoute()
@@ -63,6 +71,10 @@ const activePath = computed(() => {
 
   if (route.path.startsWith('/projects/')) {
     return '/projects'
+  }
+
+  if (route.path.startsWith('/reports/')) {
+    return '/reports'
   }
 
   return route.path

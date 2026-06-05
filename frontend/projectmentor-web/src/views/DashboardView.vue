@@ -33,11 +33,18 @@
     />
 
     <section class="metric-grid dashboard-metric-grid" v-loading="loading">
-      <div class="metric-card dashboard-metric pm-premium-card pm-hover-lift" v-for="metric in metrics" :key="metric.label">
+      <button
+        v-for="metric in metrics"
+        :key="metric.label"
+        class="metric-card dashboard-metric pm-premium-card pm-hover-lift"
+        :class="{ clickable: metric.path }"
+        type="button"
+        @click="handleMetricClick(metric.path)"
+      >
         <i :class="['dashboard-metric-accent', metric.tone]" />
         <span>{{ metric.label }}</span>
         <strong :class="{ 'small-value': String(metric.value).length > 8 }">{{ metric.value }}</strong>
-      </div>
+      </button>
     </section>
 
     <section class="quick-grid">
@@ -52,38 +59,86 @@
       </button>
     </section>
 
-    <section class="panel">
+    <section class="panel" v-loading="loading">
       <div class="panel-title">
         <div>
           <h3>{{ t('dashboard.recentTitle') }}</h3>
           <p class="muted">{{ t('dashboard.recentDesc') }}</p>
         </div>
-        <el-button @click="router.push('/projects')">{{ t('common.viewAll') }}</el-button>
       </div>
       <div class="panel-body">
-        <el-table v-if="recentProjects.length" :data="recentProjects" stripe>
-          <el-table-column prop="name" :label="t('common.projectName')" min-width="160" />
-          <el-table-column prop="techStack" :label="t('common.techStack')" min-width="180" show-overflow-tooltip />
-          <el-table-column prop="status" :label="t('common.status')" width="130">
-            <template #default="{ row }">
-              <el-tag :type="statusTagType(row.status)" effect="light">{{ row.status || 'PENDING' }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="createTime" :label="t('common.createTime')" min-width="180" />
-          <el-table-column :label="t('common.operation')" width="120" fixed="right">
-            <template #default="{ row }">
-              <el-button text type="primary" @click="router.push(`/projects/${row.id}`)">{{ t('common.view') }}</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+        <el-tabs>
+          <el-tab-pane :label="t('dashboard.recent.projects')" name="projects">
+            <el-table v-if="recentProjects.length" :data="recentProjects" stripe>
+              <el-table-column prop="name" :label="t('common.projectName')" min-width="160" />
+              <el-table-column prop="techStack" :label="t('common.techStack')" min-width="180" show-overflow-tooltip />
+              <el-table-column prop="status" :label="t('common.status')" width="130">
+                <template #default="{ row }">
+                  <el-tag :type="statusTagType(row.status)" effect="light">{{ row.status || 'PENDING' }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="createTime" :label="t('common.createTime')" min-width="180" />
+              <el-table-column :label="t('common.operation')" width="120" fixed="right">
+                <template #default="{ row }">
+                  <el-button text type="primary" @click="router.push(`/projects/${row.id}`)">{{ t('common.view') }}</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
 
-        <EmptyState
-          v-else
-          :title="t('dashboard.emptyTitle')"
-          :description="t('dashboard.emptyDesc')"
-        >
-          <el-button type="primary" :icon="Plus" @click="router.push('/projects/create')">{{ t('common.createProject') }}</el-button>
-        </EmptyState>
+            <EmptyState
+              v-else
+              :title="t('dashboard.emptyTitle')"
+              :description="t('dashboard.emptyDesc')"
+            >
+              <el-button type="primary" :icon="Plus" @click="router.push('/projects/create')">{{ t('common.createProject') }}</el-button>
+            </EmptyState>
+          </el-tab-pane>
+
+          <el-tab-pane :label="t('dashboard.recent.reports')" name="reports">
+            <el-table v-if="recentReports.length" :data="recentReports" stripe>
+              <el-table-column prop="projectName" :label="t('common.projectName')" min-width="170" show-overflow-tooltip />
+              <el-table-column :label="t('common.score')" width="130">
+                <template #default="{ row }">{{ formatScore(row.healthScore) }}</template>
+              </el-table-column>
+              <el-table-column prop="status" :label="t('common.status')" width="130">
+                <template #default="{ row }">
+                  <el-tag :type="statusTagType(row.status)" effect="light">{{ row.status || 'FINISHED' }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="createTime" :label="t('common.createTime')" min-width="180" />
+              <el-table-column :label="t('common.operation')" width="120" fixed="right">
+                <template #default="{ row }">
+                  <el-button text type="primary" @click="router.push(`/reports/${row.reportId}`)">{{ t('common.view') }}</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+            <EmptyState v-else :title="t('dashboard.noReportsTitle')" :description="t('dashboard.noReportsDesc')" />
+          </el-tab-pane>
+
+          <el-tab-pane :label="t('dashboard.recent.interviews')" name="interviews">
+            <el-table v-if="recentInterviews.length" :data="recentInterviews" stripe>
+              <el-table-column prop="projectName" :label="t('common.projectName')" min-width="170" show-overflow-tooltip />
+              <el-table-column :label="t('dashboard.interviewScore')" width="130">
+                <template #default="{ row }">{{ formatScore(row.totalScore) }}</template>
+              </el-table-column>
+              <el-table-column :label="t('dashboard.interviewQuestions')" min-width="150">
+                <template #default="{ row }">{{ row.answeredCount }} / {{ row.questionCount }}</template>
+              </el-table-column>
+              <el-table-column prop="status" :label="t('common.status')" width="130">
+                <template #default="{ row }">
+                  <el-tag :type="statusTagType(row.status)" effect="light">{{ row.status || 'RUNNING' }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="createTime" :label="t('common.createTime')" min-width="180" />
+              <el-table-column :label="t('common.operation')" width="120" fixed="right">
+                <template #default="{ row }">
+                  <el-button text type="primary" @click="router.push(`/interview?sessionId=${row.sessionId}`)">{{ t('common.view') }}</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+            <EmptyState v-else :title="t('dashboard.noInterviewsTitle')" :description="t('dashboard.noInterviewsDesc')" />
+          </el-tab-pane>
+        </el-tabs>
       </div>
     </section>
   </div>
@@ -96,18 +151,17 @@ import { useI18n } from 'vue-i18n'
 import { ChatDotRound, Coin, MagicStick, Plus } from '@element-plus/icons-vue'
 
 import { getAiStatus } from '@/api/ai'
-import { getMyCredits } from '@/api/credit'
-import { listProjects } from '@/api/project'
+import { getDashboardSummary } from '@/api/dashboard'
 import EmptyState from '@/components/EmptyState.vue'
 import { useUserStore } from '@/stores/user'
-import type { AiStatus, Project } from '@/types/api'
+import type { AiStatus, DashboardSummary, InterviewSessionListItem, Project, ReportListItem } from '@/types/api'
 
 const router = useRouter()
 const { t } = useI18n()
 const userStore = useUserStore()
 
 const loading = ref(false)
-const projects = ref<Project[]>([])
+const summary = ref<DashboardSummary>()
 const aiStatus = ref<AiStatus | null>(null)
 
 const aiStatusLabel = computed(() =>
@@ -121,18 +175,18 @@ const heroChips = computed(() => [
 ])
 
 const metrics = computed(() => [
-  { label: t('dashboard.metrics.projectCount'), value: projects.value.length, tone: 'blue' },
-  { label: t('dashboard.metrics.credits'), value: userStore.remainingCredits, tone: 'teal' },
-  { label: t('dashboard.metrics.aiStatus'), value: aiStatusLabel.value, tone: 'green' },
-  { label: t('dashboard.metrics.reports'), value: '--', tone: 'amber' },
-  { label: t('dashboard.metrics.interviews'), value: '--', tone: 'blue' }
+  { label: t('dashboard.metrics.projectCount'), value: summary.value?.projectCount ?? 0, tone: 'blue', path: '/projects' },
+  { label: t('dashboard.metrics.reports'), value: summary.value?.reportCount ?? 0, tone: 'amber', path: '/reports' },
+  { label: t('dashboard.metrics.interviews'), value: summary.value?.interviewSessionCount ?? 0, tone: 'blue', path: '/interviews' },
+  { label: t('dashboard.metrics.credits'), value: summary.value?.creditBalance ?? userStore.remainingCredits, tone: 'teal', path: '/credits' },
+  { label: t('dashboard.metrics.aiStatus'), value: aiStatusLabel.value, tone: 'green' }
 ])
 
-const recentProjects = computed(() =>
-  [...projects.value]
-    .sort((a, b) => (b.createTime || '').localeCompare(a.createTime || ''))
-    .slice(0, 5)
-)
+const recentProjects = computed<Project[]>(() => summary.value?.recentProjects || [])
+
+const recentReports = computed<ReportListItem[]>(() => summary.value?.recentReports || [])
+
+const recentInterviews = computed<InterviewSessionListItem[]>(() => summary.value?.recentInterviews || [])
 
 const quickEntries = computed(() => [
   {
@@ -165,24 +219,35 @@ function statusTagType(status?: string) {
   const statusMap: Record<string, 'info' | 'primary' | 'success' | 'danger' | 'warning'> = {
     PENDING: 'info',
     ANALYZING: 'primary',
+    RUNNING: 'primary',
     FINISHED: 'success',
+    SUCCESS: 'success',
     FAILED: 'danger'
   }
 
   return statusMap[status || 'PENDING'] || 'info'
 }
 
+function formatScore(score?: number) {
+  return Number.isFinite(score) ? Math.round(Number(score)) : '-'
+}
+
+function handleMetricClick(path?: string) {
+  if (path) {
+    router.push(path)
+  }
+}
+
 async function loadDashboard() {
   loading.value = true
   try {
-    const [projectList, creditInfo, status] = await Promise.all([
-      listProjects(),
-      getMyCredits(),
+    const [dashboardSummary, status] = await Promise.all([
+      getDashboardSummary(),
       getAiStatus().catch(() => null)
     ])
-    projects.value = projectList
+    summary.value = dashboardSummary
     aiStatus.value = status
-    userStore.updateCredits(creditInfo.remainingCredits)
+    userStore.updateCredits(dashboardSummary.creditBalance || 0)
   } finally {
     loading.value = false
   }
@@ -283,6 +348,24 @@ onMounted(loadDashboard)
   position: relative;
   overflow: hidden;
   min-height: 150px;
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+button.dashboard-metric {
+  appearance: none;
+}
+
+.dashboard-metric.clickable {
+  cursor: pointer;
+}
+
+.dashboard-metric.clickable:focus-visible {
+  outline: 3px solid rgba(31, 111, 235, 0.24);
+  outline-offset: 3px;
 }
 
 .dashboard-metric::after {

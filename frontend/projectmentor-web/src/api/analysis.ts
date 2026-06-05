@@ -1,5 +1,12 @@
 import { request } from './request'
-import type { AnalysisReport, AnalysisTask, RuleScanResult } from '@/types/api'
+import type { AnalysisReport, AnalysisTask, PageResult, ReportListItem, RuleScanResult } from '@/types/api'
+
+export interface ReportListParams {
+  page?: number
+  size?: number
+  projectId?: number
+  keyword?: string
+}
 
 export function scanProject(projectId: number) {
   return request<RuleScanResult>({
@@ -33,6 +40,14 @@ export function listReports(projectId: number) {
   return request<AnalysisReport[]>({
     url: `/api/projects/${projectId}/reports`,
     method: 'get'
+  })
+}
+
+export function listMyReports(params: ReportListParams = {}) {
+  return request<PageResult<ReportListItem>>({
+    url: '/api/reports',
+    method: 'get',
+    params
   })
 }
 

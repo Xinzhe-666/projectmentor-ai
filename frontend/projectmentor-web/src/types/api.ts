@@ -5,6 +5,13 @@ export interface ApiResult<T> {
   timestamp: number
 }
 
+export interface PageResult<T> {
+  records: T[]
+  total: number
+  page: number
+  size: number
+}
+
 export interface UserInfo {
   id: number
   username: string
@@ -157,6 +164,21 @@ export interface AnalysisReport {
   createTime?: string
 }
 
+export interface ReportListItem {
+  reportId: number
+  projectId: number
+  projectName?: string
+  authenticityScore?: number
+  healthScore?: number
+  totalScore?: number
+  status?: string
+  createTime?: string
+  updateTime?: string
+  shared?: boolean
+  shareToken?: string
+  summary?: string
+}
+
 export interface ReportShare {
   reportId: number
   shareToken?: string
@@ -264,6 +286,29 @@ export interface InterviewSession {
   createTime?: string
   finishTime?: string
   messages: InterviewMessage[]
+}
+
+export interface InterviewSessionListItem {
+  sessionId: number
+  projectId: number
+  projectName?: string
+  totalScore?: number
+  questionCount: number
+  answeredCount: number
+  skippedCount: number
+  status?: string
+  createTime?: string
+  updateTime?: string
+}
+
+export interface DashboardSummary {
+  projectCount: number
+  creditBalance: number
+  reportCount: number
+  interviewSessionCount: number
+  recentProjects: Project[]
+  recentReports: ReportListItem[]
+  recentInterviews: InterviewSessionListItem[]
 }
 
 export interface AdminMe {

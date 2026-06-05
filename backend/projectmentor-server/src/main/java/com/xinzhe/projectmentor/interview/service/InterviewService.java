@@ -7,6 +7,7 @@ import com.xinzhe.projectmentor.ai.LlmClient;
 import com.xinzhe.projectmentor.auth.interceptor.UserContext;
 import com.xinzhe.projectmentor.common.BusinessException;
 import com.xinzhe.projectmentor.common.ErrorCode;
+import com.xinzhe.projectmentor.common.PageResult;
 import com.xinzhe.projectmentor.file.entity.ProjectFile;
 import com.xinzhe.projectmentor.file.mapper.ProjectFileMapper;
 import com.xinzhe.projectmentor.interview.dto.StartInterviewRequest;
@@ -16,6 +17,7 @@ import com.xinzhe.projectmentor.interview.entity.InterviewSession;
 import com.xinzhe.projectmentor.interview.mapper.InterviewMessageMapper;
 import com.xinzhe.projectmentor.interview.mapper.InterviewSessionMapper;
 import com.xinzhe.projectmentor.interview.vo.InterviewMessageVO;
+import com.xinzhe.projectmentor.interview.vo.InterviewSessionListItemVO;
 import com.xinzhe.projectmentor.interview.vo.InterviewSessionVO;
 import com.xinzhe.projectmentor.project.entity.Project;
 import com.xinzhe.projectmentor.project.mapper.ProjectMapper;
@@ -23,12 +25,18 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -176,6 +184,68 @@ public class InterviewService {
                 .build();
     }
 
+    public PageResult<InterviewSessionListItemVO> listMySessions(Integer page,
+                                                                 Integer size,
+                                                                 Long projectId,
+                                                                 String keyword) {
+        Long userId = getCurrentUserId();
+        int safePage = sanitizePage(page);
+        int safeSize = sanitizeSize(size);
+        List<Project> ownedProjects = listOwnedProjects(userId, projectId);
+
+        if (projectId != null && ownedProjects.isEmpty()) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "Project not found or no permission");
+        }
+
+        if (ownedProjects.isEmpty()) {
+            return emptySessionPage(safePage, safeSize);
+        }
+
+        Set<Long> ownedProjectIds = ownedProjects.stream()
+                .map(Project::getId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Set<Long> keywordProjectIds = matchProjectIdsByKeyword(ownedProjects, keyword);
+
+        Long total = interviewSessionMapper.selectCount(buildMySessionWrapper(userId, ownedProjectIds, keyword, keywordProjectIds));
+        if (total == null || total == 0) {
+            return emptySessionPage(safePage, safeSize);
+        }
+
+        int offset = (safePage - 1) * safeSize;
+        List<InterviewSession> sessions = interviewSessionMapper.selectList(
+                buildMySessionWrapper(userId, ownedProjectIds, keyword, keywordProjectIds)
+                        .orderByDesc(InterviewSession::getCreateTime)
+                        .orderByDesc(InterviewSession::getId)
+                        .last("LIMIT " + offset + ", " + safeSize)
+        );
+
+        Map<Long, Project> projectMap = ownedProjects.stream()
+                .collect(Collectors.toMap(Project::getId, Function.identity(), (left, right) -> left, HashMap::new));
+        Map<Long, List<InterviewMessage>> messageMap = loadSessionMessageMap(sessions.stream()
+                .map(InterviewSession::getId)
+                .collect(Collectors.toCollection(LinkedHashSet::new)));
+
+        return PageResult.<InterviewSessionListItemVO>builder()
+                .records(sessions.stream()
+                        .map(session -> toListItemVO(session, projectMap, messageMap))
+                        .toList())
+                .total(total)
+                .page(safePage)
+                .size(safeSize)
+                .build();
+    }
+
+    public List<InterviewSessionListItemVO> listRecentMySessions(Integer limit) {
+        return listMySessions(1, sanitizeLimit(limit), null, null).getRecords();
+    }
+
+    public Long countMySessions() {
+        Long userId = getCurrentUserId();
+
+        return interviewSessionMapper.selectCount(new LambdaQueryWrapper<InterviewSession>()
+                .eq(InterviewSession::getUserId, userId));
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public InterviewSessionVO finishInterview(Long sessionId) {
         Long userId = getCurrentUserId();
@@ -224,6 +294,125 @@ public class InterviewService {
         interviewMessageMapper.insert(systemMessage);
 
         return getSessionDetail(sessionId);
+    }
+
+    private List<Project> listOwnedProjects(Long userId, Long projectId) {
+        LambdaQueryWrapper<Project> wrapper = new LambdaQueryWrapper<Project>()
+                .select(Project::getId, Project::getName, Project::getTechStack, Project::getCreateTime)
+                .eq(Project::getUserId, userId);
+
+        if (projectId != null) {
+            wrapper.eq(Project::getId, projectId);
+        }
+
+        return projectMapper.selectList(wrapper);
+    }
+
+    private LambdaQueryWrapper<InterviewSession> buildMySessionWrapper(Long userId,
+                                                                       Set<Long> projectIds,
+                                                                       String keyword,
+                                                                       Set<Long> keywordProjectIds) {
+        LambdaQueryWrapper<InterviewSession> wrapper = new LambdaQueryWrapper<InterviewSession>()
+                .eq(InterviewSession::getUserId, userId)
+                .in(InterviewSession::getProjectId, projectIds);
+
+        if (!StringUtils.hasText(keyword)) {
+            return wrapper;
+        }
+
+        String normalizedKeyword = keyword.trim();
+        wrapper.and(query -> {
+            query.like(InterviewSession::getSummary, normalizedKeyword)
+                    .or()
+                    .like(InterviewSession::getStatus, normalizedKeyword)
+                    .or()
+                    .like(InterviewSession::getMode, normalizedKeyword);
+            if (keywordProjectIds != null && !keywordProjectIds.isEmpty()) {
+                query.or().in(InterviewSession::getProjectId, keywordProjectIds);
+            }
+        });
+
+        return wrapper;
+    }
+
+    private Set<Long> matchProjectIdsByKeyword(List<Project> projects, String keyword) {
+        if (!StringUtils.hasText(keyword)) {
+            return Collections.emptySet();
+        }
+
+        String lowerKeyword = keyword.trim().toLowerCase(Locale.ROOT);
+        return projects.stream()
+                .filter(project -> project.getName() != null
+                        && project.getName().toLowerCase(Locale.ROOT).contains(lowerKeyword))
+                .map(Project::getId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private Map<Long, List<InterviewMessage>> loadSessionMessageMap(Set<Long> sessionIds) {
+        if (sessionIds == null || sessionIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        return interviewMessageMapper.selectList(new LambdaQueryWrapper<InterviewMessage>()
+                        .select(InterviewMessage::getId, InterviewMessage::getSessionId,
+                                InterviewMessage::getRole, InterviewMessage::getContent)
+                        .in(InterviewMessage::getSessionId, sessionIds))
+                .stream()
+                .collect(Collectors.groupingBy(InterviewMessage::getSessionId));
+    }
+
+    private InterviewSessionListItemVO toListItemVO(InterviewSession session,
+                                                    Map<Long, Project> projectMap,
+                                                    Map<Long, List<InterviewMessage>> messageMap) {
+        List<InterviewMessage> messages = messageMap.getOrDefault(session.getId(), Collections.emptyList());
+        int questionCount = (int) messages.stream()
+                .filter(message -> "INTERVIEWER".equalsIgnoreCase(message.getRole()))
+                .count();
+        int skippedCount = (int) messages.stream()
+                .filter(message -> "USER".equalsIgnoreCase(message.getRole()))
+                .filter(message -> isSkippedAnswer(message.getContent()))
+                .count();
+        int answeredCount = (int) messages.stream()
+                .filter(message -> "USER".equalsIgnoreCase(message.getRole()))
+                .filter(message -> !isSkippedAnswer(message.getContent()))
+                .count();
+        Project project = projectMap.get(session.getProjectId());
+
+        return InterviewSessionListItemVO.builder()
+                .sessionId(session.getId())
+                .projectId(session.getProjectId())
+                .projectName(project == null ? null : project.getName())
+                .totalScore(session.getTotalScore())
+                .questionCount(questionCount)
+                .answeredCount(answeredCount)
+                .skippedCount(skippedCount)
+                .status(session.getStatus())
+                .createTime(session.getCreateTime())
+                .updateTime(session.getFinishTime() == null ? session.getCreateTime() : session.getFinishTime())
+                .build();
+    }
+
+    private PageResult<InterviewSessionListItemVO> emptySessionPage(int page, int size) {
+        return PageResult.<InterviewSessionListItemVO>builder()
+                .records(Collections.emptyList())
+                .total(0L)
+                .page(page)
+                .size(size)
+                .build();
+    }
+
+    private int sanitizePage(Integer page) {
+        return Math.max(1, page == null ? 1 : page);
+    }
+
+    private int sanitizeSize(Integer size) {
+        int safeSize = size == null ? 10 : size;
+        return Math.max(1, Math.min(safeSize, 50));
+    }
+
+    private int sanitizeLimit(Integer limit) {
+        int safeLimit = limit == null ? 5 : limit;
+        return Math.max(1, Math.min(safeLimit, 20));
     }
 
     private Project checkProjectOwner(Long projectId, Long userId) {

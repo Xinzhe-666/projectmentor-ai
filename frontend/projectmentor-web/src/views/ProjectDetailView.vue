@@ -36,6 +36,81 @@
       </div>
     </section>
 
+    <section class="panel" v-loading="artifactLoading">
+      <div class="panel-title">
+        <div>
+          <h3>{{ t('projects.artifactsTitle') }}</h3>
+          <p class="muted">{{ t('projects.artifactsDesc') }}</p>
+        </div>
+        <div class="artifact-actions">
+          <el-button :icon="MagicStick" @click="router.push(`/hallucination?projectId=${projectId}`)">
+            {{ t('projects.checkHallucination') }}
+          </el-button>
+          <el-button :icon="DocumentChecked" @click="router.push(`/reports?projectId=${projectId}`)">
+            {{ t('projects.viewProjectReports') }}
+          </el-button>
+          <el-button :icon="Tickets" @click="router.push(`/interviews?projectId=${projectId}`)">
+            {{ t('projects.viewProjectInterviews') }}
+          </el-button>
+          <el-button :icon="ChatDotRound" @click="scrollToQaHistory">
+            {{ t('projects.viewProjectQa') }}
+          </el-button>
+        </div>
+      </div>
+      <div class="panel-body project-history-grid">
+        <div class="history-column">
+          <div class="history-column-title">
+            <h4>{{ t('projects.recentReports') }}</h4>
+            <el-button text type="primary" @click="router.push(`/reports?projectId=${projectId}`)">{{ t('common.viewAll') }}</el-button>
+          </div>
+          <el-table v-if="recentReports.length" :data="recentReports" stripe>
+            <el-table-column :label="t('common.score')" width="110">
+              <template #default="{ row }">{{ formatScore(row.healthScore) }}</template>
+            </el-table-column>
+            <el-table-column prop="status" :label="t('common.status')" width="120">
+              <template #default="{ row }">
+                <el-tag :type="statusTagType(row.status)" effect="light">{{ row.status || 'FINISHED' }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="createTime" :label="t('common.createTime')" min-width="160" />
+            <el-table-column :label="t('common.operation')" width="100" fixed="right">
+              <template #default="{ row }">
+                <el-button text type="primary" @click="router.push(`/reports/${row.reportId}`)">{{ t('common.view') }}</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+          <p v-else class="muted history-empty">{{ t('projects.noRecentReports') }}</p>
+        </div>
+
+        <div class="history-column">
+          <div class="history-column-title">
+            <h4>{{ t('projects.recentInterviews') }}</h4>
+            <el-button text type="primary" @click="router.push(`/interviews?projectId=${projectId}`)">{{ t('common.viewAll') }}</el-button>
+          </div>
+          <el-table v-if="recentInterviews.length" :data="recentInterviews" stripe>
+            <el-table-column :label="t('interviews.totalScore')" width="110">
+              <template #default="{ row }">{{ formatScore(row.totalScore) }}</template>
+            </el-table-column>
+            <el-table-column :label="t('interviews.questionStats')" min-width="140">
+              <template #default="{ row }">{{ row.answeredCount }} / {{ row.questionCount }}</template>
+            </el-table-column>
+            <el-table-column prop="status" :label="t('common.status')" width="120">
+              <template #default="{ row }">
+                <el-tag :type="statusTagType(row.status)" effect="light">{{ row.status || 'RUNNING' }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="createTime" :label="t('common.createTime')" min-width="160" />
+            <el-table-column :label="t('common.operation')" width="100" fixed="right">
+              <template #default="{ row }">
+                <el-button text type="primary" @click="router.push(`/interview?sessionId=${row.sessionId}`)">{{ t('common.view') }}</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+          <p v-else class="muted history-empty">{{ t('projects.noRecentInterviews') }}</p>
+        </div>
+      </div>
+    </section>
+
     <section class="panel">
       <div class="panel-title">
         <div>
@@ -304,7 +379,9 @@
       </div>
     </section>
 
-    <ProjectQaPanel :project-id="projectId" :has-project-files="files.length > 0" />
+    <div id="project-qa-history">
+      <ProjectQaPanel :project-id="projectId" :has-project-files="files.length > 0" />
+    </div>
   </div>
 </template>
 
@@ -312,17 +389,28 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { Cpu, Refresh, Search, Upload } from '@element-plus/icons-vue'
+import { ChatDotRound, Cpu, DocumentChecked, MagicStick, Refresh, Search, Tickets, Upload } from '@element-plus/icons-vue'
 import { ElMessage, type UploadProps } from 'element-plus'
 
-import { getTask, scanProject, startAnalyze } from '@/api/analysis'
+import { getTask, listMyReports, scanProject, startAnalyze } from '@/api/analysis'
+import { listInterviewSessions } from '@/api/interview'
 import { getProjectDetail, listProjectFiles, saveReadme, uploadZip } from '@/api/project'
 import EmptyState from '@/components/EmptyState.vue'
 import EvidenceList from '@/components/EvidenceList.vue'
 import ProjectQaPanel from '@/components/ProjectQaPanel.vue'
 import RiskList from '@/components/RiskList.vue'
 import TaskProgress from '@/components/TaskProgress.vue'
-import type { AnalysisTask, ParsedProjectFile, Project, ProjectFile, RuleScanResult, SkippedProjectFile, UploadZipResult } from '@/types/api'
+import type {
+  AnalysisTask,
+  InterviewSessionListItem,
+  ParsedProjectFile,
+  Project,
+  ProjectFile,
+  ReportListItem,
+  RuleScanResult,
+  SkippedProjectFile,
+  UploadZipResult
+} from '@/types/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -331,6 +419,7 @@ const projectId = Number(route.params.id)
 
 const loading = ref(false)
 const fileLoading = ref(false)
+const artifactLoading = ref(false)
 const savingReadme = ref(false)
 const uploading = ref(false)
 const scanning = ref(false)
@@ -338,6 +427,8 @@ const analyzing = ref(false)
 const readmeContent = ref('')
 const project = ref<Project>()
 const files = ref<ProjectFile[]>([])
+const recentReports = ref<ReportListItem[]>([])
+const recentInterviews = ref<InterviewSessionListItem[]>([])
 const uploadResult = ref<UploadZipResult>()
 const scanResult = ref<RuleScanResult>()
 const task = ref<AnalysisTask>()
@@ -519,11 +610,17 @@ function statusTagType(status?: string) {
   const statusMap: Record<string, 'info' | 'primary' | 'success' | 'danger' | 'warning'> = {
     PENDING: 'info',
     ANALYZING: 'primary',
+    RUNNING: 'primary',
     FINISHED: 'success',
+    SUCCESS: 'success',
     FAILED: 'danger'
   }
 
   return statusMap[status || 'PENDING'] || 'info'
+}
+
+function formatScore(score?: number) {
+  return Number.isFinite(score) ? Math.round(Number(score)) : '-'
 }
 
 async function loadProject() {
@@ -546,6 +643,27 @@ async function loadFiles() {
   } finally {
     fileLoading.value = false
   }
+}
+
+async function loadProjectArtifacts() {
+  artifactLoading.value = true
+  try {
+    const [reportPage, interviewPage] = await Promise.all([
+      listMyReports({ projectId, page: 1, size: 5 }),
+      listInterviewSessions({ projectId, page: 1, size: 5 })
+    ])
+    recentReports.value = reportPage.records
+    recentInterviews.value = interviewPage.records
+  } finally {
+    artifactLoading.value = false
+  }
+}
+
+function scrollToQaHistory() {
+  document.getElementById('project-qa-history')?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'start'
+  })
 }
 
 async function handleSaveReadme() {
@@ -640,6 +758,7 @@ function clearPolling() {
 onMounted(() => {
   loadProject()
   loadFiles()
+  loadProjectArtifacts()
 })
 
 onUnmounted(clearPolling)
@@ -660,6 +779,44 @@ onUnmounted(clearPolling)
 .link-text {
   overflow-wrap: anywhere;
   color: var(--pm-primary);
+}
+
+.artifact-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.project-history-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.history-column {
+  min-width: 0;
+}
+
+.history-column-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.history-column-title h4 {
+  margin: 0;
+  color: var(--pm-ink);
+}
+
+.history-empty {
+  margin: 0;
+  padding: 14px;
+  border: 1px dashed var(--pm-border);
+  border-radius: 8px;
+  background: #fbfdff;
 }
 
 .readme-editor,
@@ -762,23 +919,27 @@ onUnmounted(clearPolling)
 }
 
 @media (max-width: 860px) {
-  .detail-grid {
+  .detail-grid,
+  .project-history-grid {
     grid-template-columns: 1fr 1fr;
   }
 }
 
 @media (max-width: 620px) {
-  .detail-grid {
+  .detail-grid,
+  .project-history-grid {
     grid-template-columns: 1fr;
   }
 
   .file-list-header,
-  .zip-upload-actions {
+  .zip-upload-actions,
+  .artifact-actions {
     align-items: flex-start;
     max-width: none;
   }
 
-  .file-list-header {
+  .file-list-header,
+  .artifact-actions {
     flex-direction: column;
   }
 

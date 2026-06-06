@@ -95,8 +95,9 @@ export default {
   landing: {
     heroEyebrow: '项目真实性审计 · 项目问答 · 模拟面试 · 报告分享',
     heroHeadline: '让项目表达更有证据感',
-    subtitle: 'AI 项目真实性审计与面试深挖平台，帮助你基于 README 和项目文件准备更可信的项目表达。',
-    heroSubnote: '把“做出来了”进一步整理成“讲得清楚、能被追问、知道边界”的项目复盘材料。',
+    subtitle: '面向计算机学生、实习求职者和早期开发者的项目真实性审计与面试深挖平台。',
+    heroSubnote:
+      '围绕 README、源码、配置、部署文件和项目描述建立证据链，识别夸大表述、AI 幻觉、简历风险和面试追问风险，帮助你基于真实证据讲清楚项目。',
     ctaFeatures: '查看功能',
     trialTitle: '试用提示',
     trialDesc:
@@ -219,11 +220,11 @@ export default {
       ownership: '帮你把 AI 生成的项目逐步讲成自己真正理解的项目'
     },
     audienceEyebrow: 'For whom',
-    audienceTitle: '适合这些场景',
+    audienceTitle: '面向这些学习与求职场景',
     audiences: {
       intern: {
-        title: '准备后端实习的学生',
-        description: '提前看清项目亮点、风险点和可能被追问的实现细节。'
+        title: '计算机学生、实习求职者与早期开发者',
+        description: '复盘课程、个人、竞赛或简历项目，提前看清亮点、风险点和可能被追问的实现细节。'
       },
       aiBuilder: {
         title: '使用 AI 做项目但担心不会讲的人',
@@ -316,7 +317,7 @@ export default {
   dashboard: {
     eyebrow: 'Welcome back',
     greeting: '你好，{name}',
-    subtitle: '把 GitHub 项目、README 和代码证据放进来，让 AI 先替面试官追问一轮。',
+    subtitle: '整理 README、源码和配置证据，检查项目表达、简历风险与面试追问是否站得住。',
     trialTitle: '试用提示',
     trialDesc:
       '请勿上传真实商业机密、真实密钥或公司内部代码。ProjectMentor AI 会基于你提供的 README 和项目文件生成辅助分析，结论仅供学习、项目复盘和面试准备参考。',

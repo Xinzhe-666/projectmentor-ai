@@ -95,8 +95,10 @@ export default {
   landing: {
     heroEyebrow: 'Project Audit · Project Q&A · Mock Interview · Public Report Sharing',
     heroHeadline: 'Make project claims evidence-aware',
-    subtitle: 'AI-powered project review and interview preparation platform for evidence-based project storytelling.',
-    heroSubnote: 'Turn “it works” into review material you can explain, defend, and keep within clear boundaries.',
+    subtitle:
+      'A project authenticity audit and interview preparation platform for CS students, internship seekers, and early-career developers.',
+    heroSubnote:
+      'It builds an evidence chain from README files, source code, configurations, deployment files, and project descriptions to identify overclaims, AI hallucinations, resume risks, and interview follow-ups. PMAI helps users explain projects from real evidence instead of blindly polishing or exaggerating them.',
     ctaFeatures: 'View features',
     trialTitle: 'Beta notice',
     trialDesc:
@@ -222,11 +224,11 @@ export default {
       ownership: 'Turn an AI-assisted project into something you can explain yourself'
     },
     audienceEyebrow: 'For whom',
-    audienceTitle: 'Useful for these scenarios',
+    audienceTitle: 'Built for learning and early-career scenarios',
     audiences: {
       intern: {
-        title: 'Students preparing for backend internships',
-        description: 'Review strengths, risks, and likely implementation details before interviews.'
+        title: 'CS students, internship seekers, and early-career developers',
+        description: 'Review course, personal, competition, or resume projects before interviews.'
       },
       aiBuilder: {
         title: 'Builders using AI but unsure how to explain the project',
@@ -320,7 +322,7 @@ export default {
   dashboard: {
     eyebrow: 'Welcome back',
     greeting: 'Hi, {name}',
-    subtitle: 'Add GitHub projects, README files, and code evidence so AI can ask the first round of interview follow-ups.',
+    subtitle: 'Organize README, source, and configuration evidence to review project claims, resume risks, and interview follow-ups.',
     trialTitle: 'Beta notice',
     trialDesc:
       'Do not upload secrets, company code, or sensitive files. ProjectMentor AI reviews the README and project files you provide. AI outputs are for learning and interview preparation only.',

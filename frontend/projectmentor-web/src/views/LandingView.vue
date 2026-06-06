@@ -181,6 +181,7 @@
       </section>
     </main>
 
+    <AppFooter />
     <FeedbackDialog v-model="feedbackVisible" />
     <DonateDialog v-model="donateVisible" />
   </div>
@@ -204,6 +205,7 @@ import {
   WarningFilled
 } from '@element-plus/icons-vue'
 
+import AppFooter from '@/components/AppFooter.vue'
 import FeedbackDialog from '@/components/FeedbackDialog.vue'
 import DonateDialog from '@/components/DonateDialog.vue'
 import LanguageSwitch from '@/components/LanguageSwitch.vue'

@@ -61,7 +61,8 @@ export default {
     unnamedProject: '未命名项目',
     untitledReport: '项目报告',
     justNow: '刚刚',
-    points: '分'
+    points: '分',
+    copyright: '© 2026 李鑫哲. ProjectMentor AI. All rights reserved.'
   },
   lang: {
     current: '中文',

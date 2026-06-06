@@ -61,7 +61,8 @@ export default {
     unnamedProject: 'Untitled project',
     untitledReport: 'Project report',
     justNow: 'Just now',
-    points: 'pts'
+    points: 'pts',
+    copyright: '© 2026 李鑫哲. ProjectMentor AI. All rights reserved.'
   },
   lang: {
     current: 'English',

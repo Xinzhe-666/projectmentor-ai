@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.xinzhe.projectmentor.analysis.entity.AnalysisReport;
 import com.xinzhe.projectmentor.analysis.mapper.AnalysisReportMapper;
 import com.xinzhe.projectmentor.auth.interceptor.UserContext;
+import com.xinzhe.projectmentor.claim.ClaimEvidenceAuditService;
 import com.xinzhe.projectmentor.common.BusinessException;
 import com.xinzhe.projectmentor.common.ErrorCode;
 import com.xinzhe.projectmentor.project.entity.Project;
@@ -32,6 +33,8 @@ public class ReportShareService {
     private final AnalysisReportMapper analysisReportMapper;
 
     private final ProjectMapper projectMapper;
+
+    private final ClaimEvidenceAuditService claimEvidenceAuditService;
 
     public ReportShareVO getShareInfo(Long reportId) {
         getOwnedReport(reportId);
@@ -215,6 +218,7 @@ public class ReportShareService {
                 .weaknesses(report.getWeaknesses())
                 .riskPoints(report.getRiskPoints())
                 .evidenceChain(report.getEvidenceChain())
+                .claimEvidenceList(claimEvidenceAuditService.parseItems(report.getClaimEvidence()))
                 .suggestions(report.getSuggestions())
                 .resumeBasic(report.getResumeBasic())
                 .resumeStandard(report.getResumeStandard())

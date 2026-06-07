@@ -8,6 +8,8 @@ import com.xinzhe.projectmentor.analysis.mapper.AnalysisReportMapper;
 import com.xinzhe.projectmentor.analysis.vo.AnalysisReportListItemVO;
 import com.xinzhe.projectmentor.analysis.vo.AnalysisReportVO;
 import com.xinzhe.projectmentor.auth.interceptor.UserContext;
+import com.xinzhe.projectmentor.claim.ClaimEvidenceAuditService;
+import com.xinzhe.projectmentor.claim.vo.ClaimEvidenceVO;
 import com.xinzhe.projectmentor.common.BusinessException;
 import com.xinzhe.projectmentor.common.ErrorCode;
 import com.xinzhe.projectmentor.common.PageResult;
@@ -46,6 +48,8 @@ public class AnalysisReportService {
 
     private final ProjectRuleScanner projectRuleScanner;
 
+    private final ClaimEvidenceAuditService claimEvidenceAuditService;
+
     private final ObjectMapper objectMapper;
 
     private final com.xinzhe.projectmentor.ai.LlmClient llmClient;
@@ -74,6 +78,7 @@ public class AnalysisReportService {
             creditConsumed = true;
 
             RuleScanResultVO scanResult = projectRuleScanner.scanProject(projectId);
+            ClaimEvidenceVO claimEvidence = claimEvidenceAuditService.audit(project, projectId);
 
             int authenticityScore = calculateAuthenticityScore(scanResult);
             int readmeScore = calculateReadmeScore(scanResult);
@@ -105,6 +110,7 @@ public class AnalysisReportService {
             report.setInterviewScore(interviewScore);
             report.setRiskPoints(toJson(scanResult.getRisks()));
             report.setEvidenceChain(toJson(scanResult.getEvidences()));
+            report.setClaimEvidence(toJson(claimEvidence.getItems()));
 
             String fallbackSummary = buildSummary(project, totalScore, scanResult);
             String fallbackStrengths = buildStrengths(scanResult);
@@ -729,6 +735,7 @@ public class AnalysisReportService {
                 .weaknesses(report.getWeaknesses())
                 .riskPoints(report.getRiskPoints())
                 .evidenceChain(report.getEvidenceChain())
+                .claimEvidenceList(claimEvidenceAuditService.parseItems(report.getClaimEvidence()))
                 .suggestions(report.getSuggestions())
                 .resumeBasic(report.getResumeBasic())
                 .resumeStandard(report.getResumeStandard())

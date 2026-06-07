@@ -44,6 +44,8 @@ public class AnalysisReport {
 
     private String evidenceChain;
 
+    private String claimEvidence;
+
     private String suggestions;
 
     private String resumeBasic;

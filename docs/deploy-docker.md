@@ -291,3 +291,10 @@ proxy_request_buffering off;
 ALTER TABLE pm_project MODIFY COLUMN description TEXT NULL COMMENT '项目描述';
 ALTER TABLE pm_project MODIFY COLUMN tech_stack TEXT NULL COMMENT '技术栈';
 ```
+
+V4.5-1 新增 Claim-Evidence 主张证据矩阵。已有数据库需要执行：
+
+```sql
+ALTER TABLE pm_analysis_report
+ADD COLUMN claim_evidence LONGTEXT NULL COMMENT '主张证据矩阵JSON';
+```

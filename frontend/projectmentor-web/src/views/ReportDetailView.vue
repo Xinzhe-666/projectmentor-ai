@@ -156,6 +156,18 @@
     <section class="panel">
       <div class="panel-title">
         <div>
+          <h3>{{ t('report.claimEvidenceTitle') }}</h3>
+          <p class="muted">{{ t('report.claimEvidenceDesc') }}</p>
+        </div>
+      </div>
+      <div class="panel-body">
+        <ClaimEvidenceMatrix :claims="report?.claimEvidenceList" />
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">
+        <div>
           <h3>{{ t('report.resumeTitle') }}</h3>
           <p class="muted">{{ t('report.resumeDesc') }}</p>
         </div>
@@ -198,6 +210,7 @@ import { Close, CopyDocument, Link, Printer, Refresh } from '@element-plus/icons
 import { getReportDetail } from '@/api/analysis'
 import { getProjectDetail } from '@/api/project'
 import { createReportShare, disableReportShare, getReportShare } from '@/api/share'
+import ClaimEvidenceMatrix from '@/components/ClaimEvidenceMatrix.vue'
 import EvidenceList from '@/components/EvidenceList.vue'
 import MarkdownBlock from '@/components/MarkdownBlock.vue'
 import RadarScoreChart from '@/components/RadarScoreChart.vue'

@@ -1,9 +1,11 @@
 package com.xinzhe.projectmentor.share.vo;
 
+import com.xinzhe.projectmentor.claim.vo.ClaimEvidenceItemVO;
 import lombok.Builder;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -40,6 +42,8 @@ public class PublicReportVO {
     private String riskPoints;
 
     private String evidenceChain;
+
+    private List<ClaimEvidenceItemVO> claimEvidenceList;
 
     private String suggestions;
 

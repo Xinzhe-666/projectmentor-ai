@@ -128,6 +128,54 @@ export interface RuleScanResult {
   suggestions: string[]
 }
 
+export type ClaimEvidenceStatus =
+  | 'SUPPORTED'
+  | 'PARTIAL'
+  | 'DOC_ONLY'
+  | 'NO_EVIDENCE'
+  | 'RISKY'
+
+export type ClaimCategory =
+  | 'AUTH'
+  | 'DATABASE'
+  | 'CACHE'
+  | 'AI'
+  | 'RAG_OR_QA'
+  | 'FILE_UPLOAD'
+  | 'REPORT'
+  | 'INTERVIEW'
+  | 'ADMIN'
+  | 'CREDIT'
+  | 'DEPLOYMENT'
+  | 'FRONTEND'
+  | 'SECURITY'
+  | 'PERFORMANCE'
+  | 'BUSINESS_OR_PRODUCT'
+  | 'GENERAL'
+
+export interface ClaimEvidenceFile {
+  fileId?: number
+  filePath: string
+  fileType?: string
+  evidenceLevel: 'STRONG' | 'WEAK' | string
+  matchedKeywords: string[]
+  snippet?: string
+  reason?: string
+}
+
+export interface ClaimEvidenceItem {
+  claimText: string
+  sourceType: 'PROJECT_DESCRIPTION' | 'TECH_STACK' | 'README' | string
+  sourceSnippet?: string
+  category: ClaimCategory | string
+  status: ClaimEvidenceStatus
+  confidenceScore?: number
+  reason?: string
+  evidenceFiles: ClaimEvidenceFile[]
+  resumeAdvice?: string
+  interviewQuestion?: string
+}
+
 export interface AnalysisTask {
   taskId: number
   projectId: number
@@ -157,6 +205,7 @@ export interface AnalysisReport {
   weaknesses?: string
   riskPoints?: string
   evidenceChain?: string
+  claimEvidenceList?: ClaimEvidenceItem[]
   suggestions?: string
   resumeBasic?: string
   resumeStandard?: string
@@ -204,6 +253,7 @@ export interface PublicReport {
   weaknesses?: string
   riskPoints?: string
   evidenceChain?: string
+  claimEvidenceList?: ClaimEvidenceItem[]
   suggestions?: string
   resumeBasic?: string
   resumeStandard?: string

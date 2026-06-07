@@ -131,6 +131,7 @@ CREATE TABLE IF NOT EXISTS pm_analysis_report
     weaknesses         TEXT COMMENT '项目不足',
     risk_points        LONGTEXT COMMENT '风险点JSON',
     evidence_chain     LONGTEXT COMMENT '证据链JSON',
+    claim_evidence     LONGTEXT NULL COMMENT '主张证据矩阵JSON',
     suggestions        LONGTEXT COMMENT '建议JSON',
     resume_basic       TEXT COMMENT '简历保守版',
     resume_standard    TEXT COMMENT '简历标准版',

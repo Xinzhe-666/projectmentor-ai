@@ -291,7 +291,12 @@ docker compose down
 
 ## 数据库变更
 
-V4.2-1 新增项目问答记录表 `pm_project_qa_record`，V4.3-3 新增反馈表 `pm_feedback`。全新部署会在 MySQL 初始化时执行 `init.sql`；已有数据库不会自动重放初始化脚本，需要手动执行下面的 SQL：
+V4.2-1 新增项目问答记录表 `pm_project_qa_record`，V4.3-3 新增反馈表 `pm_feedback`，V4.5-1 为审计报告新增 `claim_evidence` 字段。全新部署会在 MySQL 初始化时执行 `init.sql`；已有数据库不会自动重放初始化脚本，需要手动执行下面的 SQL：
+
+```sql
+ALTER TABLE pm_analysis_report
+ADD COLUMN claim_evidence LONGTEXT NULL COMMENT '主张证据矩阵JSON';
+```
 
 ```sql
 CREATE TABLE IF NOT EXISTS pm_project_qa_record (

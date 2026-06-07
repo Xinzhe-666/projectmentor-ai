@@ -219,6 +219,24 @@ V4.4-6 已完成：
 - 完善用户体系，例如邮箱校验、密码重置、用户状态管理等。
 - 梳理更清晰的试用流程和用户数据边界。
 
+## V4.5 Claim-Evidence 主张—证据链审计
+
+V4.5-1 已完成：
+
+- 新增规则版 Claim-Evidence 审计引擎，从项目描述、技术栈和 README 抽取最多 30 条项目主张。
+- 主张覆盖 AUTH、DATABASE、CACHE、AI、RAG_OR_QA、FILE_UPLOAD、REPORT、INTERVIEW、ADMIN、CREDIT、DEPLOYMENT、FRONTEND、SECURITY、PERFORMANCE、BUSINESS_OR_PRODUCT 和 GENERAL 分类。
+- 对每条主张匹配代码、配置、SQL、Docker、Nginx、前端和部署脚本证据，并标记 `SUPPORTED`、`PARTIAL`、`DOC_ONLY`、`NO_EVIDENCE` 或 `RISKY`。
+- 报告保存独立的 `claim_evidence` JSON，不与原有 `evidence_chain` 混用。
+- 报告详情与公开分享页新增 Claim-Evidence Matrix，支持状态筛选、风险优先排序、证据展开和复制面试解释。
+- 证据 snippet 限制为 300 字以内，并对 password、secret、token、API Key、JWT 和数据库密码等疑似敏感值脱敏。
+- 保持现有 userId / projectId 归属校验、额度扣减和失败返还逻辑，不新增 AI 调用，不接入向量数据库，不新增复杂依赖。
+
+边界说明：
+
+- 当前是规则版 claim extraction 和关键词证据匹配，不是法律、学术或权威意义上的真实性鉴定。
+- Claim status 和 AI 结论都不保证 100% 准确，应结合实际项目证据人工复核。
+- 当前主要用于学习、项目复盘、简历表达检查和面试准备，不定位为企业级代码审计或商业安全审计平台。
+
 ## 暂不承诺
 
 以下能力当前不作为已完成能力描述：

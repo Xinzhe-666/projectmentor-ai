@@ -41,7 +41,7 @@ ProjectMentor AI（PMAI）由李鑫哲独立设计、开发并上线。Copyright
 
 ProjectMentor AI 的定位不是“让 AI 直接打分”，而是先做规则扫描和证据链整理，再用 AI 做表达增强和审计补充。AI 不可用时，系统仍然可以输出规则版报告。
 
-## 当前公开预览版本：v4.4-public-preview
+## 当前公开预览版本：v4.5-public-preview
 
 当前版本已经完成 ProjectMentor AI 的核心闭环：
 
@@ -49,6 +49,7 @@ ProjectMentor AI 的定位不是“让 AI 直接打分”，而是先做规则�
 - README 保存；
 - 大项目 ZIP 上传解析，最大 800MB；
 - 规则扫描与证据链；
+- Claim-Evidence 主张—证据链审计矩阵；
 - AI 增强审计报告，AI 不可用时降级为规则报告；
 - AI 幻觉检测；
 - 项目问答；
@@ -90,6 +91,7 @@ PMAI 主要面向计算机学生、实习求职者和早期开发者，适合用
 | ZIP 上传解析 | 已完成 | 支持普通项目 ZIP，最大 800MB，解析源码核心文本并过滤依赖、构建、缓存、二进制和超大文件；文件结果支持分页、路径搜索和基础类型筛选 |
 | 规则扫描 | 已完成 | 基于 README 与项目文件做风险识别 |
 | 证据链 | 已完成 | 对关键结论关联文件、配置或代码证据 |
+| Claim-Evidence 审计 | V4.5-1 | 从项目描述、技术栈和 README 抽取主张，逐条标记 `SUPPORTED` / `PARTIAL` / `DOC_ONLY` / `NO_EVIDENCE` / `RISKY` 并关联脱敏文件证据 |
 | 审计报告 | 已完成 | 输出评分、风险点、建议和三版证据化简历描述，已支持报告详情页浏览器打印 / 另存为 PDF |
 | 只读报告分享 | 已支持 | 审计报告已支持生成随机 Token 只读分享链接，公开页仅展示脱敏后的报告内容 |
 | AI 增强报告 | 基础版 | 支持 OpenAI-compatible API；AI 不可用时降级为规则报告 |
@@ -267,6 +269,19 @@ V4.4-2 优化大项目上传和自查体验，不修改 AI / 额度逻辑，不�
 ALTER TABLE pm_project MODIFY COLUMN description TEXT NULL COMMENT '项目描述';
 ALTER TABLE pm_project MODIFY COLUMN tech_stack TEXT NULL COMMENT '技术栈';
 ```
+
+## V4.5-1 Claim-Evidence 主张—证据链审计引擎
+
+V4.5-1 在原有 README 风险扫描和文件证据链基础上增加逐条主张审计：
+
+- 从项目描述、技术栈和 README 中按规则抽取最多 30 条项目主张。
+- 将主张分类到鉴权、数据库、缓存、AI、项目问答、上传、报告、面试、管理员、额度、部署、前端、安全、性能和产品等方向。
+- 匹配 Java、Vue、配置、SQL、Docker、Nginx 和部署脚本等强证据，并区分 README / docs 等弱证据。
+- 每条主张标记为 `SUPPORTED`、`PARTIAL`、`DOC_ONLY`、`NO_EVIDENCE` 或 `RISKY`。
+- 报告详情和只读分享页展示 Claim-Evidence Matrix，支持状态筛选、证据展开和复制面试解释。
+- 证据 snippet 最长 300 字，并对 password、secret、token、API Key、JWT 等疑似敏感值做脱敏。
+
+当前 Claim extraction 和证据匹配均为规则版，不新增 AI 调用，不接入向量数据库，也不是法律、学术或权威意义上的真实性鉴定。状态结果不保证 100% 准确，应结合实际项目证据人工复核，主要用于学习、项目复盘、简历表达检查和面试准备。
 
 ## 如何用 PMAI 自查 PMAI 自己？
 

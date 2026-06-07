@@ -1,3 +1,25 @@
+# v4.5-1
+
+Claim-Evidence audit engine.
+
+This version adds:
+
+* Rule-based claim extraction from project descriptions, tech stacks, and README files.
+* Claim categories for authentication, database, cache, AI, project Q&A, uploads, reports, interviews, admin, credits, deployment, frontend, security, performance, and product capabilities.
+* Evidence matching across source code, configuration, SQL, Docker, Nginx, frontend files, and operational scripts.
+* Claim statuses: `SUPPORTED`, `PARTIAL`, `DOC_ONLY`, `NO_EVIDENCE`, and `RISKY`.
+* A Claim-Evidence Matrix on private and shared report pages, with status filters, risk-first ordering, expandable evidence, and interview explanation copying.
+* Evidence snippets limited to 300 characters with secret, password, token, API key, JWT, and database credential redaction.
+* A dedicated `pm_analysis_report.claim_evidence` JSON field.
+
+Boundaries:
+
+* Claim extraction and evidence matching are rule-based and do not add another AI call.
+* This is not a legal, academic, or authoritative authenticity determination.
+* Claim statuses and AI results are not guaranteed to be fully accurate and require human review against real project evidence.
+* The feature is intended for learning, project review, resume wording checks, and interview preparation.
+* No vector database, complex NLP dependency, or credit-rule change is included.
+
 # v4.4-public-preview
 
 ProjectMentor AI public preview version.

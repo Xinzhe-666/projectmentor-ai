@@ -35,8 +35,11 @@ cp .env.example .env
 MYSQL_ROOT_PASSWORD=请换成数据库 root 密码
 JWT_SECRET=请换成长随机字符串
 ADMIN_EMAILS=your-admin@example.com
+KNIFE4J_ENABLED=false
 AI_API_KEY=可留空；留空时使用规则版 fallback
 ```
+
+生产环境应保持 `KNIFE4J_ENABLED=false`，避免公开 Knife4j API 文档。本地开发如需调试接口，可通过 `KNIFE4J_ENABLED=true` 开启。
 
 启动服务：
 

@@ -20,6 +20,7 @@ cp .env.example .env
 
 - `MYSQL_ROOT_PASSWORD`：改成开发或部署环境自己的 MySQL root 密码。
 - `JWT_SECRET`：改成足够长的随机字符串，建议不少于 32 位。
+- `KNIFE4J_ENABLED`：控制 Knife4j API 文档开关，生产环境保持 `false`；本地开发需要时可设为 `true`。
 - `AI_API_KEY`：可选；未配置时，系统会降级使用规则报告。
 
 不要把真实 `.env` 提交到 Git。

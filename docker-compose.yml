@@ -53,6 +53,7 @@ services:
       REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      KNIFE4J_ENABLED: ${KNIFE4J_ENABLED:-false}
       AI_ENABLED: ${AI_ENABLED:-true}
       AI_BASE_URL: ${AI_BASE_URL:-https://api.deepseek.com}
       AI_API_KEY: ${AI_API_KEY:-}

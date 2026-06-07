@@ -41,6 +41,39 @@ ProjectMentor AI（PMAI）由李鑫哲独立设计、开发并上线。Copyright
 
 ProjectMentor AI 的定位不是“让 AI 直接打分”，而是先做规则扫描和证据链整理，再用 AI 做表达增强和审计补充。AI 不可用时，系统仍然可以输出规则版报告。
 
+## 当前公开预览版本：v4.4-public-preview
+
+当前版本已经完成 ProjectMentor AI 的核心闭环：
+
+- 项目创建与管理；
+- README 保存；
+- 大项目 ZIP 上传解析，最大 800MB；
+- 规则扫描与证据链；
+- AI 增强审计报告，AI 不可用时降级为规则报告；
+- AI 幻觉检测；
+- 项目问答；
+- 模拟面试与复盘；
+- 我的报告与面试记录；
+- Dashboard 真实数据统计；
+- 额度账户与额度流水；
+- 管理员后台、额度发放与反馈管理；
+- 中文 / English 国际化；
+- Docker Compose + Nginx 部署；
+- MySQL 备份、恢复和线上检查脚本；
+- Nginx 敏感路径拦截；
+- Source-Available / All Rights Reserved 使用边界。
+
+当前边界：
+
+- 当前不是企业级代码审计平台；
+- 当前不是商业安全审计系统；
+- 当前不承诺 AI 结论完全准确；
+- 当前未接入真实支付系统；
+- 当前项目问答仍是轻量证据检索增强，不是成熟向量数据库 RAG；
+- 当前主要用于学习、项目复盘、简历表达检查和答辩 / 面试准备。
+
+版本说明见：[docs/release-notes.md](docs/release-notes.md)。
+
 ## 适合人群与项目范围
 
 PMAI 主要面向计算机学生、实习求职者和早期开发者，适合用于学习、项目复盘、简历表达检查和面试准备。
@@ -436,6 +469,7 @@ docker compose up -d backend
 | `MYSQL_ROOT_PASSWORD` | MySQL root 密码，Docker Compose 启动时必填 |
 | `JWT_SECRET` | JWT 签名密钥，请使用足够长的随机字符串 |
 | `ADMIN_EMAILS` | 管理员邮箱白名单，英文逗号分隔；配置后需要重启 backend 生效 |
+| `KNIFE4J_ENABLED` | 是否启用 Knife4j API 文档，默认 `false`；生产环境应保持关闭，本地开发可设为 `true` |
 | `AI_ENABLED` | 是否启用 AI 增强；未配置 Key 或调用失败时仍会 fallback 到规则版报告 |
 | `AI_BASE_URL` | OpenAI-compatible API 地址，例如 DeepSeek 或其他兼容接口 |
 | `AI_API_KEY` | AI 服务密钥，可留空；留空时使用规则版报告 |
@@ -522,6 +556,7 @@ curl -I http://127.0.0.1/api/auth/me
 - AI Key 未配置时使用规则版报告，不会调用外部 AI 服务。
 - 面试深挖当前是规则版 V1，追问逻辑还需要继续扩展。
 - 管理员后台当前不做复杂 RBAC，不提供用户删除、封号、扣减额度或数据导出能力；V4.3-3 支持管理员手动增加额度和反馈状态管理，不是支付系统或工单系统。
+- `pm_user.role` 是早期预留字段，当前版本不以该字段实现复杂 RBAC；管理员权限以 `ADMIN_EMAILS` 环境变量白名单为准，后端访问 `/api/admin/**` 时会执行管理员校验。
 - 尚未接入真实支付，当前只有额度账户和流水；“请作者喝咖啡”只是自愿二维码支持入口。
 - ZIP 上传当前最大支持 800MB，会自动过滤常见依赖、构建、缓存和 IDE 目录，只解析核心文本文件，不保存二进制文件；大项目建议上传源码核心包。
 - 审计报告只读分享当前为基础版能力，不包含访问统计和密码保护。
@@ -548,3 +583,4 @@ curl -I http://127.0.0.1/api/auth/me
 - [VPS 试用版部署](docs/server-deploy-vps.md)
 - [面试准备与简历写法](docs/interview-preparation.md)
 - [Roadmap](docs/roadmap.md)
+- [Release Notes](docs/release-notes.md)

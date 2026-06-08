@@ -1,6 +1,7 @@
 package com.xinzhe.projectmentor.analysis.vo;
 
 import com.xinzhe.projectmentor.claim.vo.ClaimEvidenceItemVO;
+import com.xinzhe.projectmentor.claim.vo.ClaimEvidenceAiEnhancementVO;
 import lombok.Builder;
 import lombok.Data;
 
@@ -42,6 +43,8 @@ public class AnalysisReportVO {
     private String evidenceChain;
 
     private List<ClaimEvidenceItemVO> claimEvidenceList;
+
+    private ClaimEvidenceAiEnhancementVO claimEvidenceAi;
 
     private String suggestions;
 

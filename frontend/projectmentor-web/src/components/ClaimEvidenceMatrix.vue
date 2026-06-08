@@ -1,5 +1,36 @@
 <template>
   <div class="claim-matrix">
+    <section v-if="hasAiEnhancement" class="claim-ai-panel">
+      <div class="claim-ai-head">
+        <div>
+          <span class="claim-detail-label">{{ t('report.claimAiEnhancedLabel') }}</span>
+          <h4>{{ t('report.claimAiSummary') }}</h4>
+        </div>
+        <el-tag v-if="aiEnhancement?.aiEnhancedAt" effect="plain">
+          {{ aiEnhancement.aiEnhancedAt }}
+        </el-tag>
+      </div>
+      <div class="claim-ai-grid">
+        <section v-if="aiEnhancement?.aiSummary">
+          <span class="claim-detail-label">{{ t('report.claimAiSummary') }}</span>
+          <p>{{ aiEnhancement.aiSummary }}</p>
+        </section>
+        <section v-if="aiEnhancement?.aiRiskOverview">
+          <span class="claim-detail-label">{{ t('report.claimAiRiskOverview') }}</span>
+          <p>{{ aiEnhancement.aiRiskOverview }}</p>
+        </section>
+        <section v-if="aiEnhancement?.aiResumeStrategy">
+          <span class="claim-detail-label">{{ t('report.claimAiResumeStrategy') }}</span>
+          <p>{{ aiEnhancement.aiResumeStrategy }}</p>
+        </section>
+        <section v-if="aiEnhancement?.aiInterviewStrategy">
+          <span class="claim-detail-label">{{ t('report.claimAiInterviewStrategy') }}</span>
+          <p>{{ aiEnhancement.aiInterviewStrategy }}</p>
+        </section>
+      </div>
+      <pre v-if="aiEnhancement?.aiFallbackText" class="claim-ai-fallback">{{ aiEnhancement.aiFallbackText }}</pre>
+    </section>
+
     <div v-if="claims.length" class="claim-toolbar no-print">
       <el-select v-model="statusFilter" class="status-filter">
         <el-option
@@ -37,6 +68,35 @@
         </div>
 
         <p v-if="claim.reason" class="claim-reason">{{ claim.reason }}</p>
+
+        <section v-if="aiItemForClaim(claim)" class="claim-ai-item">
+          <div class="claim-ai-item-head">
+            <span class="claim-detail-label">{{ t('report.claimAiItemTitle') }}</span>
+            <el-tag effect="plain" type="success">{{ t('report.claimAiEnhancedLabel') }}</el-tag>
+          </div>
+          <div class="claim-ai-item-grid">
+            <section v-if="aiItemForClaim(claim)?.aiExplanation">
+              <span class="claim-detail-label">{{ t('report.claimAiExplanation') }}</span>
+              <p>{{ aiItemForClaim(claim)?.aiExplanation }}</p>
+            </section>
+            <section v-if="aiItemForClaim(claim)?.saferResumeExpression">
+              <span class="claim-detail-label">{{ t('report.claimAiSaferResume') }}</span>
+              <p>{{ aiItemForClaim(claim)?.saferResumeExpression }}</p>
+            </section>
+            <section v-if="aiItemForClaim(claim)?.likelyInterviewQuestions?.length">
+              <span class="claim-detail-label">{{ t('report.claimAiLikelyQuestions') }}</span>
+              <ul>
+                <li v-for="question in aiItemForClaim(claim)?.likelyInterviewQuestions" :key="question">
+                  {{ question }}
+                </li>
+              </ul>
+            </section>
+            <section v-if="aiItemForClaim(claim)?.improvementSuggestion">
+              <span class="claim-detail-label">{{ t('report.claimAiImprovement') }}</span>
+              <p>{{ aiItemForClaim(claim)?.improvementSuggestion }}</p>
+            </section>
+          </div>
+        </section>
 
         <div class="claim-detail-grid">
           <section>
@@ -120,14 +180,18 @@ import { ElMessage } from 'element-plus'
 import { CopyDocument } from '@element-plus/icons-vue'
 
 import type {
+  ClaimEvidenceAiEnhancement,
+  ClaimEvidenceAiItem,
   ClaimEvidenceItem,
   ClaimEvidenceStatus
 } from '@/types/api'
 
 const props = withDefaults(defineProps<{
   claims?: ClaimEvidenceItem[]
+  aiEnhancement?: ClaimEvidenceAiEnhancement
 }>(), {
-  claims: () => []
+  claims: () => [],
+  aiEnhancement: undefined
 })
 
 const { t } = useI18n()
@@ -135,6 +199,25 @@ const statusFilter = ref<'ALL' | ClaimEvidenceStatus>('ALL')
 const expandedClaims = ref<Set<string>>(new Set())
 
 const claims = computed(() => props.claims || [])
+const aiEnhancement = computed(() => props.aiEnhancement)
+const hasAiEnhancement = computed(() => Boolean(
+  aiEnhancement.value?.aiEnhanced
+    || aiEnhancement.value?.aiSummary
+    || aiEnhancement.value?.aiRiskOverview
+    || aiEnhancement.value?.aiResumeStrategy
+    || aiEnhancement.value?.aiInterviewStrategy
+    || aiEnhancement.value?.aiFallbackText
+    || aiEnhancement.value?.aiEnhancedItems?.length
+))
+const aiItemsByClaim = computed(() => {
+  const map = new Map<string, ClaimEvidenceAiItem>()
+  for (const item of aiEnhancement.value?.aiEnhancedItems || []) {
+    if (item.claimText) {
+      map.set(normalizeClaimText(item.claimText), item)
+    }
+  }
+  return map
+})
 
 const statusPriority: Record<ClaimEvidenceStatus, number> = {
   RISKY: 0,
@@ -167,6 +250,14 @@ const statusOptions = computed(() => [
 
 function claimKey(claim: ClaimEvidenceItem, index: number) {
   return `${claim.sourceType}-${claim.claimText}-${index}`
+}
+
+function normalizeClaimText(text: string) {
+  return text.trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
+function aiItemForClaim(claim: ClaimEvidenceItem) {
+  return aiItemsByClaim.value.get(normalizeClaimText(claim.claimText))
 }
 
 function statusLabel(status: ClaimEvidenceStatus) {
@@ -304,6 +395,81 @@ async function copyText(text: string) {
 .claim-list {
   display: grid;
   gap: 14px;
+}
+
+.claim-ai-panel {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--pm-border);
+  border-left: 4px solid #1f6feb;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.claim-ai-head,
+.claim-ai-item-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.claim-ai-head h4 {
+  margin: 6px 0 0;
+  color: var(--pm-ink);
+  font-size: 17px;
+}
+
+.claim-ai-grid,
+.claim-ai-item-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.claim-ai-grid section,
+.claim-ai-item-grid section {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #eaecf0;
+  border-radius: 7px;
+  background: #fbfdff;
+}
+
+.claim-ai-grid p,
+.claim-ai-item-grid p,
+.claim-ai-item-grid ul {
+  margin: 8px 0 0;
+  color: #475467;
+  line-height: 1.7;
+}
+
+.claim-ai-item-grid ul {
+  padding-left: 18px;
+}
+
+.claim-ai-fallback {
+  max-width: 100%;
+  margin: 0;
+  padding: 10px;
+  overflow-x: auto;
+  border-radius: 6px;
+  background: #101828;
+  color: #f2f4f7;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.claim-ai-item {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid rgba(31, 111, 235, 0.18);
+  border-radius: 8px;
+  background: #f8fbff;
 }
 
 .claim-card {
@@ -471,7 +637,9 @@ async function copyText(text: string) {
 @media (max-width: 760px) {
   .claim-toolbar,
   .claim-card-head,
-  .claim-detail-grid {
+  .claim-detail-grid,
+  .claim-ai-grid,
+  .claim-ai-item-grid {
     display: grid;
     grid-template-columns: 1fr;
   }

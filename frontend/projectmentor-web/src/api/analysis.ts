@@ -57,3 +57,10 @@ export function getReportDetail(reportId: number) {
     method: 'get'
   })
 }
+
+export function enhanceClaimEvidence(reportId: number) {
+  return request<AnalysisReport>({
+    url: `/api/reports/${reportId}/claim-evidence/ai-enhance`,
+    method: 'post'
+  })
+}

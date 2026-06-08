@@ -176,6 +176,25 @@ export interface ClaimEvidenceItem {
   interviewQuestion?: string
 }
 
+export interface ClaimEvidenceAiItem {
+  claimText: string
+  aiExplanation?: string
+  saferResumeExpression?: string
+  likelyInterviewQuestions?: string[]
+  improvementSuggestion?: string
+}
+
+export interface ClaimEvidenceAiEnhancement {
+  aiEnhanced?: boolean
+  aiEnhancedAt?: string
+  aiSummary?: string
+  aiRiskOverview?: string
+  aiResumeStrategy?: string
+  aiInterviewStrategy?: string
+  aiEnhancedItems?: ClaimEvidenceAiItem[]
+  aiFallbackText?: string
+}
+
 export interface AnalysisTask {
   taskId: number
   projectId: number
@@ -206,6 +225,7 @@ export interface AnalysisReport {
   riskPoints?: string
   evidenceChain?: string
   claimEvidenceList?: ClaimEvidenceItem[]
+  claimEvidenceAi?: ClaimEvidenceAiEnhancement
   suggestions?: string
   resumeBasic?: string
   resumeStandard?: string
@@ -254,6 +274,7 @@ export interface PublicReport {
   riskPoints?: string
   evidenceChain?: string
   claimEvidenceList?: ClaimEvidenceItem[]
+  claimEvidenceAi?: ClaimEvidenceAiEnhancement
   suggestions?: string
   resumeBasic?: string
   resumeStandard?: string

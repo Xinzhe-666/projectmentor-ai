@@ -47,6 +47,7 @@
 | `POST` | `/api/projects/{projectId}/reports/generate` | 同步生成项目审计报告 | 是 |
 | `GET` | `/api/projects/{projectId}/reports` | 获取项目报告列表 | 是 |
 | `GET` | `/api/reports/{reportId}` | 获取报告详情 | 是 |
+| `POST` | `/api/reports/{reportId}/claim-evidence/ai-enhance` | AI 深度解读已生成的 Claim-Evidence Matrix，消耗 2 credits，失败返还 | 是 |
 
 ## Analysis Task
 

@@ -1,3 +1,23 @@
+# v4.5-2
+
+AI Claim-Evidence enhancement and credit-cost unification.
+
+This version adds:
+
+* New users now receive 10 credits on registration via the existing `REGISTER_GIFT` credit log.
+* A shared AI credit-cost constant set, including `AI_CLAIM_EVIDENCE = 2`.
+* `POST /api/reports/{reportId}/claim-evidence/ai-enhance` for authenticated users to AI-enhance their own report's Claim-Evidence Matrix.
+* A report detail button with a 2-credit confirmation prompt, loading state, success refresh, and bilingual UI copy.
+* Stored AI enhancement fields inside `pm_analysis_report.claim_evidence` JSON, without adding database columns.
+* Refund handling for failed AI calls or failed enhancement persistence.
+* Public report rendering for already-saved AI enhancement content without exposing credit data, AI logs, or source code.
+
+Boundaries:
+
+* Rule-based scanning, upload parsing, history views, and Dashboard browsing remain free of credit deductions.
+* No new AI provider, vector database, external dependency, or `.env.development` change is included.
+* AI enhancement only interprets structured Claim-Evidence data; it does not rescan the full repository or invent implementation details.
+
 # v4.5-1
 
 Claim-Evidence audit engine.

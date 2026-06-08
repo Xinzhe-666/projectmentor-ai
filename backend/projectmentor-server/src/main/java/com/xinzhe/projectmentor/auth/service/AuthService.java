@@ -10,6 +10,7 @@ import com.xinzhe.projectmentor.auth.vo.LoginResponse;
 import com.xinzhe.projectmentor.auth.vo.UserInfoVO;
 import com.xinzhe.projectmentor.common.BusinessException;
 import com.xinzhe.projectmentor.common.ErrorCode;
+import com.xinzhe.projectmentor.credit.CreditCostConstants;
 import com.xinzhe.projectmentor.credit.entity.CreditLog;
 import com.xinzhe.projectmentor.credit.entity.UserPlan;
 import com.xinzhe.projectmentor.credit.mapper.CreditLogMapper;
@@ -68,21 +69,21 @@ public class AuthService {
         UserPlan userPlan = new UserPlan();
         userPlan.setUserId(user.getId());
         userPlan.setPlanType("FREE");
-        userPlan.setRemainingCredits(3);
+        userPlan.setRemainingCredits(CreditCostConstants.REGISTER_GIFT);
         userPlanMapper.insert(userPlan);
 
         CreditLog creditLog = new CreditLog();
         creditLog.setUserId(user.getId());
-        creditLog.setChangeAmount(3);
+        creditLog.setChangeAmount(CreditCostConstants.REGISTER_GIFT);
         creditLog.setBeforeAmount(0);
-        creditLog.setAfterAmount(3);
-        creditLog.setOperationType("REGISTER_GIFT");
-        creditLog.setRemark("新用户注册赠送 3 次免费分析额度");
+        creditLog.setAfterAmount(CreditCostConstants.REGISTER_GIFT);
+        creditLog.setOperationType(CreditCostConstants.OP_REGISTER_GIFT);
+        creditLog.setRemark("新用户注册赠送 10 次 AI 额度");
         creditLogMapper.insert(creditLog);
 
         String token = jwtUtil.generateToken(user.getId(), user.getUsername());
 
-        return buildLoginResponse(user, token, 3);
+        return buildLoginResponse(user, token, CreditCostConstants.REGISTER_GIFT);
     }
 
     public LoginResponse login(LoginRequest request) {

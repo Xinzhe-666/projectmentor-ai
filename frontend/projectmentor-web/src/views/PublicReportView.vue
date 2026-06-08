@@ -122,7 +122,10 @@
             </div>
           </div>
           <div class="panel-body">
-            <ClaimEvidenceMatrix :claims="report.claimEvidenceList" />
+            <ClaimEvidenceMatrix
+              :claims="report.claimEvidenceList"
+              :ai-enhancement="report.claimEvidenceAi"
+            />
           </div>
         </section>
 

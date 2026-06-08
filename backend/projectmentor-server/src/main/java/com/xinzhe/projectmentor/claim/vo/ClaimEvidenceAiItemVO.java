@@ -6,19 +6,20 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
-import java.util.Map;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ClaimEvidenceVO {
+public class ClaimEvidenceAiItemVO {
 
-    private Long projectId;
+    private String claimText;
 
-    private Integer totalClaims;
+    private String aiExplanation;
 
-    private Map<String, Integer> statusCounts;
+    private String saferResumeExpression;
 
-    private List<ClaimEvidenceItemVO> items;
+    private List<String> likelyInterviewQuestions;
+
+    private String improvementSuggestion;
 }

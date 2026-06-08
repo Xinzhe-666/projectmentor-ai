@@ -159,9 +159,28 @@
           <h3>{{ t('report.claimEvidenceTitle') }}</h3>
           <p class="muted">{{ t('report.claimEvidenceDesc') }}</p>
         </div>
+        <div class="claim-ai-action no-print">
+          <el-button
+            type="primary"
+            plain
+            :icon="MagicStick"
+            :loading="claimAiLoading"
+            @click="handleClaimAiEnhance"
+          >
+            {{ claimAiLoading ? t('report.claimAiAnalyzing') : t('report.claimAiButton') }}
+          </el-button>
+          <span>{{ t('report.claimAiCost') }}</span>
+        </div>
       </div>
-      <div class="panel-body">
-        <ClaimEvidenceMatrix :claims="report?.claimEvidenceList" />
+      <div
+        class="panel-body"
+        v-loading="claimAiLoading"
+        :element-loading-text="t('report.claimAiLoading')"
+      >
+        <ClaimEvidenceMatrix
+          :claims="report?.claimEvidenceList"
+          :ai-enhancement="report?.claimEvidenceAi"
+        />
       </div>
     </section>
 
@@ -204,10 +223,11 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { ElMessage } from 'element-plus'
-import { Close, CopyDocument, Link, Printer, Refresh } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Close, CopyDocument, Link, MagicStick, Printer, Refresh } from '@element-plus/icons-vue'
 
-import { getReportDetail } from '@/api/analysis'
+import { enhanceClaimEvidence, getReportDetail } from '@/api/analysis'
+import { getMyCredits } from '@/api/credit'
 import { getProjectDetail } from '@/api/project'
 import { createReportShare, disableReportShare, getReportShare } from '@/api/share'
 import ClaimEvidenceMatrix from '@/components/ClaimEvidenceMatrix.vue'
@@ -216,6 +236,7 @@ import MarkdownBlock from '@/components/MarkdownBlock.vue'
 import RadarScoreChart from '@/components/RadarScoreChart.vue'
 import RiskList from '@/components/RiskList.vue'
 import ScoreRing from '@/components/ScoreRing.vue'
+import { useUserStore } from '@/stores/user'
 import type { AnalysisReport, Project, ReportShare } from '@/types/api'
 
 const route = useRoute()
@@ -223,9 +244,11 @@ const { t } = useI18n()
 const reportId = Number(route.params.id)
 const loading = ref(false)
 const shareLoading = ref(false)
+const claimAiLoading = ref(false)
 const report = ref<AnalysisReport>()
 const project = ref<Project>()
 const shareInfo = ref<ReportShare>()
+const userStore = useUserStore()
 
 const reportProjectName = computed(() => {
   if (project.value?.name) {
@@ -323,6 +346,47 @@ async function loadShareInfo() {
     shareInfo.value = await getReportShare(reportId)
   } finally {
     shareLoading.value = false
+  }
+}
+
+async function handleClaimAiEnhance() {
+  if (!report.value?.claimEvidenceList?.length) {
+    ElMessage.warning(t('report.noClaimEvidence'))
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      t('report.claimAiConfirm'),
+      t('report.claimAiConfirmTitle'),
+      {
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
+        type: 'warning'
+      }
+    )
+  } catch {
+    return
+  }
+
+  claimAiLoading.value = true
+  try {
+    report.value = await enhanceClaimEvidence(reportId)
+    await syncCredits()
+    ElMessage.success(t('report.claimAiSuccess'))
+  } catch {
+    await syncCredits()
+  } finally {
+    claimAiLoading.value = false
+  }
+}
+
+async function syncCredits() {
+  try {
+    const credits = await getMyCredits()
+    userStore.updateCredits(credits.remainingCredits)
+  } catch {
+    // Header balance will refresh on the next normal credit fetch.
   }
 }
 
@@ -517,6 +581,19 @@ onMounted(() => {
   background: #fbfdff;
 }
 
+.claim-ai-action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.claim-ai-action span {
+  color: var(--pm-muted);
+  font-size: 12px;
+}
+
 .report-print-button {
   flex: 0 0 auto;
 }
@@ -629,6 +706,11 @@ onMounted(() => {
   }
 
   .report-actions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .claim-ai-action {
     justify-content: flex-start;
     width: 100%;
   }

@@ -116,7 +116,7 @@ Redis 写入初始进度
 ```text
 注册用户
   ↓
-创建 FREE 套餐，赠送 3 次分析额度
+创建 FREE 套餐，赠送 10 credits，并记录 REGISTER_GIFT 流水
   ↓
 生成报告前扣除 1 次额度
   ↓

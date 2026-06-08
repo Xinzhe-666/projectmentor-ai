@@ -1,18 +1,25 @@
 package com.xinzhe.projectmentor.analysis.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.xinzhe.projectmentor.ai.AiJsonUtil;
 import com.xinzhe.projectmentor.analysis.entity.AnalysisReport;
 import com.xinzhe.projectmentor.analysis.mapper.AnalysisReportMapper;
 import com.xinzhe.projectmentor.analysis.vo.AnalysisReportListItemVO;
 import com.xinzhe.projectmentor.analysis.vo.AnalysisReportVO;
 import com.xinzhe.projectmentor.auth.interceptor.UserContext;
+import com.xinzhe.projectmentor.claim.ClaimEvidenceAiPromptBuilder;
 import com.xinzhe.projectmentor.claim.ClaimEvidenceAuditService;
+import com.xinzhe.projectmentor.claim.vo.ClaimEvidenceAiEnhancementVO;
+import com.xinzhe.projectmentor.claim.vo.ClaimEvidenceAiItemVO;
 import com.xinzhe.projectmentor.claim.vo.ClaimEvidenceVO;
 import com.xinzhe.projectmentor.common.BusinessException;
 import com.xinzhe.projectmentor.common.ErrorCode;
 import com.xinzhe.projectmentor.common.PageResult;
+import com.xinzhe.projectmentor.credit.CreditCostConstants;
 import com.xinzhe.projectmentor.project.entity.Project;
 import com.xinzhe.projectmentor.project.mapper.ProjectMapper;
 import com.xinzhe.projectmentor.scanner.ProjectRuleScanner;
@@ -25,6 +32,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -52,9 +61,13 @@ public class AnalysisReportService {
 
     private final ObjectMapper objectMapper;
 
+    private final AiJsonUtil aiJsonUtil;
+
     private final com.xinzhe.projectmentor.ai.LlmClient llmClient;
 
     private final AuditPromptBuilder auditPromptBuilder;
+
+    private final ClaimEvidenceAiPromptBuilder claimEvidenceAiPromptBuilder;
 
     private boolean isBlank(String text) {
         return text == null || text.isBlank();
@@ -70,8 +83,8 @@ public class AnalysisReportService {
         try {
             creditService.consumeCredits(
                     userId,
-                    1,
-                    "GENERATE_ANALYSIS_REPORT",
+                    CreditCostConstants.ANALYSIS_REPORT,
+                    CreditCostConstants.OP_GENERATE_ANALYSIS_REPORT,
                     projectId,
                     "生成项目审计报告消耗 1 点额度"
             );
@@ -151,8 +164,8 @@ public class AnalysisReportService {
             if (creditConsumed) {
                 creditService.refundCredits(
                         userId,
-                        1,
-                        "GENERATE_ANALYSIS_REPORT_REFUND",
+                        CreditCostConstants.ANALYSIS_REPORT,
+                        CreditCostConstants.OP_GENERATE_ANALYSIS_REPORT_REFUND,
                         projectId,
                         "项目审计报告生成失败，返还 1 点额度"
                 );
@@ -252,30 +265,84 @@ public class AnalysisReportService {
     }
 
     public AnalysisReportVO getReportDetail(Long reportId) {
-        Long userId = UserContext.getUserId();
-
-        if (userId == null) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED);
-        }
-
-        AnalysisReport report = analysisReportMapper.selectById(reportId);
-
-        if (report == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "报告不存在");
-        }
-
-        Project project = projectMapper.selectOne(
-                new LambdaQueryWrapper<Project>()
-                        .eq(Project::getId, report.getProjectId())
-                        .eq(Project::getUserId, userId)
-                        .last("LIMIT 1")
-        );
-
-        if (project == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "报告不存在或无权限访问");
-        }
-
+        AnalysisReport report = requireOwnedReport(reportId, getCurrentUserId());
         return toVO(report);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public AnalysisReportVO enhanceClaimEvidence(Long reportId) {
+        Long userId = getCurrentUserId();
+        AnalysisReport report = requireOwnedReport(reportId, userId);
+        List<com.xinzhe.projectmentor.claim.vo.ClaimEvidenceItemVO> claimItems =
+                claimEvidenceAuditService.parseItems(report.getClaimEvidence());
+
+        if (claimItems.isEmpty()) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "当前报告暂无主张证据矩阵，请先重新生成报告。");
+        }
+
+        String prompt = claimEvidenceAiPromptBuilder.build(claimItems);
+        boolean creditConsumed = false;
+        boolean aiCallCompleted = false;
+
+        try {
+            creditService.consumeCredits(
+                    userId,
+                    CreditCostConstants.AI_CLAIM_EVIDENCE,
+                    CreditCostConstants.OP_AI_CLAIM_EVIDENCE,
+                    reportId,
+                    "AI 深度解读主张证据矩阵"
+            );
+            creditConsumed = true;
+
+            String content = llmClient.chat(
+                    "CLAIM_EVIDENCE",
+                    claimEvidenceAiPromptBuilder.systemPrompt(),
+                    prompt
+            );
+            aiCallCompleted = true;
+            ClaimEvidenceAiEnhancementVO aiEnhancement = parseClaimEvidenceAiEnhancement(content);
+            aiEnhancement.setAiEnhanced(true);
+            aiEnhancement.setAiEnhancedAt(LocalDateTime.now());
+
+            report.setClaimEvidence(mergeClaimEvidenceAiEnhancement(
+                    report.getClaimEvidence(),
+                    claimItems,
+                    aiEnhancement
+            ));
+
+            int updated = analysisReportMapper.updateById(report);
+            if (updated <= 0) {
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "AI 增强结果保存失败，额度已返还，请稍后重试。");
+            }
+
+            return toVO(report);
+        } catch (BusinessException e) {
+            if (creditConsumed) {
+                refundClaimEvidenceCredits(userId, reportId);
+            }
+
+            if (e.getCode() == ErrorCode.CREDIT_NOT_ENOUGH.getCode()) {
+                throw e;
+            }
+            if (e.getCode() == ErrorCode.AI_SERVICE_ERROR.getCode()) {
+                throw new BusinessException(ErrorCode.AI_SERVICE_ERROR, "AI 调用失败，额度已返还，请稍后重试。");
+            }
+            if (aiCallCompleted) {
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "AI 解读已生成但保存失败，额度已返还，请稍后重试。");
+            }
+
+            throw e;
+        } catch (Exception e) {
+            if (creditConsumed) {
+                refundClaimEvidenceCredits(userId, reportId);
+            }
+
+            if (aiCallCompleted) {
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "AI 解读已生成但保存失败，额度已返还，请稍后重试。");
+            }
+
+            throw new BusinessException(ErrorCode.AI_SERVICE_ERROR, "AI 调用失败，额度已返还，请稍后重试。");
+        }
     }
 
     private Project checkProjectOwner(Long projectId) {
@@ -297,6 +364,31 @@ public class AnalysisReportService {
         }
 
         return project;
+    }
+
+    private AnalysisReport requireOwnedReport(Long reportId, Long userId) {
+        if (userId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+
+        AnalysisReport report = analysisReportMapper.selectById(reportId);
+
+        if (report == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "报告不存在");
+        }
+
+        Project project = projectMapper.selectOne(
+                new LambdaQueryWrapper<Project>()
+                        .eq(Project::getId, report.getProjectId())
+                        .eq(Project::getUserId, userId)
+                        .last("LIMIT 1")
+        );
+
+        if (project == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "报告不存在或无权限访问");
+        }
+
+        return report;
     }
 
     private Long getCurrentUserId() {
@@ -718,6 +810,129 @@ public class AnalysisReportService {
         return normalized.substring(0, 180) + "...";
     }
 
+    private ClaimEvidenceAiEnhancementVO parseClaimEvidenceAiEnhancement(String content) {
+        JsonNode root = aiJsonUtil.safeReadTree(content);
+        if (root == null || !root.isObject()) {
+            return fallbackClaimEvidenceAiEnhancement(content);
+        }
+
+        return ClaimEvidenceAiEnhancementVO.builder()
+                .aiSummary(aiJsonUtil.getText(root, "summary"))
+                .aiRiskOverview(aiJsonUtil.getText(root, "riskOverview"))
+                .aiResumeStrategy(aiJsonUtil.getText(root, "resumeStrategy"))
+                .aiInterviewStrategy(aiJsonUtil.getText(root, "interviewStrategy"))
+                .aiEnhancedItems(parseClaimEvidenceAiItems(root.get("items")))
+                .build();
+    }
+
+    private List<ClaimEvidenceAiItemVO> parseClaimEvidenceAiItems(JsonNode node) {
+        if (node == null || !node.isArray()) {
+            return Collections.emptyList();
+        }
+
+        List<ClaimEvidenceAiItemVO> items = new ArrayList<>();
+        for (JsonNode itemNode : node) {
+            items.add(ClaimEvidenceAiItemVO.builder()
+                    .claimText(aiJsonUtil.getText(itemNode, "claimText"))
+                    .aiExplanation(aiJsonUtil.getText(itemNode, "aiExplanation"))
+                    .saferResumeExpression(aiJsonUtil.getText(itemNode, "saferResumeExpression"))
+                    .likelyInterviewQuestions(parseTextList(itemNode.get("likelyInterviewQuestions")))
+                    .improvementSuggestion(aiJsonUtil.getText(itemNode, "improvementSuggestion"))
+                    .build());
+        }
+
+        return items;
+    }
+
+    private List<String> parseTextList(JsonNode node) {
+        if (node == null || !node.isArray()) {
+            return Collections.emptyList();
+        }
+
+        List<String> values = new ArrayList<>();
+        for (JsonNode item : node) {
+            if (item != null && !item.isNull()) {
+                values.add(item.asText(""));
+            }
+        }
+
+        return values.stream()
+                .filter(StringUtils::hasText)
+                .toList();
+    }
+
+    private ClaimEvidenceAiEnhancementVO fallbackClaimEvidenceAiEnhancement(String content) {
+        return ClaimEvidenceAiEnhancementVO.builder()
+                .aiSummary("AI 已返回解读内容，但未能解析为结构化 JSON。")
+                .aiRiskOverview("请结合基础主张证据矩阵人工复核，避免直接采用不确定表述。")
+                .aiResumeStrategy("优先使用基础矩阵中的保守简历建议，并核对每条 claim 的证据状态。")
+                .aiInterviewStrategy("围绕已有证据文件准备解释，遇到缺少证据的主张应主动说明边界。")
+                .aiEnhancedItems(Collections.emptyList())
+                .aiFallbackText(truncate(content, 4000))
+                .build();
+    }
+
+    private String mergeClaimEvidenceAiEnhancement(String existingJson,
+                                                   List<com.xinzhe.projectmentor.claim.vo.ClaimEvidenceItemVO> items,
+                                                   ClaimEvidenceAiEnhancementVO aiEnhancement) {
+        try {
+            JsonNode rootNode = null;
+            if (StringUtils.hasText(existingJson)) {
+                rootNode = objectMapper.readTree(existingJson);
+            }
+            ObjectNode root = rootNode != null && rootNode.isObject()
+                    ? (ObjectNode) rootNode.deepCopy()
+                    : objectMapper.createObjectNode();
+
+            root.set("items", objectMapper.valueToTree(items));
+            root.put("aiEnhanced", Boolean.TRUE.equals(aiEnhancement.getAiEnhanced()));
+            root.put("aiEnhancedAt", aiEnhancement.getAiEnhancedAt() == null
+                    ? LocalDateTime.now().toString()
+                    : aiEnhancement.getAiEnhancedAt().toString());
+            root.put("aiSummary", emptyIfNull(aiEnhancement.getAiSummary()));
+            root.put("aiRiskOverview", emptyIfNull(aiEnhancement.getAiRiskOverview()));
+            root.put("aiResumeStrategy", emptyIfNull(aiEnhancement.getAiResumeStrategy()));
+            root.put("aiInterviewStrategy", emptyIfNull(aiEnhancement.getAiInterviewStrategy()));
+            root.set("aiEnhancedItems", objectMapper.valueToTree(
+                    aiEnhancement.getAiEnhancedItems() == null
+                            ? Collections.emptyList()
+                            : aiEnhancement.getAiEnhancedItems()
+            ));
+
+            if (StringUtils.hasText(aiEnhancement.getAiFallbackText())) {
+                root.put("aiFallbackText", aiEnhancement.getAiFallbackText());
+            } else {
+                root.remove("aiFallbackText");
+            }
+
+            return objectMapper.writeValueAsString(root);
+        } catch (JsonProcessingException e) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 增强结果序列化失败");
+        }
+    }
+
+    private void refundClaimEvidenceCredits(Long userId, Long reportId) {
+        creditService.refundCredits(
+                userId,
+                CreditCostConstants.AI_CLAIM_EVIDENCE,
+                CreditCostConstants.OP_AI_CLAIM_EVIDENCE_REFUND,
+                reportId,
+                "AI Claim-Evidence 增强失败返还"
+        );
+    }
+
+    private String emptyIfNull(String text) {
+        return text == null ? "" : text;
+    }
+
+    private String truncate(String text, int maxChars) {
+        if (text == null || text.length() <= maxChars) {
+            return text;
+        }
+
+        return text.substring(0, maxChars);
+    }
+
     private AnalysisReportVO toVO(AnalysisReport report) {
         return AnalysisReportVO.builder()
                 .id(report.getId())
@@ -736,6 +951,7 @@ public class AnalysisReportService {
                 .riskPoints(report.getRiskPoints())
                 .evidenceChain(report.getEvidenceChain())
                 .claimEvidenceList(claimEvidenceAuditService.parseItems(report.getClaimEvidence()))
+                .claimEvidenceAi(claimEvidenceAuditService.parseAiEnhancement(report.getClaimEvidence()))
                 .suggestions(report.getSuggestions())
                 .resumeBasic(report.getResumeBasic())
                 .resumeStandard(report.getResumeStandard())

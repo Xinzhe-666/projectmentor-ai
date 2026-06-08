@@ -38,4 +38,9 @@ public class AnalysisReportController {
     public Result<AnalysisReportVO> getReportDetail(@PathVariable Long reportId) {
         return Result.success(analysisReportService.getReportDetail(reportId));
     }
+
+    @PostMapping("/api/reports/{reportId}/claim-evidence/ai-enhance")
+    public Result<AnalysisReportVO> enhanceClaimEvidence(@PathVariable Long reportId) {
+        return Result.success(analysisReportService.enhanceClaimEvidence(reportId));
+    }
 }

@@ -219,6 +219,7 @@ public class ReportShareService {
                 .riskPoints(report.getRiskPoints())
                 .evidenceChain(report.getEvidenceChain())
                 .claimEvidenceList(claimEvidenceAuditService.parseItems(report.getClaimEvidence()))
+                .claimEvidenceAi(claimEvidenceAuditService.parseAiEnhancement(report.getClaimEvidence()))
                 .suggestions(report.getSuggestions())
                 .resumeBasic(report.getResumeBasic())
                 .resumeStandard(report.getResumeStandard())

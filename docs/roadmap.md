@@ -231,10 +231,20 @@ V4.5-1 已完成：
 - 证据 snippet 限制为 300 字以内，并对 password、secret、token、API Key、JWT 和数据库密码等疑似敏感值脱敏。
 - 保持现有 userId / projectId 归属校验、额度扣减和失败返还逻辑，不新增 AI 调用，不接入向量数据库，不新增复杂依赖。
 
+V4.5-2 已完成：
+
+- 新用户注册赠送额度调整为 10 credits，并继续写入 `REGISTER_GIFT` 流水。
+- 新增统一 AI 额度成本常量，至少收口 `AI_CLAIM_EVIDENCE = 2`；规则扫描、上传解析、历史查看和 Dashboard 浏览不扣额度。
+- 新增 `POST /api/reports/{reportId}/claim-evidence/ai-enhance`，只允许增强当前用户自己项目下的报告。
+- AI Claim-Evidence 增强只使用已保存的结构化矩阵数据，优先分析 `RISKY`、`NO_EVIDENCE`、`DOC_ONLY`、`PARTIAL` 等风险更高的 claim，不重新扫描完整仓库。
+- 增强成功后将 `aiEnhanced`、`aiSummary`、`aiRiskOverview`、`aiResumeStrategy`、`aiInterviewStrategy` 和 `aiEnhancedItems` 写回 `pm_analysis_report.claim_evidence` JSON，不新增数据库字段。
+- AI 调用或保存失败会返还 2 credits，并写入失败返还流水。
+- 报告详情页新增确认消耗额度的 AI 深度解读按钮，公开分享页只展示已保存到报告 JSON 的 AI 增强内容。
+
 边界说明：
 
 - 当前是规则版 claim extraction 和关键词证据匹配，不是法律、学术或权威意义上的真实性鉴定。
-- Claim status 和 AI 结论都不保证 100% 准确，应结合实际项目证据人工复核。
+- Claim status 和 AI 增强结论都不保证 100% 准确，应结合实际项目证据人工复核。
 - 当前主要用于学习、项目复盘、简历表达检查和面试准备，不定位为企业级代码审计或商业安全审计平台。
 
 ## 暂不承诺

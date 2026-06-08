@@ -1,5 +1,7 @@
 package com.xinzhe.projectmentor.claim;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.xinzhe.projectmentor.claim.vo.ClaimEvidenceAiEnhancementVO;
 import com.xinzhe.projectmentor.claim.vo.ClaimEvidenceItemVO;
 import com.xinzhe.projectmentor.file.entity.ProjectFile;
 import com.xinzhe.projectmentor.project.entity.Project;
@@ -106,6 +108,56 @@ class ClaimEvidenceEngineTests {
                 .doesNotContain("abcdefghijklmnopqrstuvwxyz")
                 .contains("AI_API_KEY=******")
                 .hasSizeLessThanOrEqualTo(300);
+    }
+
+    @Test
+    void parsesLegacyAndAiEnhancedClaimEvidenceJson() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper();
+        ClaimEvidenceAuditService service = new ClaimEvidenceAuditService(null, null, null, objectMapper);
+        ClaimEvidenceItemVO claim = ClaimEvidenceItemVO.builder()
+                .claimText("项目支持 JWT 登录")
+                .sourceType("README")
+                .category(ClaimCategory.AUTH)
+                .status(ClaimEvidenceStatus.DOC_ONLY)
+                .evidenceFiles(List.of())
+                .build();
+
+        String legacyJson = objectMapper.writeValueAsString(List.of(claim));
+
+        assertThat(service.parseItems(legacyJson))
+                .hasSize(1)
+                .first()
+                .extracting(ClaimEvidenceItemVO::getClaimText)
+                .isEqualTo("项目支持 JWT 登录");
+
+        String enhancedJson = """
+                {
+                  "items": %s,
+                  "aiEnhanced": true,
+                  "aiEnhancedAt": "2026-06-08T10:00:00",
+                  "aiSummary": "整体应保守表达",
+                  "aiEnhancedItems": [
+                    {
+                      "claimText": "项目支持 JWT 登录",
+                      "aiExplanation": "目前只有 README 证据",
+                      "saferResumeExpression": "了解 JWT 登录设计",
+                      "likelyInterviewQuestions": ["JWT 如何签发？"],
+                      "improvementSuggestion": "补充鉴权代码证据"
+                    }
+                  ]
+                }
+                """.formatted(legacyJson);
+
+        ClaimEvidenceAiEnhancementVO aiEnhancement = service.parseAiEnhancement(enhancedJson);
+
+        assertThat(service.parseItems(enhancedJson)).hasSize(1);
+        assertThat(aiEnhancement).isNotNull();
+        assertThat(aiEnhancement.getAiSummary()).isEqualTo("整体应保守表达");
+        assertThat(aiEnhancement.getAiEnhancedItems())
+                .hasSize(1)
+                .first()
+                .extracting(item -> item.getLikelyInterviewQuestions().get(0))
+                .isEqualTo("JWT 如何签发？");
     }
 
     private ProjectFile file(Long id, String path, String type, String content) {

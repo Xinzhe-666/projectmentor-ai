@@ -1,3 +1,22 @@
+# v4.5-3
+
+Full AI credit enforcement across every OpenAI-compatible LLM entry point.
+
+This version adds:
+
+* Unified costs: AI audit report 2, Claim-Evidence enhancement 2, project Q&A 1, hallucination check 1, mock interview 2, and standalone resume optimization 1 credit.
+* Credit checks and reservation before every paid AI entry point.
+* Refund transactions when an AI call fails, returns an unusable result, or the generated business result cannot be saved.
+* Rule fallback without a charge for project Q&A, hallucination checks, and interview startup when AI is unavailable.
+* Estimated-cost labels and confirmation prompts on all AI actions, with synchronized Chinese and English copy.
+* Credit-center documentation for the complete AI cost table and new operation labels.
+* Unit tests that mock LLM calls and cover insufficient credits, refunds, registration credits, and free history access.
+
+Boundaries:
+
+* Rule scanning, uploads, project management, Dashboard access, history views, public report sharing, and admin feedback remain free.
+* No database column, AI provider, dependency, payment system, API key, or `.env.development` change is included.
+
 # v4.5-2
 
 AI Claim-Evidence enhancement and credit-cost unification.

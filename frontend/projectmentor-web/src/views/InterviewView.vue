@@ -40,10 +40,16 @@
             </el-select>
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" :loading="starting" @click="handleStart">{{ t('interview.start') }}</el-button>
-            <el-button :disabled="!session || session.status === 'FINISHED'" :loading="finishing" @click="handleFinish">
-              {{ t('interview.finishWithReview') }}
-            </el-button>
+            <div class="interview-start-actions">
+              <div>
+                <el-button type="primary" :loading="starting" @click="handleStart">{{ t('interview.start') }}</el-button>
+                <el-button :disabled="!session || session.status === 'FINISHED'" :loading="finishing" @click="handleFinish">
+                  {{ t('interview.finishWithReview') }}
+                </el-button>
+              </div>
+              <strong>{{ t('interview.aiCost', { count: AI_CREDIT_COSTS.INTERVIEW_SESSION }) }}</strong>
+              <span>{{ t('interview.ruleFallback') }}</span>
+            </div>
           </el-form-item>
         </el-form>
       </div>
@@ -179,18 +185,22 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Printer } from '@element-plus/icons-vue'
 
+import { getMyCredits } from '@/api/credit'
 import { finishInterview, getInterviewSession, startInterview, submitAnswer } from '@/api/interview'
 import { listProjects } from '@/api/project'
 import EmptyState from '@/components/EmptyState.vue'
 import MarkdownBlock from '@/components/MarkdownBlock.vue'
+import { AI_CREDIT_COSTS } from '@/constants/creditCosts'
+import { useUserStore } from '@/stores/user'
 import type { InterviewSession, Project } from '@/types/api'
 
 const starting = ref(false)
 const route = useRoute()
 const { t } = useI18n()
+const userStore = useUserStore()
 const submitting = ref(false)
 const finishing = ref(false)
 const skipping = ref(false)
@@ -353,6 +363,20 @@ async function handleStart() {
     return
   }
 
+  try {
+    await ElMessageBox.confirm(
+      t('credits.confirmAiUse', { count: AI_CREDIT_COSTS.INTERVIEW_SESSION }),
+      t('report.claimAiConfirmTitle'),
+      {
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
+        type: 'warning'
+      }
+    )
+  } catch {
+    return
+  }
+
   starting.value = true
   try {
     session.value = await startInterview({
@@ -360,8 +384,21 @@ async function handleStart() {
       mode: form.mode
     })
     answer.value = ''
+    if (!session.value.aiEnabled) {
+      ElMessage.warning(t('credits.aiFailedRefunded'))
+    }
   } finally {
+    await syncCredits()
     starting.value = false
+  }
+}
+
+async function syncCredits() {
+  try {
+    const credits = await getMyCredits()
+    userStore.updateCredits(credits.remainingCredits)
+  } catch {
+    // Header balance will refresh on the next normal credit fetch.
   }
 }
 
@@ -423,6 +460,18 @@ onMounted(() => {
 <style scoped>
 .wide-control {
   width: min(420px, 100%);
+}
+
+.interview-start-actions {
+  display: grid;
+  gap: 5px;
+  color: var(--pm-muted);
+  font-size: 12px;
+}
+
+.interview-start-actions strong {
+  color: var(--pm-primary);
+  font-size: 13px;
 }
 
 .project-option {

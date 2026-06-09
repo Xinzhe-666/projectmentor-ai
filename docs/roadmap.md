@@ -241,6 +241,16 @@ V4.5-2 已完成：
 - AI 调用或保存失败会返还 2 credits，并写入失败返还流水。
 - 报告详情页新增确认消耗额度的 AI 深度解读按钮，公开分享页只展示已保存到报告 JSON 的 AI 增强内容。
 
+V4.5-3 已完成：
+
+- 统一 `AI_AUDIT_REPORT = 2`、`AI_CLAIM_EVIDENCE = 2`、`AI_PROJECT_QA = 1`、`AI_HALLUCINATION_CHECK = 1`、`AI_INTERVIEW_SESSION = 2`、`AI_RESUME_OPTIMIZE = 1`。
+- AI 审计报告、项目问答、幻觉检测和模拟面试全部在调用 LLM 前检查并预扣额度。
+- 额度不足时返回明确业务错误且不调用 AI；AI 调用、解析或业务结果保存失败时返还额度并记录模块化退款流水。
+- 项目问答和幻觉检测在 AI 失败时返回规则结果；模拟面试首题失败时转为规则会话，不再继续无额度调用 AI。
+- 前端所有 AI 操作展示预计消耗和确认提示，额度中心展示完整扣费标准，中英文 locales 同步。
+- 规则扫描、文件上传、项目管理、Dashboard、历史查看、公开分享和管理员反馈继续免费。
+- 不新增数据库字段、AI Provider、依赖、支付能力或真实 API Key，不修改 `.env.development`。
+
 边界说明：
 
 - 当前是规则版 claim extraction 和关键词证据匹配，不是法律、学术或权威意义上的真实性鉴定。

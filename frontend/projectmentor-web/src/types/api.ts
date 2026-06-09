@@ -329,6 +329,8 @@ export interface HallucinationCheckResult {
   issues: HallucinationIssue[]
   unsafeResumeStatements: string[]
   saferRewrite?: string
+  aiUsed?: boolean
+  creditsRefunded?: boolean
 }
 
 export interface InterviewMessage {
@@ -352,6 +354,7 @@ export interface InterviewSession {
   projectName?: string
   mode: string
   status: string
+  aiEnabled?: boolean
   totalScore?: number
   summary?: string
   createTime?: string

@@ -20,6 +20,8 @@ public class InterviewSessionVO {
 
     private String status;
 
+    private Boolean aiEnabled;
+
     private Integer totalScore;
 
     private String summary;

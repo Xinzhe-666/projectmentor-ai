@@ -79,17 +79,9 @@ public class AnalysisReportService {
         Long userId = UserContext.getUserId();
 
         boolean creditConsumed = false;
+        boolean creditRefunded = false;
 
         try {
-            creditService.consumeCredits(
-                    userId,
-                    CreditCostConstants.ANALYSIS_REPORT,
-                    CreditCostConstants.OP_GENERATE_ANALYSIS_REPORT,
-                    projectId,
-                    "生成项目审计报告消耗 1 点额度"
-            );
-            creditConsumed = true;
-
             RuleScanResultVO scanResult = projectRuleScanner.scanProject(projectId);
             ClaimEvidenceVO claimEvidence = claimEvidenceAuditService.audit(project, projectId);
 
@@ -133,6 +125,15 @@ public class AnalysisReportService {
             String fallbackResumeStandard = buildResumeStandard(project, scanResult);
             String fallbackResumeAdvanced = buildResumeAdvanced(project, scanResult);
 
+            creditService.consumeCredits(
+                    userId,
+                    CreditCostConstants.AI_AUDIT_REPORT,
+                    CreditCostConstants.OP_AI_AUDIT_REPORT,
+                    projectId,
+                    "AI 审计报告生成"
+            );
+            creditConsumed = true;
+
             try {
                 String prompt = auditPromptBuilder.build(project, scanResult);
                 com.xinzhe.projectmentor.ai.dto.AiAuditResult aiResult = llmClient.generateAuditReport(prompt);
@@ -145,7 +146,15 @@ public class AnalysisReportService {
                 report.setResumeStandard(isBlank(aiResult.getResumeStandard()) ? fallbackResumeStandard : aiResult.getResumeStandard());
                 report.setResumeAdvanced(isBlank(aiResult.getResumeAdvanced()) ? fallbackResumeAdvanced : aiResult.getResumeAdvanced());
             } catch (Exception e) {
-                report.setSummary(fallbackSummary + "（AI 增强分析暂不可用，当前报告由规则扫描模块生成。）");
+                creditService.refundCredits(
+                        userId,
+                        CreditCostConstants.AI_AUDIT_REPORT,
+                        CreditCostConstants.OP_AI_AUDIT_REPORT_REFUND,
+                        projectId,
+                        "AI 审计报告生成失败返还"
+                );
+                creditRefunded = true;
+                report.setSummary(fallbackSummary + "（AI 调用失败，额度已返还；当前报告由规则扫描模块生成。）");
                 report.setStrengths(fallbackStrengths);
                 report.setWeaknesses(fallbackWeaknesses);
                 report.setSuggestions(fallbackSuggestions);
@@ -154,20 +163,30 @@ public class AnalysisReportService {
                 report.setResumeAdvanced(fallbackResumeAdvanced);
             }
 
-            analysisReportMapper.insert(report);
+            if (analysisReportMapper.insert(report) <= 0) {
+                throw new BusinessException(
+                        ErrorCode.OPERATION_ERROR,
+                        "AI 审计报告已生成但保存失败，额度已返还，请稍后重试。"
+                );
+            }
 
             project.setStatus("FINISHED");
-            projectMapper.updateById(project);
+            if (projectMapper.updateById(project) <= 0) {
+                throw new BusinessException(
+                        ErrorCode.OPERATION_ERROR,
+                        "AI 审计报告状态保存失败，额度已返还，请稍后重试。"
+                );
+            }
 
             return toVO(report);
         } catch (Exception e) {
-            if (creditConsumed) {
+            if (creditConsumed && !creditRefunded) {
                 creditService.refundCredits(
                         userId,
-                        CreditCostConstants.ANALYSIS_REPORT,
-                        CreditCostConstants.OP_GENERATE_ANALYSIS_REPORT_REFUND,
+                        CreditCostConstants.AI_AUDIT_REPORT,
+                        CreditCostConstants.OP_AI_AUDIT_REPORT_REFUND,
                         projectId,
-                        "项目审计报告生成失败，返还 1 点额度"
+                        "AI 审计报告生成失败返还"
                 );
             }
 

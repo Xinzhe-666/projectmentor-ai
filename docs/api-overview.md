@@ -44,7 +44,7 @@
 
 | 方法 | 路径 | 用途 | 是否需要登录 |
 | --- | --- | --- | --- |
-| `POST` | `/api/projects/{projectId}/reports/generate` | 同步生成项目审计报告 | 是 |
+| `POST` | `/api/projects/{projectId}/reports/generate` | 同步生成 AI 审计报告，消耗 2 credits；AI 失败退款并保存规则版报告 | 是 |
 | `GET` | `/api/projects/{projectId}/reports` | 获取项目报告列表 | 是 |
 | `GET` | `/api/reports/{reportId}` | 获取报告详情 | 是 |
 | `POST` | `/api/reports/{reportId}/claim-evidence/ai-enhance` | AI 深度解读已生成的 Claim-Evidence Matrix，消耗 2 credits，失败返还 | 是 |
@@ -53,23 +53,31 @@
 
 | 方法 | 路径 | 用途 | 是否需要登录 |
 | --- | --- | --- | --- |
-| `POST` | `/api/projects/{projectId}/analyze` | 启动异步分析任务 | 是 |
+| `POST` | `/api/projects/{projectId}/analyze` | 启动异步 AI 审计任务，任务成本为 2 credits | 是 |
 | `GET` | `/api/tasks/{taskId}` | 查询异步任务进度 | 是 |
+
+## Project Q&A
+
+| 方法 | 路径 | 用途 | 是否需要登录 |
+| --- | --- | --- | --- |
+| `POST` | `/api/projects/{projectId}/qa` | 有证据时调用 AI 回答，消耗 1 credit；AI 失败退款并返回规则检索结果 | 是 |
+| `GET` | `/api/projects/{projectId}/qa/history` | 查看最近问答历史，不扣额度 | 是 |
+| `DELETE` | `/api/projects/{projectId}/qa/history/{recordId}` | 删除自己的问答历史，不扣额度 | 是 |
 
 ## Hallucination
 
 | 方法 | 路径 | 用途 | 是否需要登录 |
 | --- | --- | --- | --- |
-| `POST` | `/api/hallucination/check` | 检测 AI 回答中的幻觉、过度鼓励和简历风险 | 是 |
+| `POST` | `/api/hallucination/check` | AI 幻觉检测，消耗 1 credit；AI 失败退款并返回规则结果 | 是 |
 
 ## Interview
 
 | 方法 | 路径 | 用途 | 是否需要登录 |
 | --- | --- | --- | --- |
-| `POST` | `/api/interview/start` | 启动模拟面试会话 | 是 |
-| `POST` | `/api/interview/{sessionId}/answer` | 提交回答并获得追问与反馈 | 是 |
-| `GET` | `/api/interview/{sessionId}` | 查看面试会话详情 | 是 |
-| `POST` | `/api/interview/{sessionId}/finish` | 结束面试并生成总结 | 是 |
+| `POST` | `/api/interview/start` | 启动 AI 模拟面试，消耗 2 credits；AI 首题失败退款并转规则会话 | 是 |
+| `POST` | `/api/interview/{sessionId}/answer` | 提交回答并获得本场面试内的追问与反馈，不重复扣费 | 是 |
+| `GET` | `/api/interview/{sessionId}` | 查看面试会话详情，不扣额度 | 是 |
+| `POST` | `/api/interview/{sessionId}/finish` | 结束面试并生成规则复盘，不重复扣费 | 是 |
 
 ## Credit
 
@@ -78,3 +86,5 @@
 | `GET` | `/api/credits/me` | 查看当前用户额度 | 是 |
 | `GET` | `/api/credits/logs` | 查看当前用户额度流水 | 是 |
 | `POST` | `/api/admin/credits/add` | 管理员给用户增加额度 | 是，且需要管理员角色 |
+
+额度不足统一返回业务错误码 `60001`，并且不会调用 LLM。所有退款使用独立额度事务写入对应 `*_REFUND` 流水。

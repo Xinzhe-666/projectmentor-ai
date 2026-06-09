@@ -10,6 +10,8 @@ import com.xinzhe.projectmentor.ai.LlmClient;
 import com.xinzhe.projectmentor.auth.interceptor.UserContext;
 import com.xinzhe.projectmentor.common.BusinessException;
 import com.xinzhe.projectmentor.common.ErrorCode;
+import com.xinzhe.projectmentor.credit.CreditCostConstants;
+import com.xinzhe.projectmentor.credit.service.CreditService;
 import com.xinzhe.projectmentor.file.entity.ProjectFile;
 import com.xinzhe.projectmentor.file.mapper.ProjectFileMapper;
 import com.xinzhe.projectmentor.project.entity.Project;
@@ -178,6 +180,8 @@ public class ProjectQaService {
 
     private final ProjectQaRecordMapper projectQaRecordMapper;
 
+    private final CreditService creditService;
+
     private final LlmClient llmClient;
 
     private final AiProperties aiProperties;
@@ -202,19 +206,43 @@ public class ProjectQaService {
         if (evidences.isEmpty()) {
             answer = NO_EVIDENCE_ANSWER;
         } else {
+            creditService.consumeCredits(
+                    userId,
+                    CreditCostConstants.AI_PROJECT_QA,
+                    CreditCostConstants.OP_AI_PROJECT_QA,
+                    projectId,
+                    "AI 项目问答"
+            );
+
             try {
                 answer = askAi(normalizedQuestion, evidences);
                 aiUsed = !answer.isBlank();
                 if (!aiUsed) {
-                    answer = AI_UNAVAILABLE_ANSWER;
+                    throw new BusinessException(ErrorCode.AI_SERVICE_ERROR, "AI 返回内容为空");
                 }
             } catch (Exception e) {
                 log.info("Project QA AI unavailable, fallback to retrieval result: {}", e.getMessage());
-                answer = AI_UNAVAILABLE_ANSWER;
+                refundProjectQaCredits(userId, projectId);
+                answer = AI_UNAVAILABLE_ANSWER + " AI 调用失败，本次额度已返还。";
             }
         }
 
-        saveRecord(userId, projectId, normalizedQuestion, answer, aiUsed, evidences, suggestedFollowUps);
+        boolean recordSaved = saveRecord(
+                userId,
+                projectId,
+                normalizedQuestion,
+                answer,
+                aiUsed,
+                evidences,
+                suggestedFollowUps
+        );
+        if (aiUsed && !recordSaved) {
+            refundProjectQaCredits(userId, projectId);
+            throw new BusinessException(
+                    ErrorCode.OPERATION_ERROR,
+                    "AI 项目问答已生成但保存失败，额度已返还，请稍后重试。"
+            );
+        }
 
         return ProjectQaResponseVO.builder()
                 .question(normalizedQuestion)
@@ -1263,13 +1291,13 @@ public class ProjectQaService {
         return Math.max(min, Math.min(max, value));
     }
 
-    private void saveRecord(Long userId,
-                            Long projectId,
-                            String question,
-                            String answer,
-                            boolean aiUsed,
-                            List<ProjectQaEvidenceVO> evidences,
-                            List<String> suggestedFollowUps) {
+    private boolean saveRecord(Long userId,
+                               Long projectId,
+                               String question,
+                               String answer,
+                               boolean aiUsed,
+                               List<ProjectQaEvidenceVO> evidences,
+                               List<String> suggestedFollowUps) {
         try {
             ProjectQaRecord record = new ProjectQaRecord();
             record.setUserId(userId);
@@ -1281,10 +1309,21 @@ public class ProjectQaService {
             record.setSuggestedFollowUpsJson(toJson(suggestedFollowUps));
             record.setDeleted(0);
 
-            projectQaRecordMapper.insert(record);
+            return projectQaRecordMapper.insert(record) > 0;
         } catch (Exception e) {
             log.warn("Failed to save project QA record: projectId={}, message={}", projectId, e.getMessage());
+            return false;
         }
+    }
+
+    private void refundProjectQaCredits(Long userId, Long projectId) {
+        creditService.refundCredits(
+                userId,
+                CreditCostConstants.AI_PROJECT_QA,
+                CreditCostConstants.OP_AI_PROJECT_QA_REFUND,
+                projectId,
+                "AI 项目问答失败返还"
+        );
     }
 
     private ProjectQaHistoryVO toHistoryVO(ProjectQaRecord record) {

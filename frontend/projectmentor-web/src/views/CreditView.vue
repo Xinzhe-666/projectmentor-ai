@@ -22,6 +22,27 @@
     <section class="panel">
       <div class="panel-title">
         <div>
+          <h2>{{ t('credits.standardsTitle') }}</h2>
+          <p class="muted">{{ t('credits.standardsDesc') }}</p>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="credit-standard-grid">
+          <article v-for="item in creditStandards" :key="item.label">
+            <span>{{ item.label }}</span>
+            <strong>{{ item.cost }} credits</strong>
+          </article>
+        </div>
+        <div class="credit-policy-notes">
+          <el-tag type="success" effect="light">{{ t('credits.ruleFree') }}</el-tag>
+          <el-tag type="info" effect="light">{{ t('credits.onlyAiConsumes') }}</el-tag>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">
+        <div>
           <h2>{{ t('credits.title') }}</h2>
           <p class="muted">{{ t('credits.desc') }}</p>
         </div>
@@ -53,12 +74,13 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Refresh } from '@element-plus/icons-vue'
 
 import { getMyCredits, listCreditLogs } from '@/api/credit'
 import EmptyState from '@/components/EmptyState.vue'
+import { AI_CREDIT_COSTS } from '@/constants/creditCosts'
 import { useUserStore } from '@/stores/user'
 import type { CreditInfo, CreditLog } from '@/types/api'
 
@@ -67,6 +89,14 @@ const { t } = useI18n()
 const loading = ref(false)
 const creditInfo = ref<CreditInfo>()
 const logs = ref<CreditLog[]>([])
+const creditStandards = computed(() => [
+  { label: t('credits.costs.auditReport'), cost: AI_CREDIT_COSTS.AUDIT_REPORT },
+  { label: t('credits.costs.claimEvidence'), cost: AI_CREDIT_COSTS.CLAIM_EVIDENCE },
+  { label: t('credits.costs.projectQa'), cost: AI_CREDIT_COSTS.PROJECT_QA },
+  { label: t('credits.costs.hallucinationCheck'), cost: AI_CREDIT_COSTS.HALLUCINATION_CHECK },
+  { label: t('credits.costs.interviewSession'), cost: AI_CREDIT_COSTS.INTERVIEW_SESSION },
+  { label: t('credits.costs.resumeOptimize'), cost: AI_CREDIT_COSTS.RESUME_OPTIMIZE }
+])
 
 function operationLabel(type: string) {
   const key = `credits.operations.${type}`
@@ -92,6 +122,46 @@ async function loadCredits() {
 
 onMounted(loadCredits)
 </script>
+
+<style scoped>
+.credit-standard-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.credit-standard-grid article {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--pm-border);
+  border-radius: 8px;
+  background: #fbfdff;
+}
+
+.credit-standard-grid span {
+  color: var(--pm-muted);
+  line-height: 1.5;
+}
+
+.credit-standard-grid strong {
+  color: var(--pm-primary);
+  font-size: 18px;
+}
+
+.credit-policy-notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+@media (max-width: 920px) {
+  .credit-standard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
 
 <style scoped>
 .amount-positive {

@@ -7,6 +7,7 @@ import com.xinzhe.projectmentor.analysis.vo.AnalysisTaskVO;
 import com.xinzhe.projectmentor.auth.interceptor.UserContext;
 import com.xinzhe.projectmentor.common.BusinessException;
 import com.xinzhe.projectmentor.common.ErrorCode;
+import com.xinzhe.projectmentor.credit.CreditCostConstants;
 import com.xinzhe.projectmentor.project.entity.Project;
 import com.xinzhe.projectmentor.project.mapper.ProjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -33,7 +34,7 @@ public class AnalysisTaskService {
         task.setUserId(userId);
         task.setProjectId(projectId);
         task.setTaskType("FULL_ANALYSIS");
-        task.setCreditCost(1);
+        task.setCreditCost(CreditCostConstants.AI_AUDIT_REPORT);
         task.setStatus("PENDING");
         task.setProgress(0);
 

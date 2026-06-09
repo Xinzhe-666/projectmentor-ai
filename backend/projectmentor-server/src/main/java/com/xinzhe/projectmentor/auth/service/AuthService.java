@@ -78,7 +78,7 @@ public class AuthService {
         creditLog.setBeforeAmount(0);
         creditLog.setAfterAmount(CreditCostConstants.REGISTER_GIFT);
         creditLog.setOperationType(CreditCostConstants.OP_REGISTER_GIFT);
-        creditLog.setRemark("新用户注册赠送 10 次 AI 额度");
+        creditLog.setRemark("新用户注册赠送 10 credits");
         creditLogMapper.insert(creditLog);
 
         String token = jwtUtil.generateToken(user.getId(), user.getUsername());

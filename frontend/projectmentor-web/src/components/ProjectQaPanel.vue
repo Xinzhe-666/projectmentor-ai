@@ -24,6 +24,10 @@
             <h4>{{ t('qa.askTitle') }}</h4>
             <p>{{ t('qa.askSubtitle') }}</p>
           </div>
+          <div class="qa-credit-hint">
+            <strong>{{ t('qa.aiCost', { count: AI_CREDIT_COSTS.PROJECT_QA }) }}</strong>
+            <span>{{ t('qa.ruleFallbackFree') }}</span>
+          </div>
         </div>
 
         <div class="quick-question-block">
@@ -209,9 +213,12 @@ import { useI18n } from 'vue-i18n'
 import { CopyDocument, Delete as DeleteIcon, QuestionFilled, Refresh } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox, ElTag } from 'element-plus'
 
+import { getMyCredits } from '@/api/credit'
 import { askProjectQuestion, deleteProjectQaRecord, getProjectQaHistory } from '@/api/projectQa'
 import EmptyState from '@/components/EmptyState.vue'
 import MarkdownBlock from '@/components/MarkdownBlock.vue'
+import { AI_CREDIT_COSTS } from '@/constants/creditCosts'
+import { useUserStore } from '@/stores/user'
 import type { ProjectQaHistoryRecord, ProjectQaResponse } from '@/types/api'
 
 type QaDisplayRecord = ProjectQaResponse & {
@@ -225,6 +232,7 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
+const userStore = useUserStore()
 
 const quickQuestions = computed(() => [
   t('qa.quickQuestions.auth'),
@@ -361,6 +369,20 @@ async function handleAsk() {
     return
   }
 
+  try {
+    await ElMessageBox.confirm(
+      t('credits.confirmAiUse', { count: AI_CREDIT_COSTS.PROJECT_QA }),
+      t('report.claimAiConfirmTitle'),
+      {
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
+        type: 'warning'
+      }
+    )
+  } catch {
+    return
+  }
+
   loading.value = true
   try {
     const response = await askProjectQuestion(props.projectId, trimmedQuestion)
@@ -372,8 +394,22 @@ async function handleAsk() {
     if (latestRecord?.question === response.question && latestRecord?.answer === response.answer) {
       currentAnswer.value = latestRecord
     }
+
+    if (!response.aiUsed && response.evidences?.length) {
+      ElMessage.warning(t('credits.aiFailedRefunded'))
+    }
   } finally {
+    await syncCredits()
     loading.value = false
+  }
+}
+
+async function syncCredits() {
+  try {
+    const credits = await getMyCredits()
+    userStore.updateCredits(credits.remainingCredits)
+  } catch {
+    // Header balance will refresh on the next normal credit fetch.
   }
 }
 
@@ -700,6 +736,13 @@ onMounted(loadHistory)
   animation: commandGlow 6s ease-in-out infinite;
 }
 
+.qa-prompt-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
 .qa-prompt-head h4 {
   margin: 8px 0 8px;
   color: #111827;
@@ -712,6 +755,20 @@ onMounted(loadHistory)
   margin: 0;
   color: var(--pm-muted);
   line-height: 1.75;
+}
+
+.qa-credit-hint {
+  display: grid;
+  flex: 0 0 min(280px, 40%);
+  gap: 5px;
+  color: var(--pm-muted);
+  font-size: 12px;
+  text-align: right;
+}
+
+.qa-credit-hint strong {
+  color: var(--pm-primary);
+  font-size: 13px;
 }
 
 .quick-question-block {

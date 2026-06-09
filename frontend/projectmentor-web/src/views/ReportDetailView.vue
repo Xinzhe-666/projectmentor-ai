@@ -169,7 +169,7 @@
           >
             {{ claimAiLoading ? t('report.claimAiAnalyzing') : t('report.claimAiButton') }}
           </el-button>
-          <span>{{ t('report.claimAiCost') }}</span>
+          <span>{{ t('credits.estimatedCost', { count: AI_CREDIT_COSTS.CLAIM_EVIDENCE }) }}</span>
         </div>
       </div>
       <div
@@ -230,6 +230,7 @@ import { enhanceClaimEvidence, getReportDetail } from '@/api/analysis'
 import { getMyCredits } from '@/api/credit'
 import { getProjectDetail } from '@/api/project'
 import { createReportShare, disableReportShare, getReportShare } from '@/api/share'
+import { AI_CREDIT_COSTS } from '@/constants/creditCosts'
 import ClaimEvidenceMatrix from '@/components/ClaimEvidenceMatrix.vue'
 import EvidenceList from '@/components/EvidenceList.vue'
 import MarkdownBlock from '@/components/MarkdownBlock.vue'
@@ -357,7 +358,7 @@ async function handleClaimAiEnhance() {
 
   try {
     await ElMessageBox.confirm(
-      t('report.claimAiConfirm'),
+      t('credits.confirmAiUse', { count: AI_CREDIT_COSTS.CLAIM_EVIDENCE }),
       t('report.claimAiConfirmTitle'),
       {
         confirmButtonText: t('common.confirm'),

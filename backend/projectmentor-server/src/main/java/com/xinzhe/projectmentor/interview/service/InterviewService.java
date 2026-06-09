@@ -8,6 +8,8 @@ import com.xinzhe.projectmentor.auth.interceptor.UserContext;
 import com.xinzhe.projectmentor.common.BusinessException;
 import com.xinzhe.projectmentor.common.ErrorCode;
 import com.xinzhe.projectmentor.common.PageResult;
+import com.xinzhe.projectmentor.credit.CreditCostConstants;
+import com.xinzhe.projectmentor.credit.service.CreditService;
 import com.xinzhe.projectmentor.file.entity.ProjectFile;
 import com.xinzhe.projectmentor.file.mapper.ProjectFileMapper;
 import com.xinzhe.projectmentor.interview.dto.StartInterviewRequest;
@@ -51,6 +53,12 @@ public class InterviewService {
 
     private static final String META_END = "[/PM_INTERVIEW_META]";
 
+    private static final String STATUS_STARTING = "STARTING";
+
+    private static final String STATUS_RUNNING_AI = "RUNNING_AI";
+
+    private static final String STATUS_RUNNING_RULE = "RUNNING_RULE";
+
     private final InterviewSessionMapper interviewSessionMapper;
 
     private final InterviewMessageMapper interviewMessageMapper;
@@ -58,6 +66,8 @@ public class InterviewService {
     private final ProjectMapper projectMapper;
 
     private final ProjectFileMapper projectFileMapper;
+
+    private final CreditService creditService;
 
     private final LlmClient llmClient;
 
@@ -69,30 +79,81 @@ public class InterviewService {
     public InterviewSessionVO startInterview(StartInterviewRequest request) {
         Long userId = getCurrentUserId();
         Project project = checkProjectOwner(request.getProjectId(), userId);
+        boolean creditConsumed = false;
+        boolean creditRefunded = false;
+        Long sessionIdForRefund = null;
 
-        String mode = normalizeMode(request.getMode());
+        try {
+            String mode = normalizeMode(request.getMode());
 
-        InterviewSession session = new InterviewSession();
-        session.setUserId(userId);
-        session.setProjectId(project.getId());
-        session.setMode(mode);
-        session.setStatus("RUNNING");
+            InterviewSession session = new InterviewSession();
+            session.setUserId(userId);
+            session.setProjectId(project.getId());
+            session.setMode(mode);
+            session.setStatus(STATUS_STARTING);
 
-        interviewSessionMapper.insert(session);
+            if (interviewSessionMapper.insert(session) <= 0) {
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "模拟面试会话创建失败，请稍后重试。");
+            }
+            sessionIdForRefund = session.getId();
 
-        List<ProjectFile> projectFiles = listProjectFiles(project.getId());
-        QuestionMeta ruleFirstMeta = buildQuestionMeta(projectFiles, categoryForQuestion(1), "第一题用于确认项目真实性、职责边界和可解释范围。");
-        String ruleFirstQuestion = buildFirstQuestion(project, mode, ruleFirstMeta);
-        QuestionDraft firstQuestion = generateAiFirstQuestion(project, mode, projectFiles, ruleFirstQuestion, ruleFirstMeta);
+            creditService.consumeCredits(
+                    userId,
+                    CreditCostConstants.AI_INTERVIEW_SESSION,
+                    CreditCostConstants.OP_AI_INTERVIEW_SESSION,
+                    session.getId(),
+                    "AI 模拟面试"
+            );
+            creditConsumed = true;
 
-        InterviewMessage message = new InterviewMessage();
-        message.setSessionId(session.getId());
-        message.setRole("INTERVIEWER");
-        message.setContent(withQuestionMeta(firstQuestion.question(), firstQuestion.meta(), 1));
+            List<ProjectFile> projectFiles = listProjectFiles(project.getId());
+            QuestionMeta ruleFirstMeta = buildQuestionMeta(
+                    projectFiles,
+                    categoryForQuestion(1),
+                    "第一题用于确认项目真实性、职责边界和可解释范围。"
+            );
+            String ruleFirstQuestion = buildFirstQuestion(project, mode, ruleFirstMeta);
+            QuestionDraft firstQuestion = generateAiFirstQuestion(
+                    project,
+                    mode,
+                    projectFiles,
+                    ruleFirstQuestion,
+                    ruleFirstMeta
+            );
 
-        interviewMessageMapper.insert(message);
+            if (firstQuestion.aiUsed()) {
+                session.setStatus(STATUS_RUNNING_AI);
+            } else {
+                refundInterviewCredits(userId, session.getId());
+                creditRefunded = true;
+                session.setStatus(STATUS_RUNNING_RULE);
+            }
+            if (interviewSessionMapper.updateById(session) <= 0) {
+                throw new BusinessException(
+                        ErrorCode.OPERATION_ERROR,
+                        "AI 模拟面试状态保存失败，额度已返还，请稍后重试。"
+                );
+            }
 
-        return getSessionDetail(session.getId());
+            InterviewMessage message = new InterviewMessage();
+            message.setSessionId(session.getId());
+            message.setRole("INTERVIEWER");
+            message.setContent(withQuestionMeta(firstQuestion.question(), firstQuestion.meta(), 1));
+
+            if (interviewMessageMapper.insert(message) <= 0) {
+                throw new BusinessException(
+                        ErrorCode.OPERATION_ERROR,
+                        "AI 模拟面试问题保存失败，额度已返还，请稍后重试。"
+                );
+            }
+
+            return getSessionDetail(session.getId());
+        } catch (Exception e) {
+            if (creditConsumed && !creditRefunded) {
+                refundInterviewCredits(userId, sessionIdForRefund);
+            }
+            throw e;
+        }
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -128,7 +189,7 @@ public class InterviewService {
         String ruleFollowUpQuestion = buildFollowUpQuestion(project, mode, answer, ruleEvaluation, followUpMeta);
         AnswerEvaluation evaluation = skipped
                 ? new AnswerEvaluation(0, "已跳过本题，本题不计入有效回答。", ruleFollowUpQuestion, followUpMeta)
-                : enhanceEvaluationWithAi(
+                : STATUS_RUNNING_AI.equals(session.getStatus()) ? enhanceEvaluationWithAi(
                         project,
                         mode,
                         answer,
@@ -136,6 +197,11 @@ public class InterviewService {
                         ruleFollowUpQuestion,
                         projectFiles,
                         history,
+                        followUpMeta
+                ) : new AnswerEvaluation(
+                        ruleEvaluation.score(),
+                        ruleEvaluation.feedback(),
+                        ruleFollowUpQuestion,
                         followUpMeta
                 );
 
@@ -175,7 +241,8 @@ public class InterviewService {
                 .projectId(session.getProjectId())
                 .projectName(project == null ? null : project.getName())
                 .mode(normalizeMode(session.getMode()))
-                .status(session.getStatus())
+                .status(toPublicStatus(session.getStatus()))
+                .aiEnabled(STATUS_RUNNING_AI.equals(session.getStatus()))
                 .totalScore(session.getTotalScore())
                 .summary(session.getSummary())
                 .createTime(session.getCreateTime())
@@ -386,7 +453,7 @@ public class InterviewService {
                 .questionCount(questionCount)
                 .answeredCount(answeredCount)
                 .skippedCount(skippedCount)
-                .status(session.getStatus())
+                .status(toPublicStatus(session.getStatus()))
                 .createTime(session.getCreateTime())
                 .updateTime(session.getFinishTime() == null ? session.getCreateTime() : session.getFinishTime())
                 .build();
@@ -564,14 +631,33 @@ public class InterviewService {
 
             QuestionMeta meta = parseQuestionMeta(root, projectFiles, ruleFirstMeta, "category");
             if (shouldUseRuleQuestion(question, meta, projectFiles)) {
-                return new QuestionDraft(ruleFirstQuestion, ruleFirstMeta);
+                return new QuestionDraft(ruleFirstQuestion, ruleFirstMeta, false);
             }
 
-            return new QuestionDraft(normalizeQuestion(question, ruleFirstQuestion), meta);
+            return new QuestionDraft(normalizeQuestion(question, ruleFirstQuestion), meta, true);
         } catch (Exception e) {
             log.info("AI first interview question unavailable, fallback to rule question: {}", e.getMessage());
-            return new QuestionDraft(ruleFirstQuestion, ruleFirstMeta);
+            return new QuestionDraft(ruleFirstQuestion, ruleFirstMeta, false);
         }
+    }
+
+    private void refundInterviewCredits(Long userId, Long sessionId) {
+        creditService.refundCredits(
+                userId,
+                CreditCostConstants.AI_INTERVIEW_SESSION,
+                CreditCostConstants.OP_AI_INTERVIEW_SESSION_REFUND,
+                sessionId,
+                "AI 模拟面试失败返还"
+        );
+    }
+
+    private String toPublicStatus(String status) {
+        if (STATUS_STARTING.equals(status)
+                || STATUS_RUNNING_AI.equals(status)
+                || STATUS_RUNNING_RULE.equals(status)) {
+            return "RUNNING";
+        }
+        return status;
     }
 
     private AnswerEvaluation enhanceEvaluationWithAi(Project project,
@@ -1149,7 +1235,7 @@ public class InterviewService {
     private record AnswerEvaluation(int score, String feedback, String followUpQuestion, QuestionMeta questionMeta) {
     }
 
-    private record QuestionDraft(String question, QuestionMeta meta) {
+    private record QuestionDraft(String question, QuestionMeta meta, boolean aiUsed) {
     }
 
     private record QuestionMeta(String category, String evidenceStrength, String sourceFile, String reason, Integer questionIndex) {

@@ -28,4 +28,8 @@ public class HallucinationCheckResultVO {
     private List<String> unsafeResumeStatements;
 
     private String saferRewrite;
+
+    private Boolean aiUsed;
+
+    private Boolean creditsRefunded;
 }

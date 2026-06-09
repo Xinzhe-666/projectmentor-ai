@@ -201,7 +201,10 @@ public class CreditService {
         int before = userPlan.getRemainingCredits() == null ? 0 : userPlan.getRemainingCredits();
 
         if (before < cost) {
-            throw new BusinessException(ErrorCode.CREDIT_NOT_ENOUGH, "额度不足，当前剩余额度：" + before);
+            throw new BusinessException(
+                    ErrorCode.CREDIT_NOT_ENOUGH,
+                    "额度不足，无法调用 AI。请减少 AI 操作或联系管理员发放额度。当前剩余额度：" + before
+            );
         }
 
         int after = before - cost;

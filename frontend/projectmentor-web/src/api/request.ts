@@ -2,6 +2,7 @@ import axios, { type AxiosRequestConfig } from 'axios'
 import { ElMessage } from 'element-plus'
 
 import router from '@/router'
+import { i18n } from '@/locales'
 import { useUserStore } from '@/stores/user'
 import type { ApiResult } from '@/types/api'
 
@@ -41,8 +42,14 @@ service.interceptors.response.use(
         router.push('/login')
       }
 
-      ElMessage.error(result.message || '请求失败')
-      return Promise.reject(new Error(result.message || '请求失败'))
+      const localizedMessage = result.code === 60001
+        ? String(i18n.global.t('credits.insufficient'))
+        : String(result.message || '').includes('额度已返还')
+          ? String(i18n.global.t('credits.aiFailedRefunded'))
+          : result.message || String(i18n.global.t('common.requestFailed'))
+
+      ElMessage.error(localizedMessage)
+      return Promise.reject(new Error(localizedMessage))
     }
 
     return response.data

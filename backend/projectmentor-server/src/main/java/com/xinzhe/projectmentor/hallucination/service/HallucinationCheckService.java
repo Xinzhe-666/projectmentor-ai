@@ -7,6 +7,8 @@ import com.xinzhe.projectmentor.ai.LlmClient;
 import com.xinzhe.projectmentor.auth.interceptor.UserContext;
 import com.xinzhe.projectmentor.common.BusinessException;
 import com.xinzhe.projectmentor.common.ErrorCode;
+import com.xinzhe.projectmentor.credit.CreditCostConstants;
+import com.xinzhe.projectmentor.credit.service.CreditService;
 import com.xinzhe.projectmentor.file.entity.ProjectFile;
 import com.xinzhe.projectmentor.file.mapper.ProjectFileMapper;
 import com.xinzhe.projectmentor.hallucination.dto.HallucinationCheckRequest;
@@ -33,6 +35,8 @@ public class HallucinationCheckService {
 
     private final ProjectFileMapper projectFileMapper;
 
+    private final CreditService creditService;
+
     private final LlmClient llmClient;
 
     private final HallucinationPromptBuilder hallucinationPromptBuilder;
@@ -40,6 +44,7 @@ public class HallucinationCheckService {
     private final AiJsonUtil aiJsonUtil;
 
     public HallucinationCheckResultVO check(HallucinationCheckRequest request) {
+        Long userId = getCurrentUserId();
         String aiAnswer = request.getAiAnswer();
         String answerLower = aiAnswer.toLowerCase(Locale.ROOT);
 
@@ -86,17 +91,15 @@ public class HallucinationCheckService {
                 .issues(issues)
                 .unsafeResumeStatements(unsafeStatements)
                 .saferRewrite(buildSaferRewrite(issues, request.getProjectId() != null))
+                .aiUsed(false)
+                .creditsRefunded(false)
                 .build();
 
-        return enhanceWithAi(aiAnswer, projectFiles, ruleResult);
+        return enhanceWithAi(userId, request.getProjectId(), aiAnswer, projectFiles, ruleResult);
     }
 
     private void checkProjectOwner(Long projectId) {
-        Long userId = UserContext.getUserId();
-
-        if (userId == null) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED);
-        }
+        Long userId = getCurrentUserId();
 
         Project project = projectMapper.selectOne(
                 new LambdaQueryWrapper<Project>()
@@ -409,9 +412,19 @@ public class HallucinationCheckService {
         return Math.max(0, Math.min(100, score));
     }
 
-    private HallucinationCheckResultVO enhanceWithAi(String aiAnswer,
-                                                    List<ProjectFile> projectFiles,
-                                                    HallucinationCheckResultVO ruleResult) {
+    private HallucinationCheckResultVO enhanceWithAi(Long userId,
+                                                     Long projectId,
+                                                     String aiAnswer,
+                                                     List<ProjectFile> projectFiles,
+                                                     HallucinationCheckResultVO ruleResult) {
+        creditService.consumeCredits(
+                userId,
+                CreditCostConstants.AI_HALLUCINATION_CHECK,
+                CreditCostConstants.OP_AI_HALLUCINATION_CHECK,
+                projectId,
+                "AI 幻觉检测"
+        );
+
         try {
             String content = llmClient.chat(
                     "HALLUCINATION",
@@ -420,11 +433,33 @@ public class HallucinationCheckService {
             );
 
             HallucinationCheckResultVO aiResult = parseAiResult(content, ruleResult);
-            return aiResult == null ? ruleResult : aiResult;
+            if (aiResult == null) {
+                throw new BusinessException(ErrorCode.AI_SERVICE_ERROR, "AI 幻觉检测返回内容无法解析");
+            }
+            aiResult.setAiUsed(true);
+            aiResult.setCreditsRefunded(false);
+            return aiResult;
         } catch (Exception e) {
             log.info("AI hallucination enhancement unavailable, fallback to rule result: {}", e.getMessage());
+            creditService.refundCredits(
+                    userId,
+                    CreditCostConstants.AI_HALLUCINATION_CHECK,
+                    CreditCostConstants.OP_AI_HALLUCINATION_CHECK_REFUND,
+                    projectId,
+                    "AI 幻觉检测失败返还"
+            );
+            ruleResult.setAiUsed(false);
+            ruleResult.setCreditsRefunded(true);
             return ruleResult;
         }
+    }
+
+    private Long getCurrentUserId() {
+        Long userId = UserContext.getUserId();
+        if (userId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+        return userId;
     }
 
     private HallucinationCheckResultVO parseAiResult(String content, HallucinationCheckResultVO ruleResult) {

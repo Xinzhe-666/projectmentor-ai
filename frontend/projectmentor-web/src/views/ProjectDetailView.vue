@@ -318,7 +318,10 @@
           <h3>{{ t('projects.ruleScanTitle') }}</h3>
           <p class="muted">{{ t('projects.ruleScanDesc') }}</p>
         </div>
-        <el-button :icon="Search" :loading="scanning" @click="handleScan">{{ t('projects.ruleScan') }}</el-button>
+        <div class="credit-action">
+          <el-button :icon="Search" :loading="scanning" @click="handleScan">{{ t('projects.ruleScan') }}</el-button>
+          <span>{{ t('projects.ruleScanFree') }}</span>
+        </div>
       </div>
       <div class="panel-body">
         <div v-if="scanResult" class="scan-result">
@@ -368,7 +371,10 @@
           <h3>{{ t('projects.asyncTitle') }}</h3>
           <p class="muted">{{ t('projects.asyncDesc') }}</p>
         </div>
-        <el-button type="primary" :icon="Cpu" :loading="analyzing" @click="handleStartAnalyze">{{ t('projects.startAnalyze') }}</el-button>
+        <div class="credit-action">
+          <el-button type="primary" :icon="Cpu" :loading="analyzing" @click="handleStartAnalyze">{{ t('projects.startAnalyze') }}</el-button>
+          <span>{{ t('credits.estimatedCost', { count: AI_CREDIT_COSTS.AUDIT_REPORT }) }}</span>
+        </div>
       </div>
       <div class="panel-body async-panel">
         <TaskProgress v-if="task" :task="task" />
@@ -390,9 +396,10 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ChatDotRound, Cpu, DocumentChecked, MagicStick, Refresh, Search, Tickets, Upload } from '@element-plus/icons-vue'
-import { ElMessage, type UploadProps } from 'element-plus'
+import { ElMessage, ElMessageBox, type UploadProps } from 'element-plus'
 
 import { getTask, listMyReports, scanProject, startAnalyze } from '@/api/analysis'
+import { getMyCredits } from '@/api/credit'
 import { listInterviewSessions } from '@/api/interview'
 import { getProjectDetail, listProjectFiles, saveReadme, uploadZip } from '@/api/project'
 import EmptyState from '@/components/EmptyState.vue'
@@ -400,6 +407,8 @@ import EvidenceList from '@/components/EvidenceList.vue'
 import ProjectQaPanel from '@/components/ProjectQaPanel.vue'
 import RiskList from '@/components/RiskList.vue'
 import TaskProgress from '@/components/TaskProgress.vue'
+import { AI_CREDIT_COSTS } from '@/constants/creditCosts'
+import { useUserStore } from '@/stores/user'
 import type {
   AnalysisTask,
   InterviewSessionListItem,
@@ -415,6 +424,7 @@ import type {
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
+const userStore = useUserStore()
 const projectId = Number(route.params.id)
 
 const loading = ref(false)
@@ -716,6 +726,20 @@ async function handleScan() {
 }
 
 async function handleStartAnalyze() {
+  try {
+    await ElMessageBox.confirm(
+      t('credits.confirmAiUse', { count: AI_CREDIT_COSTS.AUDIT_REPORT }),
+      t('report.claimAiConfirmTitle'),
+      {
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
+        type: 'warning'
+      }
+    )
+  } catch {
+    return
+  }
+
   analyzing.value = true
   try {
     task.value = await startAnalyze(projectId)
@@ -735,17 +759,28 @@ function startPolling(taskId: number) {
 
       if (latestTask.status === 'SUCCESS') {
         clearPolling()
+        await syncCredits()
         ElMessage.success(t('projects.reportDone'))
       }
 
       if (latestTask.status === 'FAILED') {
         clearPolling()
+        await syncCredits()
         ElMessage.error(latestTask.failReason || '分析任务失败')
       }
     } catch {
       clearPolling()
     }
   }, 1500)
+}
+
+async function syncCredits() {
+  try {
+    const credits = await getMyCredits()
+    userStore.updateCredits(credits.remainingCredits)
+  } catch {
+    // Header balance will refresh on the next normal credit fetch.
+  }
 }
 
 function clearPolling() {
@@ -786,6 +821,18 @@ onUnmounted(clearPolling)
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.credit-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.credit-action span {
+  color: var(--pm-muted);
+  font-size: 12px;
 }
 
 .project-history-grid {

@@ -49,7 +49,10 @@
             />
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" :loading="loading" @click="handleCheck">{{ t('hallucination.start') }}</el-button>
+            <div class="ai-action-row">
+              <el-button type="primary" :loading="loading" @click="handleCheck">{{ t('hallucination.start') }}</el-button>
+              <span>{{ t('hallucination.aiCost', { count: AI_CREDIT_COSTS.HALLUCINATION_CHECK }) }}</span>
+            </div>
           </el-form-item>
         </el-form>
       </div>
@@ -134,19 +137,23 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
+import { getMyCredits } from '@/api/credit'
 import { checkHallucination } from '@/api/hallucination'
 import { listProjects } from '@/api/project'
 import EmptyState from '@/components/EmptyState.vue'
 import MarkdownBlock from '@/components/MarkdownBlock.vue'
 import ScoreRing from '@/components/ScoreRing.vue'
+import { AI_CREDIT_COSTS } from '@/constants/creditCosts'
+import { useUserStore } from '@/stores/user'
 import type { HallucinationCheckResult, Project } from '@/types/api'
 
 const loading = ref(false)
 const projectLoading = ref(false)
 const route = useRoute()
 const { t } = useI18n()
+const userStore = useUserStore()
 const result = ref<HallucinationCheckResult>()
 const projects = ref<Project[]>([])
 const form = reactive({
@@ -178,14 +185,41 @@ async function handleCheck() {
     return
   }
 
+  try {
+    await ElMessageBox.confirm(
+      t('credits.confirmAiUse', { count: AI_CREDIT_COSTS.HALLUCINATION_CHECK }),
+      t('report.claimAiConfirmTitle'),
+      {
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
+        type: 'warning'
+      }
+    )
+  } catch {
+    return
+  }
+
   loading.value = true
   try {
     result.value = await checkHallucination({
       projectId: form.projectMode === 'PROJECT' ? form.projectId : undefined,
       aiAnswer: form.aiAnswer
     })
+    if (result.value.creditsRefunded) {
+      ElMessage.warning(t('credits.aiFailedRefunded'))
+    }
   } finally {
+    await syncCredits()
     loading.value = false
+  }
+}
+
+async function syncCredits() {
+  try {
+    const credits = await getMyCredits()
+    userStore.updateCredits(credits.remainingCredits)
+  } catch {
+    // Header balance will refresh on the next normal credit fetch.
   }
 }
 
@@ -223,6 +257,18 @@ onMounted(loadProjects)
 <style scoped>
 .wide-control {
   width: min(520px, 100%);
+}
+
+.ai-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.ai-action-row span {
+  color: var(--pm-muted);
+  font-size: 12px;
 }
 
 .project-option {

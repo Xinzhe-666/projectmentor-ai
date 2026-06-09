@@ -92,7 +92,7 @@ Redis 当前用于缓存异步分析任务进度。任务进度 key 类似 `anal
 
 ## 额度系统怎么设计
 
-注册时创建用户套餐并赠送 10 credits。生成报告前扣除 1 次额度，写入 `pm_credit_log`。规则扫描、上传解析、历史查看和 Dashboard 浏览不调用 AI，因此不扣额度。像 AI Claim-Evidence 深度解读这类会调用 OpenAI-compatible API 的功能，会按统一成本扣减；当前 `AI_CLAIM_EVIDENCE` 消耗 2 credits。如果 AI 调用失败或增强结果保存失败，系统会返还额度并记录返还流水。
+注册时创建用户套餐并赠送 10 credits。所有真实调用 OpenAI-compatible API 的入口都会在调用前按模块预扣额度并写入 `pm_credit_log`：AI 审计报告 2、AI Claim-Evidence 2、项目问答 1、幻觉检测 1、模拟面试 2 credits。规则扫描、上传解析、Dashboard、历史查看和公开分享不调用 AI，因此不扣额度。如果 AI 调用、结果解析或业务结果保存失败，系统会返还额度并记录对应模块的退款流水。
 
 当前还提供管理员加额接口，用于演示额度运营能力，但没有接入支付。
 

@@ -1,3 +1,23 @@
+# v4.5-4
+
+AI cost monitoring, admin credit operations, and basic registration abuse protection.
+
+This version adds:
+
+* Admin credit-user pagination with search, balance and cumulative credit metrics.
+* Paginated user credit logs with type, module, and time filters.
+* Admin grant and deduction endpoints using `ADMIN_GRANT` and `ADMIN_DEDUCT` audit logs.
+* An AI usage overview aggregated from existing credit logs, including daily and lifetime calls, consumption, refunds, module ranking, user ranking, and recent AI transactions.
+* A bilingual admin UI for AI usage, credit grants, deductions, and user credit logs, with confirmation dialogs for write operations.
+* Registration limits of 3 successful accounts per IP per hour and 10 per IP per day.
+* Redis-backed registration counters with an in-memory fallback when Redis is unavailable.
+* Unit tests for admin authorization, credit adjustments, AI usage aggregation, registration limits, and the existing 10-credit registration gift.
+
+Boundaries:
+
+* No payment system, third-party dependency, database table, AI provider, API key, or `.env.development` change is included.
+* Rule scanning, uploads, project management, Dashboard access, history views, and public sharing remain free.
+
 # v4.5-3
 
 Full AI credit enforcement across every OpenAI-compatible LLM entry point.

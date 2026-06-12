@@ -438,18 +438,24 @@ export interface AdminRecentQa {
 
 export interface AdminCreditUser {
   userId: number
+  username?: string
   email: string
-  nickname?: string
   creditBalance: number
-  createTime?: string
+  totalConsumed: number
+  totalRefunded: number
+  totalAdminGranted: number
+  createdAt?: string
+  lastCreditChangeAt?: string
 }
 
 export interface AdminCreditTransaction {
   id: number
-  changeAmount: number
+  amount: number
   type: string
-  reason?: string
-  createTime?: string
+  module: string
+  description?: string
+  balanceAfter: number
+  createdAt?: string
 }
 
 export interface AdminCreditUserDetail {
@@ -458,6 +464,42 @@ export interface AdminCreditUserDetail {
   nickname?: string
   creditBalance: number
   recentTransactions: AdminCreditTransaction[]
+}
+
+export interface AdminCreditUserListParams {
+  keyword?: string
+  page?: number
+  size?: number
+  sort?: 'balanceAsc' | 'balanceDesc' | 'createdAtAsc' | 'createdAtDesc'
+    | 'lastCreditChangeAtAsc' | 'lastCreditChangeAtDesc'
+}
+
+export interface AdminCreditLogParams {
+  page?: number
+  size?: number
+  type?: string
+  module?: string
+  startTime?: string
+  endTime?: string
+}
+
+export type AdminCreditUserPage = PageResult<AdminCreditUser>
+
+export type AdminCreditLogPage = PageResult<AdminCreditTransaction>
+
+export interface AdminCreditAdjustmentPayload {
+  amount: number
+  reason: string
+}
+
+export interface AdminCreditAdjustmentResult {
+  userId: number
+  email: string
+  adjustedAmount: number
+  changeAmount: number
+  newBalance: number
+  operationType: string
+  transactionId: number
 }
 
 export interface AdminGrantCreditPayload {
@@ -472,6 +514,46 @@ export interface AdminGrantCreditResult {
   grantedAmount: number
   newBalance: number
   transactionId: number
+}
+
+export interface AdminAiUsageModule {
+  module: string
+  aiCalls: number
+  creditsConsumed: number
+}
+
+export interface AdminAiUsageUser {
+  userId: number
+  username?: string
+  email?: string
+  aiCalls: number
+  creditsConsumed: number
+}
+
+export interface AdminAiUsageLog {
+  id: number
+  userId: number
+  username?: string
+  amount: number
+  type: string
+  module: string
+  description?: string
+  balanceAfter: number
+  createdAt?: string
+}
+
+export interface AdminAiUsageOverview {
+  todayAiCalls: number
+  todayCreditsConsumed: number
+  todayRefundCount: number
+  todayRefundCredits: number
+  totalAiCalls: number
+  totalCreditsConsumed: number
+  totalRefundCount: number
+  totalRefundCredits: number
+  topModulesToday: AdminAiUsageModule[]
+  topUsersToday: AdminAiUsageUser[]
+  recentCreditLogs: AdminAiUsageLog[]
 }
 
 export type FeedbackType =

@@ -1,7 +1,13 @@
 import { request } from './request'
 import type {
+  AdminAiUsageOverview,
+  AdminCreditAdjustmentPayload,
+  AdminCreditAdjustmentResult,
+  AdminCreditLogPage,
+  AdminCreditLogParams,
+  AdminCreditUserListParams,
+  AdminCreditUserPage,
   AdminMe,
-  AdminCreditUser,
   AdminCreditUserDetail,
   AdminFeedbackDetail,
   AdminFeedbackListParams,
@@ -62,11 +68,11 @@ export function getAdminRecentQa(limit = 10) {
   })
 }
 
-export function searchAdminCreditUsers(keyword = '', limit = 10) {
-  return request<AdminCreditUser[]>({
+export function getAdminCreditUsers(params: AdminCreditUserListParams = {}) {
+  return request<AdminCreditUserPage>({
     url: '/api/admin/credits/users',
     method: 'get',
-    params: { keyword, limit }
+    params
   })
 }
 
@@ -75,6 +81,41 @@ export function getAdminCreditUserDetail(userId: number) {
     url: `/api/admin/credits/users/${userId}`,
     method: 'get'
   })
+}
+
+export function getAdminCreditLogs(userId: number, params: AdminCreditLogParams = {}) {
+  return request<AdminCreditLogPage>({
+    url: `/api/admin/credits/users/${userId}/logs`,
+    method: 'get',
+    params
+  })
+}
+
+export function grantUserCredits(userId: number, payload: AdminCreditAdjustmentPayload) {
+  return request<AdminCreditAdjustmentResult>({
+    url: `/api/admin/credits/users/${userId}/grant`,
+    method: 'post',
+    data: payload
+  })
+}
+
+export function deductUserCredits(userId: number, payload: AdminCreditAdjustmentPayload) {
+  return request<AdminCreditAdjustmentResult>({
+    url: `/api/admin/credits/users/${userId}/deduct`,
+    method: 'post',
+    data: payload
+  })
+}
+
+export function getAiUsageOverview() {
+  return request<AdminAiUsageOverview>({
+    url: '/api/admin/ai-usage/overview',
+    method: 'get'
+  })
+}
+
+export function searchAdminCreditUsers(keyword = '', limit = 10) {
+  return getAdminCreditUsers({ keyword, size: limit })
 }
 
 export function grantAdminCredit(payload: AdminGrantCreditPayload) {

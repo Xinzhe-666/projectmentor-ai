@@ -35,62 +35,10 @@
         </div>
       </section>
 
-      <div class="admin-section-label">{{ t('admin.sections.operations') }}</div>
-      <section class="panel admin-panel">
-        <div class="panel-title">
-          <div>
-            <h3>{{ t('admin.creditTitle') }}</h3>
-            <p class="muted">{{ t('admin.creditDesc') }}</p>
-          </div>
-        </div>
-        <div class="panel-body admin-credit-panel">
-          <div class="admin-credit-toolbar">
-            <el-input
-              v-model="creditKeyword"
-              clearable
-              :placeholder="t('admin.creditPlaceholder')"
-              @keyup.enter="loadCreditUsers"
-            />
-            <el-button type="primary" :loading="creditLoading" @click="loadCreditUsers">{{ t('common.search') }}</el-button>
-          </div>
+      <AdminAiUsagePanel />
 
-          <el-table class="admin-table-compact" :data="creditUsers" stripe v-loading="creditLoading" :empty-text="t('admin.noUsers')">
-            <el-table-column prop="userId" :label="t('common.userId')" width="100" />
-            <el-table-column prop="email" :label="t('common.email')" min-width="190" show-overflow-tooltip>
-              <template #default="{ row }">
-                <span class="admin-cell-strong">{{ row.email || '-' }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="nickname" :label="t('admin.nickname')" min-width="130" show-overflow-tooltip>
-              <template #default="{ row }">
-                <span class="admin-cell-muted">{{ row.nickname || '-' }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="creditBalance" :label="t('admin.balance')" width="120">
-              <template #default="{ row }">
-                <span class="admin-credit-badge">{{ row.creditBalance }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="createTime" :label="t('admin.registerTime')" min-width="170">
-              <template #default="{ row }">
-                <span class="admin-cell-time">{{ row.createTime || '-' }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column :label="t('common.operation')" width="250" align="right" header-align="right" fixed="right">
-              <template #default="{ row }">
-                <div class="admin-action-buttons">
-                  <el-button class="admin-action-primary" type="primary" @click="openGrantDialog(row)">
-                    {{ t('admin.grantCredit') }}
-                  </el-button>
-                  <el-button class="admin-action-secondary" @click="openDetailDialog(row)">
-                    {{ t('admin.viewLogs') }}
-                  </el-button>
-                </div>
-              </template>
-            </el-table-column>
-          </el-table>
-        </div>
-      </section>
+      <div class="admin-section-label">{{ t('admin.sections.operations') }}</div>
+      <AdminCreditManagement />
 
       <section class="panel admin-panel">
         <div class="panel-title">
@@ -261,66 +209,6 @@
         </article>
       </section>
 
-      <el-dialog v-model="creditDialogVisible" :title="t('admin.creditDialogTitle')" width="720px">
-        <div v-if="selectedCreditUser" class="credit-dialog-stack">
-          <div class="credit-user-summary">
-            <span>{{ t('common.userId') }}：{{ selectedCreditUser.userId }}</span>
-            <span>{{ t('common.email') }}：{{ selectedCreditUser.email }}</span>
-            <span>{{ t('admin.nickname') }}：{{ selectedCreditUser.nickname || '-' }}</span>
-            <span>{{ t('admin.balance') }}：{{ creditDetail?.creditBalance ?? selectedCreditUser.creditBalance }}</span>
-          </div>
-
-          <el-form label-width="92px" @submit.prevent>
-            <el-form-item :label="t('admin.grantAmount')">
-              <el-input-number
-                v-model="creditForm.amount"
-                :min="1"
-                :max="10000"
-                :step="1"
-                step-strictly
-                controls-position="right"
-              />
-            </el-form-item>
-            <el-form-item :label="t('admin.grantReason')">
-              <el-input
-                v-model="creditForm.reason"
-                type="textarea"
-                :rows="3"
-                maxlength="200"
-                show-word-limit
-                :placeholder="t('admin.grantReasonPlaceholder')"
-              />
-            </el-form-item>
-          </el-form>
-
-          <div class="credit-log-block">
-            <h4>{{ t('admin.recentLogs') }}</h4>
-            <el-table
-              :data="creditDetail?.recentTransactions || []"
-              size="small"
-              stripe
-              :empty-text="t('admin.noCreditLogs')"
-            >
-              <el-table-column prop="changeAmount" :label="t('credits.change')" width="100">
-                <template #default="{ row }">
-                  <el-tag :type="row.changeAmount > 0 ? 'success' : 'warning'" effect="light">
-                    {{ row.changeAmount > 0 ? `+${row.changeAmount}` : row.changeAmount }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column prop="type" :label="t('feedback.type')" width="140" show-overflow-tooltip />
-              <el-table-column prop="reason" :label="t('admin.grantReason')" min-width="220" show-overflow-tooltip />
-              <el-table-column prop="createTime" :label="t('credits.time')" min-width="170" />
-            </el-table>
-          </div>
-        </div>
-
-        <template #footer>
-          <el-button @click="creditDialogVisible = false">{{ t('common.cancel') }}</el-button>
-          <el-button type="primary" :loading="grantLoading" @click="handleGrantCredit">{{ t('admin.confirmGrant') }}</el-button>
-        </template>
-      </el-dialog>
-
       <el-dialog v-model="feedbackDialogVisible" :title="t('admin.feedbackDialogTitle')" width="760px">
         <div v-if="selectedFeedback" v-loading="feedbackDetailLoading" class="feedback-detail-stack">
           <el-descriptions :column="2" border>
@@ -390,10 +278,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 import {
-  getAdminCreditUserDetail,
   getAdminFeedbackDetail,
   getAdminFeedbackList,
   getAdminMe,
@@ -402,13 +289,11 @@ import {
   getAdminRecentReports,
   getAdminRecentUsers,
   getAdminStats,
-  grantAdminCredit,
-  searchAdminCreditUsers,
   updateAdminFeedbackStatus
 } from '@/api/admin'
+import AdminAiUsagePanel from '@/components/admin/AdminAiUsagePanel.vue'
+import AdminCreditManagement from '@/components/admin/AdminCreditManagement.vue'
 import type {
-  AdminCreditUser,
-  AdminCreditUserDetail,
   AdminFeedback,
   AdminFeedbackDetail,
   AdminMe,
@@ -430,17 +315,6 @@ const recentUsers = ref<AdminRecentUser[]>([])
 const recentProjects = ref<AdminRecentProject[]>([])
 const recentReports = ref<AdminRecentReport[]>([])
 const recentQa = ref<AdminRecentQa[]>([])
-const creditKeyword = ref('')
-const creditUsers = ref<AdminCreditUser[]>([])
-const creditLoading = ref(false)
-const creditDialogVisible = ref(false)
-const selectedCreditUser = ref<AdminCreditUser | null>(null)
-const creditDetail = ref<AdminCreditUserDetail | null>(null)
-const grantLoading = ref(false)
-const creditForm = ref({
-  amount: 1,
-  reason: ''
-})
 const feedbackTypeFilter = ref<FeedbackType | ''>('')
 const feedbackStatusFilter = ref<FeedbackStatus | ''>('')
 const feedbackKeyword = ref('')
@@ -550,28 +424,12 @@ async function loadAdminDashboard() {
     recentProjects.value = projects
     recentReports.value = reports
     recentQa.value = qa
-    await Promise.allSettled([
-      loadCreditUsers(),
-      loadFeedbackList()
-    ])
+    await loadFeedbackList()
   } catch {
     checked.value = true
     adminMe.value = { admin: false }
   } finally {
     loading.value = false
-  }
-}
-
-async function loadCreditUsers() {
-  if (!isAdmin.value) {
-    return
-  }
-
-  creditLoading.value = true
-  try {
-    creditUsers.value = await searchAdminCreditUsers(creditKeyword.value)
-  } finally {
-    creditLoading.value = false
   }
 }
 
@@ -648,6 +506,16 @@ async function handleUpdateFeedbackStatus() {
     return
   }
 
+  try {
+    await ElMessageBox.confirm(
+      t('admin.confirmFeedbackUpdate'),
+      t('common.confirm'),
+      { type: 'warning' }
+    )
+  } catch {
+    return
+  }
+
   feedbackSaving.value = true
   try {
     const detail = await updateAdminFeedbackStatus(selectedFeedback.value.id, {
@@ -660,66 +528,6 @@ async function handleUpdateFeedbackStatus() {
     await loadFeedbackList()
   } finally {
     feedbackSaving.value = false
-  }
-}
-
-async function openGrantDialog(user: AdminCreditUser) {
-  selectedCreditUser.value = user
-  creditForm.value = {
-    amount: 1,
-    reason: ''
-  }
-  creditDialogVisible.value = true
-  await loadCreditDetail(user.userId)
-}
-
-async function openDetailDialog(user: AdminCreditUser) {
-  selectedCreditUser.value = user
-  creditForm.value = {
-    amount: 1,
-    reason: ''
-  }
-  creditDialogVisible.value = true
-  await loadCreditDetail(user.userId)
-}
-
-async function loadCreditDetail(userId: number) {
-  creditDetail.value = await getAdminCreditUserDetail(userId)
-}
-
-async function handleGrantCredit() {
-  if (!selectedCreditUser.value) {
-    return
-  }
-
-  if (!Number.isInteger(creditForm.value.amount) || creditForm.value.amount <= 0) {
-    ElMessage.warning(t('admin.amountRequired'))
-    return
-  }
-
-  const reason = creditForm.value.reason.trim()
-  if (reason.length < 2) {
-    ElMessage.warning(t('admin.reasonRequired'))
-    return
-  }
-
-  grantLoading.value = true
-  try {
-    const result = await grantAdminCredit({
-      userId: selectedCreditUser.value.userId,
-      amount: creditForm.value.amount,
-      reason
-    })
-    ElMessage.success(t('admin.creditGranted'))
-    selectedCreditUser.value.creditBalance = result.newBalance
-    await Promise.all([
-      loadCreditDetail(selectedCreditUser.value.userId),
-      loadCreditUsers()
-    ])
-    creditForm.value.amount = 1
-    creditForm.value.reason = ''
-  } finally {
-    grantLoading.value = false
   }
 }
 

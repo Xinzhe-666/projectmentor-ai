@@ -10,7 +10,7 @@
 
 | 方法 | 路径 | 用途 | 是否需要登录 |
 | --- | --- | --- | --- |
-| `POST` | `/api/auth/register` | 注册用户并返回 token | 否 |
+| `POST` | `/api/auth/register` | 注册用户并返回 token；成功注册受同 IP 每小时 3 次、每天 10 次限制 | 否 |
 | `POST` | `/api/auth/login` | 用户登录并返回 token | 否 |
 | `GET` | `/api/auth/me` | 获取当前登录用户信息 | 是 |
 | `POST` | `/api/auth/logout` | 退出登录；当前版本主要由前端清理 token | 是 |
@@ -85,6 +85,18 @@
 | --- | --- | --- | --- |
 | `GET` | `/api/credits/me` | 查看当前用户额度 | 是 |
 | `GET` | `/api/credits/logs` | 查看当前用户额度流水 | 是 |
-| `POST` | `/api/admin/credits/add` | 管理员给用户增加额度 | 是，且需要管理员角色 |
+| `GET` | `/api/admin/credits/users` | 分页查询用户余额、累计消耗、累计返还和管理员发放 | 是，且需要管理员权限 |
+| `GET` | `/api/admin/credits/users/{userId}/logs` | 分页查询指定用户额度流水，支持类型、模块和时间筛选 | 是，且需要管理员权限 |
+| `POST` | `/api/admin/credits/users/{userId}/grant` | 管理员发放额度并写入 `ADMIN_GRANT` 流水 | 是，且需要管理员权限 |
+| `POST` | `/api/admin/credits/users/{userId}/deduct` | 管理员扣除额度并写入 `ADMIN_DEDUCT` 流水，余额不能为负数 | 是，且需要管理员权限 |
+| `POST` | `/api/admin/credits/add` | 旧版管理员增加额度兼容接口 | 是，且需要管理员权限 |
 
 额度不足统一返回业务错误码 `60001`，并且不会调用 LLM。所有退款使用独立额度事务写入对应 `*_REFUND` 流水。
+
+## Admin AI Usage
+
+| 方法 | 路径 | 用途 | 是否需要登录 |
+| --- | --- | --- | --- |
+| `GET` | `/api/admin/ai-usage/overview` | 基于额度流水统计今日 / 累计 AI 调用、消耗、退款、模块排行、用户排行和最近 AI 流水 | 是，且需要管理员权限 |
+
+管理员接口由后端 `AdminInterceptor` 强制校验。前端隐藏入口只用于体验优化，普通用户直接请求 `/api/admin/**` 仍会返回无权限。

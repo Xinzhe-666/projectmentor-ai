@@ -1,6 +1,8 @@
 package com.xinzhe.projectmentor.admin.controller;
 
 import com.xinzhe.projectmentor.admin.service.AdminService;
+import com.xinzhe.projectmentor.admin.service.AdminAiUsageService;
+import com.xinzhe.projectmentor.admin.vo.AdminAiUsageOverviewVO;
 import com.xinzhe.projectmentor.admin.vo.AdminMeVO;
 import com.xinzhe.projectmentor.admin.vo.AdminRecentProjectVO;
 import com.xinzhe.projectmentor.admin.vo.AdminRecentQaVO;
@@ -22,6 +24,8 @@ import java.util.List;
 public class AdminController {
 
     private final AdminService adminService;
+
+    private final AdminAiUsageService adminAiUsageService;
 
     @GetMapping("/me")
     public Result<AdminMeVO> me() {
@@ -51,5 +55,10 @@ public class AdminController {
     @GetMapping("/recent/qa")
     public Result<List<AdminRecentQaVO>> recentQa(@RequestParam(required = false) Integer limit) {
         return Result.success(adminService.listRecentQa(limit));
+    }
+
+    @GetMapping("/ai-usage/overview")
+    public Result<AdminAiUsageOverviewVO> aiUsageOverview() {
+        return Result.success(adminAiUsageService.getOverview());
     }
 }

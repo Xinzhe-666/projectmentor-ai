@@ -44,6 +44,8 @@ service.interceptors.response.use(
 
       const localizedMessage = result.code === 60001
         ? String(i18n.global.t('credits.insufficient'))
+        : String(result.message || '').includes('注册过于频繁')
+          ? String(i18n.global.t('auth.registrationTooFrequent'))
         : String(result.message || '').includes('额度已返还')
           ? String(i18n.global.t('credits.aiFailedRefunded'))
           : result.message || String(i18n.global.t('common.requestFailed'))

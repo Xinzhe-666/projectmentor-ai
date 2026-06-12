@@ -42,6 +42,10 @@ public final class CreditCostConstants {
 
     public static final String OP_AI_RESUME_OPTIMIZE_REFUND = "AI_RESUME_OPTIMIZE_REFUND";
 
+    public static final String OP_ADMIN_GRANT = "ADMIN_GRANT";
+
+    public static final String OP_ADMIN_DEDUCT = "ADMIN_DEDUCT";
+
     private CreditCostConstants() {
     }
 }

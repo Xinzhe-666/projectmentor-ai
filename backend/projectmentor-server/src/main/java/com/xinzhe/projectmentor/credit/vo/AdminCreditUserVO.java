@@ -11,11 +11,19 @@ public class AdminCreditUserVO {
 
     private Long userId;
 
-    private String email;
+    private String username;
 
-    private String nickname;
+    private String email;
 
     private Integer creditBalance;
 
-    private LocalDateTime createTime;
+    private Long totalConsumed;
+
+    private Long totalRefunded;
+
+    private Long totalAdminGranted;
+
+    private LocalDateTime createdAt;
+
+    private LocalDateTime lastCreditChangeAt;
 }

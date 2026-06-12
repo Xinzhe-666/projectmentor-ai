@@ -25,14 +25,14 @@ AI 增强模块通过 OpenAI-compatible API 调用外部模型；
 
 | 模块 | 说明 |
 | --- | --- |
-| `auth` | 用户注册、登录、JWT 生成、当前用户信息 |
+| `auth` | 用户注册、登录、JWT 生成、当前用户信息、注册 IP 频率限制 |
 | `project` | 项目创建、列表、详情和删除 |
 | `file` | README 保存、项目文件查询、ZIP 上传解析 |
 | `scanner` | README 风险规则扫描与证据链生成 |
 | `analysis` | 审计报告生成、异步分析任务、Redis 进度 |
 | `hallucination` | AI 回答幻觉和简历风险检测 |
 | `interview` | 规则版模拟面试会话、追问、评分和总结 |
-| `credit` | 额度账户、额度流水、管理员加额 |
+| `credit` | 额度账户、额度流水、管理员发放 / 扣除、AI 使用统计数据源 |
 | `ai` | OpenAI-compatible API 客户端与 AI 审计结果结构 |
 | `common` | 统一返回、错误码、业务异常和全局异常处理 |
 | `config` | CORS、MVC 拦截器、异步线程池、Knife4j 等配置 |
@@ -131,7 +131,23 @@ Redis 写入初始进度
 
 当前统一成本为：AI 审计报告 2、AI Claim-Evidence 2、AI 项目问答 1、AI 幻觉检测 1、AI 模拟面试 2、独立 AI 简历优化 1 credit。规则扫描、上传、项目管理、Dashboard、历史查看和公开分享不扣额度。
 
-当前额度系统只覆盖项目内的额度账户、消耗、返还和管理员加额，尚未接入支付系统。所有扣费和退款继续复用 `pm_user_plan` 与 `pm_credit_log`，不新增数据库字段。
+当前额度系统覆盖额度账户、AI 消耗、失败返还和管理员发放 / 扣除，尚未接入支付系统。AI 使用统计直接聚合 `pm_credit_log`，继续复用 `pm_user_plan` 与 `pm_credit_log`，不新增数据库字段或用量表。
+
+## 注册防刷流程
+
+```text
+POST /api/auth/register
+  ↓
+从 X-Forwarded-For / X-Real-IP / remoteAddr 获取客户端 IP
+  ↓
+检查 register:ip:hour:* 与 register:ip:day:* 计数
+  ↓
+每小时最多成功注册 3 个账号，每天最多 10 个账号
+  ↓
+注册成功后递增 Redis 与进程内影子计数
+```
+
+Redis 用于跨实例限流，进程内计数用于安全降级和单实例兜底。Redis 读取或写入失败时只记录告警，不会让注册接口崩溃；登录流程不受该限制影响。
 
 ## Docker 部署架构
 

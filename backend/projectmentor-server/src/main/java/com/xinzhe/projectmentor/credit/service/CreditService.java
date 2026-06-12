@@ -7,12 +7,17 @@ import com.xinzhe.projectmentor.auth.interceptor.UserContext;
 import com.xinzhe.projectmentor.auth.mapper.UserMapper;
 import com.xinzhe.projectmentor.common.BusinessException;
 import com.xinzhe.projectmentor.common.ErrorCode;
-import com.xinzhe.projectmentor.credit.dto.AdminGrantCreditRequest;
+import com.xinzhe.projectmentor.common.PageResult;
+import com.xinzhe.projectmentor.credit.CreditCostConstants;
 import com.xinzhe.projectmentor.credit.dto.AddCreditRequest;
+import com.xinzhe.projectmentor.credit.dto.AdminCreditAdjustmentRequest;
+import com.xinzhe.projectmentor.credit.dto.AdminGrantCreditRequest;
 import com.xinzhe.projectmentor.credit.entity.CreditLog;
 import com.xinzhe.projectmentor.credit.entity.UserPlan;
+import com.xinzhe.projectmentor.credit.mapper.AdminCreditQueryMapper;
 import com.xinzhe.projectmentor.credit.mapper.CreditLogMapper;
 import com.xinzhe.projectmentor.credit.mapper.UserPlanMapper;
+import com.xinzhe.projectmentor.credit.vo.AdminCreditAdjustmentResultVO;
 import com.xinzhe.projectmentor.credit.vo.AdminCreditGrantResultVO;
 import com.xinzhe.projectmentor.credit.vo.AdminCreditTransactionVO;
 import com.xinzhe.projectmentor.credit.vo.AdminCreditUserDetailVO;
@@ -25,16 +30,19 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.util.Collections;
-import java.util.HashMap;
+import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
 public class CreditService {
+
+    private static final int DEFAULT_PAGE_SIZE = 10;
+
+    private static final int MAX_PAGE_SIZE = 100;
+
+    private static final int MAX_ADMIN_ADJUSTMENT = 10000;
 
     private final UserPlanMapper userPlanMapper;
 
@@ -43,6 +51,8 @@ public class CreditService {
     private final UserMapper userMapper;
 
     private final AdminService adminService;
+
+    private final AdminCreditQueryMapper adminCreditQueryMapper;
 
     public CreditInfoVO getMyCredits() {
         Long userId = getCurrentUserId();
@@ -59,26 +69,196 @@ public class CreditService {
     public List<CreditLogVO> listMyCreditLogs() {
         Long userId = getCurrentUserId();
 
-        List<CreditLog> logs = creditLogMapper.selectList(
-                new LambdaQueryWrapper<CreditLog>()
-                        .eq(CreditLog::getUserId, userId)
-                        .orderByDesc(CreditLog::getCreateTime)
-        );
-
-        return logs.stream()
+        return creditLogMapper.selectList(
+                        new LambdaQueryWrapper<CreditLog>()
+                                .eq(CreditLog::getUserId, userId)
+                                .orderByDesc(CreditLog::getCreateTime)
+                )
+                .stream()
                 .map(this::toVO)
                 .toList();
     }
 
+    public PageResult<AdminCreditUserVO> searchCreditUsers(String keyword,
+                                                            Integer page,
+                                                            Integer size,
+                                                            String sort) {
+        adminService.requireAdmin();
+
+        int safePage = sanitizePage(page);
+        int safeSize = sanitizeSize(size);
+        String normalizedKeyword = StringUtils.hasText(keyword) ? keyword.trim() : null;
+        CreditUserSort creditUserSort = parseSort(sort);
+        int offset = (safePage - 1) * safeSize;
+
+        return PageResult.<AdminCreditUserVO>builder()
+                .records(adminCreditQueryMapper.selectCreditUsers(
+                        normalizedKeyword,
+                        offset,
+                        safeSize,
+                        creditUserSort.column(),
+                        creditUserSort.direction()
+                ))
+                .total(adminCreditQueryMapper.countCreditUsers(normalizedKeyword))
+                .page(safePage)
+                .size(safeSize)
+                .build();
+    }
+
+    public AdminCreditUserDetailVO getAdminCreditUserDetail(Long userId) {
+        adminService.requireAdmin();
+        User user = requireExistingUser(userId);
+        UserPlan userPlan = getOrCreateUserPlan(userId);
+        PageResult<AdminCreditTransactionVO> logs = listAdminCreditLogs(
+                userId, 1, 10, null, null, null, null
+        );
+
+        return AdminCreditUserDetailVO.builder()
+                .userId(user.getId())
+                .email(user.getEmail())
+                .nickname(user.getUsername())
+                .creditBalance(currentBalance(userPlan))
+                .recentTransactions(logs.getRecords())
+                .build();
+    }
+
+    public PageResult<AdminCreditTransactionVO> listAdminCreditLogs(Long userId,
+                                                                    Integer page,
+                                                                    Integer size,
+                                                                    String type,
+                                                                    String module,
+                                                                    LocalDateTime startTime,
+                                                                    LocalDateTime endTime) {
+        adminService.requireAdmin();
+        requireExistingUser(userId);
+
+        int safePage = sanitizePage(page);
+        int safeSize = sanitizeSize(size);
+        int offset = (safePage - 1) * safeSize;
+
+        LambdaQueryWrapper<CreditLog> countWrapper = buildAdminLogWrapper(
+                userId, type, module, startTime, endTime
+        );
+        long total = creditLogMapper.selectCount(countWrapper);
+
+        LambdaQueryWrapper<CreditLog> listWrapper = buildAdminLogWrapper(
+                userId, type, module, startTime, endTime
+        );
+        listWrapper.orderByDesc(CreditLog::getCreateTime)
+                .orderByDesc(CreditLog::getId)
+                .last("LIMIT " + offset + ", " + safeSize);
+
+        List<AdminCreditTransactionVO> records = creditLogMapper.selectList(listWrapper)
+                .stream()
+                .map(this::toAdminTransactionVO)
+                .toList();
+
+        return PageResult.<AdminCreditTransactionVO>builder()
+                .records(records)
+                .total(total)
+                .page(safePage)
+                .size(safeSize)
+                .build();
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public AdminCreditAdjustmentResultVO grantCreditsByAdmin(Long userId,
+                                                              AdminCreditAdjustmentRequest request) {
+        User adminUser = adminService.requireAdminUser();
+        validateAdjustmentRequest(request);
+        User targetUser = requireExistingUser(userId);
+        UserPlan userPlan = getOrCreateUserPlan(userId);
+
+        int before = currentBalance(userPlan);
+        if (before > Integer.MAX_VALUE - request.getAmount()) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "额度余额已达到系统上限");
+        }
+        int after = before + request.getAmount();
+
+        updateBalance(userPlan, after);
+        CreditLog creditLog = createCreditLog(
+                userId,
+                request.getAmount(),
+                before,
+                after,
+                CreditCostConstants.OP_ADMIN_GRANT,
+                null,
+                buildAdminRemark("管理员发放", request.getReason(), adminUser)
+        );
+
+        return buildAdjustmentResult(
+                targetUser,
+                request.getAmount(),
+                request.getAmount(),
+                after,
+                CreditCostConstants.OP_ADMIN_GRANT,
+                creditLog.getId()
+        );
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public AdminCreditAdjustmentResultVO deductCreditsByAdmin(Long userId,
+                                                               AdminCreditAdjustmentRequest request) {
+        User adminUser = adminService.requireAdminUser();
+        validateAdjustmentRequest(request);
+        User targetUser = requireExistingUser(userId);
+        UserPlan userPlan = getOrCreateUserPlan(userId);
+
+        int before = currentBalance(userPlan);
+        if (before < request.getAmount()) {
+            throw new BusinessException(
+                    ErrorCode.CREDIT_NOT_ENOUGH,
+                    "扣除额度不能超过当前余额，当前余额：" + before
+            );
+        }
+        int after = before - request.getAmount();
+
+        updateBalance(userPlan, after);
+        CreditLog creditLog = createCreditLog(
+                userId,
+                -request.getAmount(),
+                before,
+                after,
+                CreditCostConstants.OP_ADMIN_DEDUCT,
+                null,
+                buildAdminRemark("管理员扣除", request.getReason(), adminUser)
+        );
+
+        return buildAdjustmentResult(
+                targetUser,
+                request.getAmount(),
+                -request.getAmount(),
+                after,
+                CreditCostConstants.OP_ADMIN_DEDUCT,
+                creditLog.getId()
+        );
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public AdminCreditGrantResultVO grantCreditsByAdmin(AdminGrantCreditRequest request) {
+        AdminCreditAdjustmentRequest adjustmentRequest = new AdminCreditAdjustmentRequest();
+        adjustmentRequest.setAmount(request.getAmount());
+        adjustmentRequest.setReason(request.getReason());
+
+        AdminCreditAdjustmentResultVO result = grantCreditsByAdmin(request.getUserId(), adjustmentRequest);
+        return AdminCreditGrantResultVO.builder()
+                .userId(result.getUserId())
+                .email(result.getEmail())
+                .grantedAmount(result.getAdjustedAmount())
+                .newBalance(result.getNewBalance())
+                .transactionId(result.getTransactionId())
+                .build();
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public CreditInfoVO addCreditsByAdmin(AddCreditRequest request) {
-        AdminGrantCreditRequest grantRequest = new AdminGrantCreditRequest();
-        grantRequest.setUserId(request.getUserId());
-        grantRequest.setAmount(request.getAmount());
-        grantRequest.setReason(StringUtils.hasText(request.getRemark()) ? request.getRemark() : "管理员手动增加额度");
+        AdminCreditAdjustmentRequest adjustmentRequest = new AdminCreditAdjustmentRequest();
+        adjustmentRequest.setAmount(request.getAmount());
+        adjustmentRequest.setReason(StringUtils.hasText(request.getRemark())
+                ? request.getRemark()
+                : "管理员手动增加额度");
 
-        AdminCreditGrantResultVO result = grantCreditsByAdmin(grantRequest);
-
+        AdminCreditAdjustmentResultVO result = grantCreditsByAdmin(request.getUserId(), adjustmentRequest);
         UserPlan userPlan = getOrCreateUserPlan(request.getUserId());
         return CreditInfoVO.builder()
                 .userId(result.getUserId())
@@ -88,103 +268,8 @@ public class CreditService {
                 .build();
     }
 
-    public List<AdminCreditUserVO> searchCreditUsers(String keyword, Integer limit) {
-        adminService.requireAdmin();
-
-        List<User> users = userMapper.selectList(buildUserSearchWrapper(keyword, limit));
-        Map<Long, Integer> balanceMap = loadBalanceMap(users.stream()
-                .map(User::getId)
-                .collect(Collectors.toSet()));
-
-        return users.stream()
-                .map(user -> AdminCreditUserVO.builder()
-                        .userId(user.getId())
-                        .email(user.getEmail())
-                        .nickname(user.getUsername())
-                        .creditBalance(balanceMap.getOrDefault(user.getId(), 0))
-                        .createTime(user.getCreateTime())
-                        .build())
-                .toList();
-    }
-
-    public AdminCreditUserDetailVO getAdminCreditUserDetail(Long userId) {
-        adminService.requireAdmin();
-        User user = requireExistingUser(userId);
-        UserPlan userPlan = getOrCreateUserPlan(userId);
-
-        List<AdminCreditTransactionVO> transactions = creditLogMapper.selectList(
-                        new LambdaQueryWrapper<CreditLog>()
-                                .eq(CreditLog::getUserId, userId)
-                                .orderByDesc(CreditLog::getCreateTime)
-                                .last("LIMIT 10")
-                )
-                .stream()
-                .map(this::toAdminTransactionVO)
-                .toList();
-
-        return AdminCreditUserDetailVO.builder()
-                .userId(user.getId())
-                .email(user.getEmail())
-                .nickname(user.getUsername())
-                .creditBalance(userPlan.getRemainingCredits() == null ? 0 : userPlan.getRemainingCredits())
-                .recentTransactions(transactions)
-                .build();
-    }
-
-    @Transactional(rollbackFor = Exception.class)
-    public AdminCreditGrantResultVO grantCreditsByAdmin(AdminGrantCreditRequest request) {
-        User adminUser = adminService.requireAdminUser();
-
-        if (request.getAmount() == null || request.getAmount() <= 0) {
-            throw new BusinessException(ErrorCode.PARAM_ERROR, "发放额度必须为正整数");
-        }
-        if (request.getAmount() > 10000) {
-            throw new BusinessException(ErrorCode.PARAM_ERROR, "单次发放额度不能超过 10000");
-        }
-        if (!StringUtils.hasText(request.getReason()) || request.getReason().trim().length() < 2) {
-            throw new BusinessException(ErrorCode.PARAM_ERROR, "发放原因不能为空且至少 2 个字符");
-        }
-
-        User targetUser = requireExistingUser(request.getUserId());
-
-        String reason = request.getReason().trim();
-        if (reason.length() > 200) {
-            throw new BusinessException(ErrorCode.PARAM_ERROR, "发放原因不能超过 200 个字符");
-        }
-
-        UserPlan userPlan = getOrCreateUserPlan(request.getUserId());
-
-        int before = userPlan.getRemainingCredits() == null ? 0 : userPlan.getRemainingCredits();
-        int after = before + request.getAmount();
-
-        userPlan.setRemainingCredits(after);
-        userPlanMapper.updateById(userPlan);
-
-        CreditLog creditLog = createCreditLog(
-                request.getUserId(),
-                request.getAmount(),
-                before,
-                after,
-                "ADMIN_GRANT",
-                null,
-                buildAdminGrantRemark(reason, adminUser)
-        );
-
-        return AdminCreditGrantResultVO.builder()
-                .userId(request.getUserId())
-                .email(targetUser.getEmail())
-                .grantedAmount(request.getAmount())
-                .newBalance(after)
-                .transactionId(creditLog.getId())
-                .build();
-    }
-
     /**
-     * 消耗额度。
-     *
-     * 【重点理解】
-     * 这里使用 REQUIRES_NEW，表示额度扣减会开启一个独立事务。
-     * 这样后续报告生成失败时，我们才能再用独立事务返还额度。
+     * 消耗额度使用独立事务，便于后续失败时通过另一个独立事务返还额度。
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
     public void consumeCredits(Long userId,
@@ -197,8 +282,7 @@ public class CreditService {
         }
 
         UserPlan userPlan = getOrCreateUserPlan(userId);
-
-        int before = userPlan.getRemainingCredits() == null ? 0 : userPlan.getRemainingCredits();
+        int before = currentBalance(userPlan);
 
         if (before < cost) {
             throw new BusinessException(
@@ -208,27 +292,12 @@ public class CreditService {
         }
 
         int after = before - cost;
-
-        userPlan.setRemainingCredits(after);
-        userPlanMapper.updateById(userPlan);
-
-        createCreditLog(
-                userId,
-                -cost,
-                before,
-                after,
-                operationType,
-                businessId,
-                remark
-        );
+        updateBalance(userPlan, after);
+        createCreditLog(userId, -cost, before, after, operationType, businessId, remark);
     }
 
     /**
-     * 返还额度。
-     *
-     * 【重点理解】
-     * 如果报告生成失败，不能让用户白白损失额度。
-     * 所以失败时需要返还，并记录 CREDIT_REFUND 流水。
+     * AI 调用或结果保存失败时返还额度，并保留可审计流水。
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
     public void refundCredits(Long userId,
@@ -241,22 +310,44 @@ public class CreditService {
         }
 
         UserPlan userPlan = getOrCreateUserPlan(userId);
-
-        int before = userPlan.getRemainingCredits() == null ? 0 : userPlan.getRemainingCredits();
+        int before = currentBalance(userPlan);
         int after = before + amount;
 
-        userPlan.setRemainingCredits(after);
-        userPlanMapper.updateById(userPlan);
+        updateBalance(userPlan, after);
+        createCreditLog(userId, amount, before, after, operationType, businessId, remark);
+    }
 
-        createCreditLog(
-                userId,
-                amount,
-                before,
-                after,
-                operationType,
-                businessId,
-                remark
-        );
+    private LambdaQueryWrapper<CreditLog> buildAdminLogWrapper(Long userId,
+                                                               String type,
+                                                               String module,
+                                                               LocalDateTime startTime,
+                                                               LocalDateTime endTime) {
+        LambdaQueryWrapper<CreditLog> wrapper = new LambdaQueryWrapper<CreditLog>()
+                .eq(CreditLog::getUserId, userId);
+
+        if (StringUtils.hasText(module)) {
+            wrapper.eq(CreditLog::getOperationType, module.trim());
+        }
+
+        if (StringUtils.hasText(type)) {
+            String normalizedType = type.trim().toUpperCase(Locale.ROOT);
+            switch (normalizedType) {
+                case "REFUND" -> wrapper.like(CreditLog::getOperationType, "REFUND");
+                case "CONSUME" -> wrapper.lt(CreditLog::getChangeAmount, 0)
+                        .notLike(CreditLog::getOperationType, "REFUND");
+                case "GRANT" -> wrapper.gt(CreditLog::getChangeAmount, 0)
+                        .notLike(CreditLog::getOperationType, "REFUND");
+                default -> wrapper.eq(CreditLog::getOperationType, normalizedType);
+            }
+        }
+
+        if (startTime != null) {
+            wrapper.ge(CreditLog::getCreateTime, startTime);
+        }
+        if (endTime != null) {
+            wrapper.le(CreditLog::getCreateTime, endTime);
+        }
+        return wrapper;
     }
 
     private UserPlan getOrCreateUserPlan(Long userId) {
@@ -274,10 +365,15 @@ public class CreditService {
         newPlan.setUserId(userId);
         newPlan.setPlanType("FREE");
         newPlan.setRemainingCredits(0);
-
         userPlanMapper.insert(newPlan);
-
         return newPlan;
+    }
+
+    private void updateBalance(UserPlan userPlan, int balance) {
+        userPlan.setRemainingCredits(balance);
+        if (userPlanMapper.updateById(userPlan) != 1) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "额度余额更新失败");
+        }
     }
 
     private CreditLog createCreditLog(Long userId,
@@ -296,68 +392,112 @@ public class CreditService {
         creditLog.setBusinessId(businessId);
         creditLog.setRemark(remark);
 
-        creditLogMapper.insert(creditLog);
+        if (creditLogMapper.insert(creditLog) != 1) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "额度流水写入失败");
+        }
         return creditLog;
     }
 
-    private LambdaQueryWrapper<User> buildUserSearchWrapper(String keyword, Integer limit) {
-        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<User>()
-                .select(User::getId, User::getEmail, User::getUsername, User::getCreateTime)
-                .orderByDesc(User::getCreateTime)
-                .last("LIMIT " + sanitizeLimit(limit));
-
-        if (!StringUtils.hasText(keyword)) {
-            return wrapper;
+    private void validateAdjustmentRequest(AdminCreditAdjustmentRequest request) {
+        if (request == null || request.getAmount() == null || request.getAmount() <= 0) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "调整额度必须为正整数");
         }
-
-        String normalizedKeyword = keyword.trim();
-        Long userId = parseLong(normalizedKeyword);
-
-        wrapper.and(query -> {
-            query.like(User::getEmail, normalizedKeyword)
-                    .or()
-                    .like(User::getUsername, normalizedKeyword);
-            if (userId != null) {
-                query.or().eq(User::getId, userId);
-            }
-        });
-
-        return wrapper;
+        if (request.getAmount() > MAX_ADMIN_ADJUSTMENT) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "单次调整额度不能超过 10000");
+        }
+        if (!StringUtils.hasText(request.getReason()) || request.getReason().trim().length() < 2) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "调整原因不能为空且至少 2 个字符");
+        }
+        if (request.getReason().trim().length() > 200) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "调整原因不能超过 200 个字符");
+        }
     }
 
-    private Map<Long, Integer> loadBalanceMap(Set<Long> userIds) {
-        if (userIds == null || userIds.isEmpty()) {
-            return Collections.emptyMap();
-        }
-
-        return userPlanMapper.selectList(new LambdaQueryWrapper<UserPlan>()
-                        .select(UserPlan::getUserId, UserPlan::getRemainingCredits)
-                        .in(UserPlan::getUserId, userIds))
-                .stream()
-                .collect(Collectors.toMap(
-                        UserPlan::getUserId,
-                        plan -> plan.getRemainingCredits() == null ? 0 : plan.getRemainingCredits(),
-                        (left, right) -> left,
-                        HashMap::new
-                ));
+    private AdminCreditAdjustmentResultVO buildAdjustmentResult(User targetUser,
+                                                                 int adjustedAmount,
+                                                                 int changeAmount,
+                                                                 int newBalance,
+                                                                 String operationType,
+                                                                 Long transactionId) {
+        return AdminCreditAdjustmentResultVO.builder()
+                .userId(targetUser.getId())
+                .email(targetUser.getEmail())
+                .adjustedAmount(adjustedAmount)
+                .changeAmount(changeAmount)
+                .newBalance(newBalance)
+                .operationType(operationType)
+                .transactionId(transactionId)
+                .build();
     }
 
-    private int sanitizeLimit(Integer limit) {
-        int safeLimit = limit == null ? 10 : limit;
-        return Math.max(1, Math.min(safeLimit, 20));
+    private String buildAdminRemark(String action, String reason, User adminUser) {
+        return action + "：" + reason.trim()
+                + "；adminId=" + adminUser.getId()
+                + "；adminEmail=" + adminUser.getEmail();
     }
 
-    private Long parseLong(String value) {
-        try {
-            return Long.valueOf(value);
-        } catch (NumberFormatException e) {
-            return null;
+    private AdminCreditTransactionVO toAdminTransactionVO(CreditLog log) {
+        String operationType = log.getOperationType();
+        return AdminCreditTransactionVO.builder()
+                .id(log.getId())
+                .amount(log.getChangeAmount())
+                .type(classifyTransactionType(log))
+                .module(operationType)
+                .description(log.getRemark())
+                .balanceAfter(log.getAfterAmount())
+                .createdAt(log.getCreateTime())
+                .build();
+    }
+
+    private String classifyTransactionType(CreditLog log) {
+        String operationType = log.getOperationType();
+        if (operationType != null && operationType.contains("REFUND")) {
+            return "REFUND";
         }
+        if (CreditCostConstants.OP_ADMIN_GRANT.equals(operationType) || "REGISTER_GIFT".equals(operationType)) {
+            return "GRANT";
+        }
+        if (CreditCostConstants.OP_ADMIN_DEDUCT.equals(operationType) || safeAmount(log) < 0) {
+            return "CONSUME";
+        }
+        return "ADJUSTMENT";
+    }
+
+    private int safeAmount(CreditLog log) {
+        return log.getChangeAmount() == null ? 0 : log.getChangeAmount();
+    }
+
+    private int currentBalance(UserPlan userPlan) {
+        return userPlan.getRemainingCredits() == null ? 0 : userPlan.getRemainingCredits();
+    }
+
+    private int sanitizePage(Integer page) {
+        return page == null ? 1 : Math.max(1, page);
+    }
+
+    private int sanitizeSize(Integer size) {
+        int safeSize = size == null ? DEFAULT_PAGE_SIZE : size;
+        return Math.max(1, Math.min(safeSize, MAX_PAGE_SIZE));
+    }
+
+    private CreditUserSort parseSort(String sort) {
+        if (!StringUtils.hasText(sort)) {
+            return new CreditUserSort("u.create_time", "DESC");
+        }
+
+        return switch (sort.trim()) {
+            case "balanceAsc" -> new CreditUserSort("credit_balance", "ASC");
+            case "balanceDesc" -> new CreditUserSort("credit_balance", "DESC");
+            case "createdAtAsc" -> new CreditUserSort("u.create_time", "ASC");
+            case "lastCreditChangeAtAsc" -> new CreditUserSort("last_credit_change_at", "ASC");
+            case "lastCreditChangeAtDesc" -> new CreditUserSort("last_credit_change_at", "DESC");
+            default -> new CreditUserSort("u.create_time", "DESC");
+        };
     }
 
     private User requireExistingUser(Long userId) {
         if (userId == null) {
-            throw new BusinessException(ErrorCode.PARAM_ERROR, "用户ID不能为空");
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "用户 ID 不能为空");
         }
 
         User user = userMapper.selectById(userId);
@@ -367,29 +507,11 @@ public class CreditService {
         return user;
     }
 
-    private String buildAdminGrantRemark(String reason, User adminUser) {
-        return "管理员发放：" + reason
-                + "；adminId=" + adminUser.getId()
-                + "；adminEmail=" + adminUser.getEmail();
-    }
-
-    private AdminCreditTransactionVO toAdminTransactionVO(CreditLog log) {
-        return AdminCreditTransactionVO.builder()
-                .id(log.getId())
-                .changeAmount(log.getChangeAmount())
-                .type(log.getOperationType())
-                .reason(log.getRemark())
-                .createTime(log.getCreateTime())
-                .build();
-    }
-
     private Long getCurrentUserId() {
         Long userId = UserContext.getUserId();
-
         if (userId == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
-
         return userId;
     }
 
@@ -405,5 +527,8 @@ public class CreditService {
                 .remark(log.getRemark())
                 .createTime(log.getCreateTime())
                 .build();
+    }
+
+    private record CreditUserSort(String column, String direction) {
     }
 }

@@ -25,6 +25,7 @@ export function disableReportShare(reportId: number) {
 export function getPublicReport(token: string) {
   return request<PublicReport>({
     url: `/api/share/reports/${token}`,
-    method: 'get'
+    method: 'get',
+    silentError: true
   })
 }

@@ -66,6 +66,19 @@ export default {
     points: '分',
     copyright: '© 2026 李鑫哲. ProjectMentor AI. All rights reserved.'
   },
+  footer: {
+    preview: 'Public Preview · 内测版本',
+    summary: 'ProjectMentor AI 基于代码证据链、规则扫描和 AI 深度解读，帮助开发者更真实、更稳妥地复盘与表达项目。',
+    creditNotice: '规则扫描免费，AI 功能消耗 credits',
+    noExaggeration: 'PMAI 不鼓励夸大项目经历',
+    audience: '适合开发者、计算机学生、实习求职者和早期创作者',
+    privacyTitle: '隐私与免责声明',
+    materialUsage: '上传的 README、ZIP 和项目材料仅用于生成审计报告及相关分析。',
+    noSecrets: '请勿上传密钥或敏感信息，包括商业机密、隐私数据、Token 和密码。',
+    aiReference: 'AI 结果仅供参考；AI 功能可能消耗 credits，失败时按系统规则返还。',
+    notCertification: '审计结果不是官方认证，也不保证绝对正确，请结合真实代码与个人贡献自行判断。',
+    evidenceReport: '基于证据的报告'
+  },
   lang: {
     current: '中文',
     zh: '中文',
@@ -307,9 +320,9 @@ export default {
       zip: 'ZIP 上传与证据解析',
       resume: '简历描述建议'
     },
-    boundaryEyebrow: 'Trial boundary',
-    boundaryTitle: '试用版边界',
-    boundaryDesc: '它适合做学习复盘和面试准备辅助，不适合替代你对代码与项目事实的最终判断。',
+    boundaryEyebrow: 'Public Preview',
+    boundaryTitle: '公开内测说明与使用边界',
+    boundaryDesc: '当前处于 Public Preview / 内测阶段，适合学习、项目复盘和面试准备，不替代你对代码与项目事实的最终判断。',
     boundaries: {
       notGuarantee: '本工具不是自动保证简历真实的工具',
       reference: 'AI 结论仅供学习和面试准备参考',
@@ -722,17 +735,23 @@ export default {
     startInterview: '开始面试'
   },
   publicReport: {
-    title: 'ProjectMentor AI 只读分享报告',
-    subtitle: '该报告由用户主动分享，仅供项目复盘和面试准备参考。',
-    notice: '公开分享页仅展示脱敏后的只读报告内容，不包含用户身份、额度流水、AI 调用日志或项目源码内容。',
+    title: 'ProjectMentor AI 项目真实性审计报告',
+    subtitle: '这是一份由用户主动分享的只读报告，用于项目复盘和面试准备。',
+    notice: '公开页仅展示脱敏后的报告内容，不包含用户身份、额度流水、AI 调用日志、后台信息或完整项目源码。',
     eyebrow: 'Shared Audit Report',
+    evidenceBased: '基于证据的报告',
+    generatedNotice: '这是一份由 ProjectMentor AI 生成的项目真实性审计报告。',
+    generationBasis: '报告基于用户提供的项目材料、规则证据链和可选 AI 增强生成。',
+    ruleBased: '基础规则证据链报告',
+    aiEnhanced: '包含 AI 深度解读',
+    notCertification: '非官方认证',
     scoreTitle: '维度评分',
     contentDesc: '从优势、短板和后续建议快速判断项目当前状态。',
     risksDesc: '风险等级越高，越需要优先补充证据或降低简历表述强度。',
-    evidenceDesc: '通过 sourceFile、evidence 和 suggestion 追溯每条判断的来源。',
+    evidenceDesc: '通过 sourceFile、evidence 和 suggestion 追溯每条判断的来源；页面不会展示完整源码。',
     resumeTitle: '简历描述参考',
     resumeDesc: '三版描述保留不同表达强度，复制前建议结合个人真实贡献再调整。',
-    footer: 'ProjectMentor AI 关注项目真实性、证据链和面试可解释性，不承诺自动审计完全准确。',
+    footer: '审计结果仅供学习、复盘和面试准备参考，不等于官方认证。PMAI 不鼓励夸大项目经历，也不承诺自动审计完全准确。',
     unavailable: '分享链接不可用',
     unavailableMessage: '分享链接不存在、已关闭或已过期'
   },

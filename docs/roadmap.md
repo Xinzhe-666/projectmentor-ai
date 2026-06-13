@@ -1,5 +1,16 @@
 # ProjectMentor AI Roadmap
 
+## V4.6 Public Preview Launch Pack（已完成）
+
+- 统一公开定位为项目真实性审计与面试深挖平台，学生作为适用人群而不是主定位。
+- 增加 SEO、Open Graph、Twitter card、application name 和 robots 基础配置。
+- 增加 Public Preview Footer、双语隐私与免责声明入口及独立说明文档。
+- 公开分享报告增加报告生成依据、规则版 / AI 增强状态和“非官方认证”提示。
+- Nginx 增加安全响应头，保留 `/api` 代理、history fallback 和 820MB 上传限制。
+- 部署文档补充域名 A 记录、`server_name`、HTTPS 证书和安全头说明。
+- 当前未配置 canonical 公共域名，因此不生成 sitemap；正式域名确定后再补充绝对 URL。
+- 不新增数据库字段、依赖、支付或统计，不改变 credits 扣费和失败返还逻辑。
+
 ## V4.5-5 体验与演示优化（已完成）
 
 - Landing 一眼说明“项目真实性审计与面试深挖平台”，并补充三项价值、四步工作流、规则与 AI 区分、适用人群和八步演示流程。

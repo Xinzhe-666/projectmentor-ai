@@ -1,3 +1,23 @@
+# v4.6
+
+Public Preview Launch Pack.
+
+ProjectMentor AI is a project authenticity audit and interview deep-dive platform. It uses code evidence chains, rule-based scanning, and AI deep review to help developers verify project claims, improve resume wording, and prepare for technical interviews.
+
+This version adds:
+
+* Static SEO metadata, browser title, Open Graph, Twitter card, application name, and robots directives.
+* A bilingual Public Preview footer with credits guidance, privacy notes, upload warnings, and a lightweight Privacy & Disclaimer disclosure.
+* A bilingual privacy and disclaimer document covering uploaded materials, AI limitations, credits, sensitive data, and public-report boundaries.
+* More trustworthy public reports with evidence-generation context, base-rule versus AI-enhanced status, and a clear “Not an official certification” label.
+* Nginx security response headers without changing the existing `/api` proxy, history fallback, or upload limits.
+* VPS and Docker deployment guidance for DNS records, `server_name`, HTTPS certificates, reverse proxy behavior, and optional future sitemap setup.
+
+Boundaries:
+
+* No backend API, database field, dependency, payment system, analytics integration, external image, AI provider, credit-cost rule, API key, `.env.development`, or LICENSE change is included.
+* No sitemap is shipped until a canonical public domain is configured; this avoids publishing placeholder or IP-based URLs.
+
 # v4.5-5
 
 Frontend experience, onboarding, and demo-flow refinement.

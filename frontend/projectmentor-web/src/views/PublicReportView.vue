@@ -21,6 +21,20 @@
       </section>
 
       <template v-if="report">
+        <section class="public-trust-panel">
+          <div>
+            <p class="eyebrow">{{ t('publicReport.evidenceBased') }}</p>
+            <strong>{{ t('publicReport.generatedNotice') }}</strong>
+            <p>{{ t('publicReport.generationBasis') }}</p>
+          </div>
+          <div class="public-trust-tags">
+            <el-tag effect="light" type="success">
+              {{ hasAiEnhancement ? t('publicReport.aiEnhanced') : t('publicReport.ruleBased') }}
+            </el-tag>
+            <el-tag effect="plain" type="info">{{ t('publicReport.notCertification') }}</el-tag>
+          </div>
+        </section>
+
         <section class="panel public-hero-panel">
           <div class="panel-body public-hero">
             <div class="public-summary">
@@ -190,6 +204,16 @@ const loading = ref(false)
 const report = ref<PublicReport>()
 const errorMessage = ref('')
 
+const hasAiEnhancement = computed(() => Boolean(
+  report.value?.claimEvidenceAi?.aiEnhanced
+    || report.value?.claimEvidenceAi?.aiSummary
+    || report.value?.claimEvidenceAi?.aiRiskOverview
+    || report.value?.claimEvidenceAi?.aiResumeStrategy
+    || report.value?.claimEvidenceAi?.aiInterviewStrategy
+    || report.value?.claimEvidenceAi?.aiFallbackText
+    || report.value?.claimEvidenceAi?.aiEnhancedItems?.length
+))
+
 const radarScores = computed(() => ({
   runnabilityScore: report.value?.runnabilityScore,
   authenticityScore: report.value?.authenticityScore,
@@ -224,8 +248,8 @@ async function loadPublicReport() {
 
   try {
     report.value = await getPublicReport(token)
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : t('publicReport.unavailableMessage')
+  } catch {
+    errorMessage.value = t('publicReport.unavailableMessage')
   } finally {
     loading.value = false
   }
@@ -294,6 +318,40 @@ onMounted(loadPublicReport)
   background: #eef6ff;
   color: #245089;
   line-height: 1.7;
+}
+
+.public-trust-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 18px;
+  padding: 16px 18px;
+  border: 1px solid rgba(19, 152, 127, 0.2);
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(238, 252, 248, 0.95), rgba(246, 250, 255, 0.95));
+  color: #344054;
+}
+
+.public-trust-panel strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--pm-ink);
+  font-size: 16px;
+}
+
+.public-trust-panel p:not(.eyebrow) {
+  margin: 6px 0 0;
+  line-height: 1.7;
+}
+
+.public-trust-tags {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
 }
 
 .public-hero-panel {
@@ -422,6 +480,15 @@ onMounted(loadPublicReport)
 
   .public-hero {
     grid-template-columns: 1fr;
+  }
+
+  .public-trust-panel {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .public-trust-tags {
+    justify-content: flex-start;
   }
 
   .public-summary h2,

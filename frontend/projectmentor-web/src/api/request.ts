@@ -9,6 +9,10 @@ import type { ApiResult } from '@/types/api'
 const TOKEN_KEY = 'projectmentor_token'
 const configuredBaseURL = import.meta.env.VITE_API_BASE_URL || '/api'
 
+export interface RequestConfig extends AxiosRequestConfig {
+  silentError?: boolean
+}
+
 const service = axios.create({
   baseURL: configuredBaseURL === '/api' ? '' : configuredBaseURL,
   timeout: 60000
@@ -50,7 +54,9 @@ service.interceptors.response.use(
           ? String(i18n.global.t('credits.aiFailedRefunded'))
           : result.message || String(i18n.global.t('common.requestFailed'))
 
-      ElMessage.error(localizedMessage)
+      if (!(response.config as RequestConfig).silentError) {
+        ElMessage.error(localizedMessage)
+      }
       return Promise.reject(new Error(localizedMessage))
     }
 
@@ -63,12 +69,14 @@ service.interceptors.response.use(
     const message = isZipUploadTimeout
       ? '大项目上传超时，请检查网络，或删除 node_modules / target / dist / .git 后重新上传。'
       : error?.response?.data?.message || error.message || '网络异常，请稍后重试'
-    ElMessage.error(message)
+    if (!(error?.config as RequestConfig | undefined)?.silentError) {
+      ElMessage.error(message)
+    }
     return Promise.reject(isZipUploadTimeout ? new Error(message) : error)
   }
 )
 
-export function request<T>(config: AxiosRequestConfig): Promise<T> {
+export function request<T>(config: RequestConfig): Promise<T> {
   return service.request<unknown, T>(config)
 }
 

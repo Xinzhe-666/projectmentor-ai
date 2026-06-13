@@ -68,6 +68,24 @@ bash scripts/check-prod.sh
 http://服务器IP
 ```
 
+## 可选域名与 HTTPS
+
+公开内测可以继续使用服务器 IP，并不要求现在购买域名。如果已有域名，可按下面步骤绑定：
+
+1. 在域名服务商控制台添加 `A` 记录，指向服务器公网 IP。
+2. 将 `deploy/nginx/nginx.conf` 中的 `server_name _;` 替换为自己的域名。
+3. 确认云防火墙和服务器防火墙开放 `80`；启用 HTTPS 时再开放 `443`。
+4. 等待 DNS 生效后，先用 HTTP 验证首页、`/api` 和前端 history 路由。
+
+HTTPS 推荐使用 Certbot / Let's Encrypt 或云厂商证书。证书路径、自动续期方式和 Nginx `listen 443 ssl` 配置需要根据实际域名与部署方式自行设置，不要把私钥提交到仓库。启用 HTTPS 后应保留：
+
+- `/api` 转发到 `backend:8080`；
+- `try_files $uri $uri/ /index.html;` 前端 history fallback；
+- `client_max_body_size 820m` 和现有上传超时设置；
+- `X-Forwarded-Proto $scheme` 等代理请求头。
+
+当前项目没有写死 canonical 公共域名，因此没有生成 `sitemap.xml`。正式域名确定后，可在 Vite `public/` 目录添加包含绝对 HTTPS URL 的 sitemap，并在 `robots.txt` 中加入对应 `Sitemap:` 地址；不要使用服务器 IP 或占位域名。
+
 ## 数据库备份与恢复
 
 备份线上 MySQL：
@@ -169,7 +187,7 @@ mvn clean package -DskipTests
 
 $jar = Get-ChildItem .\target\*.jar | Where-Object { $_.Name -notlike "*sources*" -and $_.Name -notlike "*javadoc*" -and $_.Name -notlike "*.original" } | Select-Object -First 1
 Copy-Item $jar.FullName .\target\projectmentor-server.jar -Force
-scp target\projectmentor-server.jar root@8.218.121.30:/opt/projectmentor-ai/backend/projectmentor-server/target/projectmentor-server.jar
+scp target\projectmentor-server.jar root@服务器IP:/opt/projectmentor-ai/backend/projectmentor-server/target/projectmentor-server.jar
 ```
 
 服务器：
@@ -421,6 +439,8 @@ ALTER TABLE pm_project MODIFY COLUMN tech_stack TEXT NULL COMMENT '技术栈';
 - MySQL 和 Redis 不映射公网端口，只在 Docker Compose 内部网络中被后端通过 `mysql`、`redis` 服务名访问。
 - 生产环境只开放 `22`、`80`、`443`；云防火墙不应开放 `3306`、`6379`。
 - Nginx 会拦截常见敏感文件、备份文件、调试入口和扫描路径，避免进入 SPA fallback；这不替代后端鉴权。
+- Nginx 默认返回 `X-Frame-Options`、`X-Content-Type-Options`、`Referrer-Policy` 和 `Permissions-Policy` 安全头。
+- Content-Security-Policy 建议在确认实际 API、字体、图片和脚本来源后逐步启用；不要直接复制过严策略导致 Vue 页面或本地资源失效。
 - `JWT_SECRET` 必须换成长随机字符串，长度至少 32 个字符。
 - `ADMIN_EMAILS` 只配置管理员邮箱白名单，不要把个人 `.env` 提交到仓库。
 - `AI_API_KEY` 只放在后端 `.env`，不要写进前端代码或公开文档。

@@ -1,5 +1,13 @@
 # ProjectMentor AI 项目架构说明
 
+ProjectMentor AI 是一个项目真实性审计与面试深挖平台，基于代码证据链、规则扫描和 AI 深度解读，帮助开发者检查项目描述是否夸大、代码证据是否支撑、简历表达是否稳妥，以及面试中可能被怎样追问。
+
+ProjectMentor AI is a project authenticity audit and interview deep-dive platform. It uses code evidence chains, rule-based scanning, and AI deep review to help developers verify project claims, improve resume wording, and prepare for technical interviews.
+
+## V4.6 Public Preview 发布层
+
+V4.6 在现有业务架构之外补充公开发布层：静态 SEO 元数据、robots、双语隐私与免责声明、公开报告可信说明、Nginx 安全响应头，以及域名和 HTTPS 部署指引。该层不新增后端接口、数据库字段或 credits 规则。
+
 ## V4.5-5 核心产品架构
 
 ```text

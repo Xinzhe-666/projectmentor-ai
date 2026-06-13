@@ -190,7 +190,7 @@
         <DemoWorkflow />
       </section>
 
-      <section class="pm-section-shell pm-cinematic-section boundary-section pm-scroll-reveal">
+      <section id="privacy-disclaimer" class="pm-section-shell pm-cinematic-section boundary-section pm-scroll-reveal">
         <div class="boundary-card trial-glass-notice pm-premium-card pm-gradient-border">
           <div class="pm-section-heading">
             <p class="eyebrow">{{ t('landing.boundaryEyebrow') }}</p>

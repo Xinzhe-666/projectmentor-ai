@@ -1,8 +1,32 @@
 # ProjectMentor AI｜项目真实性审计与面试深挖平台
 
-ProjectMentor AI 是一个面向开发者的项目真实性审计与面试深挖平台，适合计算机专业学生、实习求职者和早期开发者。
+ProjectMentor AI 是一个项目真实性审计与面试深挖平台，基于代码证据链、规则扫描和 AI 深度解读，帮助开发者检查项目描述是否夸大、代码证据是否支撑、简历表达是否稳妥，以及面试中可能被怎样追问。
 
-它围绕 README、源码文件、配置文件、部署文件和项目描述建立证据链，帮助用户识别项目描述中的夸大表述、AI 幻觉、简历风险和面试追问风险。PMAI 的目标不是替用户“包装项目”，而是帮助用户基于真实证据讲清楚自己的项目。
+ProjectMentor AI is a project authenticity audit and interview deep-dive platform. It uses code evidence chains, rule-based scanning, and AI deep review to help developers verify project claims, improve resume wording, and prepare for technical interviews.
+
+PMAI 的目标不是替用户“包装项目”，而是帮助用户基于真实证据讲清楚自己的项目。
+
+## Public Preview / 公开内测
+
+当前状态：**Public Preview / 内测中**。
+
+核心能力：
+
+- Project authenticity audit；
+- Claim-Evidence Matrix；
+- AI deep review；
+- Interview deep-dive；
+- Credits cost control；
+- Admin AI usage dashboard。
+
+使用提醒：
+
+- 请勿上传敏感密钥、Token、密码、真实商业机密或公司内部代码；
+- AI 结果仅供学习、复盘和面试准备参考，不是官方认证；
+- PMAI 帮助用户更真实、更稳妥地表达项目，不鼓励包装或夸大项目经历；
+- 规则证据链扫描免费，AI 功能按现有规则消耗 credits，失败时按系统规则返还。
+
+隐私与使用边界见 [docs/privacy-and-disclaimer.md](docs/privacy-and-disclaimer.md)。
 
 ## 版权与使用边界
 
@@ -41,17 +65,15 @@ ProjectMentor AI（PMAI）由李鑫哲独立设计、开发并上线。Copyright
 
 ProjectMentor AI 的定位不是“让 AI 直接打分”，而是先做规则扫描和证据链整理，再用 AI 做表达增强和审计补充。AI 不可用时，系统仍然可以输出规则版报告。
 
-## 当前公开预览版本：V4.5-5
+## 当前公开预览版本：V4.6
 
-V4.5-5 是前端体验与演示优化版本，不新增后端大功能，不修改数据库结构，也不改变 credits 扣费逻辑。它重点补齐：
+V4.6 是 Public Preview Launch Pack，不新增后端复杂业务，不修改数据库结构，也不改变 credits 扣费逻辑。它重点补齐：
 
-- Landing 首屏定位、三项核心价值、四步工作流、规则与 AI 区分、适用人群和八步演示路径；
-- 新用户零项目引导、项目创建填写说明与示例；
-- 报告解读说明、Claim-Evidence 五种状态解释和 AI 深度解读空状态；
-- Credits 免费能力、AI 费用表、注册赠送、失败返还和内测额度边界；
-- 项目、报告、面试、额度、Claim-Evidence 与管理员后台空状态；
-- 管理员 AI 使用统计、额度管理和空数据提示的视觉统一；
-- 新增文案的中文 / English 双语支持。
+- SEO、浏览器标题、Open Graph、Twitter card 和 robots 基础配置；
+- Public Preview Footer、隐私与免责声明入口；
+- 公开分享报告的证据来源、AI 增强状态和非官方认证说明；
+- Nginx 安全响应头与域名、HTTPS 部署文档；
+- 中文 / English 双语公开内测文案。
 
 PMAI 当前核心架构可以概括为：
 
@@ -521,7 +543,7 @@ mvn clean package -DskipTests
 
 $jar = Get-ChildItem .\target\*.jar | Where-Object { $_.Name -notlike "*sources*" -and $_.Name -notlike "*javadoc*" -and $_.Name -notlike "*.original" } | Select-Object -First 1
 Copy-Item $jar.FullName .\target\projectmentor-server.jar -Force
-scp target\projectmentor-server.jar root@8.218.121.30:/opt/projectmentor-ai/backend/projectmentor-server/target/projectmentor-server.jar
+scp target\projectmentor-server.jar root@服务器IP:/opt/projectmentor-ai/backend/projectmentor-server/target/projectmentor-server.jar
 ```
 
 服务器快速构建并重启 backend：

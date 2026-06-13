@@ -89,7 +89,7 @@ mvn clean package -DskipTests
 
 $jar = Get-ChildItem .\target\*.jar | Where-Object { $_.Name -notlike "*sources*" -and $_.Name -notlike "*javadoc*" -and $_.Name -notlike "*.original" } | Select-Object -First 1
 Copy-Item $jar.FullName .\target\projectmentor-server.jar -Force
-scp target\projectmentor-server.jar root@8.218.121.30:/opt/projectmentor-ai/backend/projectmentor-server/target/projectmentor-server.jar
+scp target\projectmentor-server.jar root@服务器IP:/opt/projectmentor-ai/backend/projectmentor-server/target/projectmentor-server.jar
 ```
 
 服务器：
@@ -201,6 +201,28 @@ curl -I http://127.0.0.1/api/auth/me
 - 后端健康检查：http://localhost/api/health
 
 生产构建中前端 API 使用同源 `/api`，由 Nginx 反向代理到后端 `backend:8080`，不会把 `AI_API_KEY` 放进前端。
+
+## 域名、HTTPS 与反向代理
+
+域名不是当前部署的必选项。已有域名时，可添加 `A` 记录指向服务器公网 IP，并把 `deploy/nginx/nginx.conf` 的 `server_name _;` 替换为实际域名。
+
+HTTPS 推荐使用 Certbot / Let's Encrypt 或云厂商证书。证书文件路径和私钥由部署者自行配置，不应提交到 Git。启用 HTTPS 时要继续保留：
+
+- `/api` 反向代理到 `backend:8080`；
+- `try_files $uri $uri/ /index.html;`，支持 Vue Router history 刷新；
+- 820MB 请求体限制及现有大文件上传超时；
+- `Host`、`X-Real-IP`、`X-Forwarded-For`、`X-Forwarded-Proto` 请求头。
+
+现有 Nginx 配置增加以下安全头：
+
+- `X-Frame-Options: SAMEORIGIN`
+- `X-Content-Type-Options: nosniff`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Permissions-Policy: geolocation=(), microphone=(), camera=()`
+
+Content-Security-Policy 暂不强制写入默认配置。正式启用前应先核对前端脚本、样式、图片、API 和第三方来源，避免策略过严破坏现有页面。
+
+当前没有 canonical 公共域名，因此不生成 `sitemap.xml`。正式域名确定后再使用绝对 HTTPS URL 添加 sitemap，不要写服务器 IP 或占位域名。
 
 ## 迁移资料清单
 

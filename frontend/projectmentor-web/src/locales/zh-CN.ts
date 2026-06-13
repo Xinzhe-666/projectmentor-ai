@@ -95,11 +95,12 @@ export default {
     finished: '已完成'
   },
   landing: {
-    heroEyebrow: '规则证据链 · AI 深度增强 · 面试准备',
-    heroHeadline: 'AI 时代的学生项目真实性审计与面试深挖平台',
-    subtitle: '帮你判断项目描述是否夸大、代码证据是否支撑、简历表达是否稳妥，以及面试会被怎样追问。',
+    heroEyebrow: '代码证据链 · 真实性审计 · 面试深挖',
+    heroHeadline: '项目真实性审计\n与面试深挖平台',
+    subtitle:
+      '基于代码证据链与 AI 深度解读，帮助开发者判断项目描述是否夸大、代码证据是否支撑、简历表达是否稳妥，以及面试会被怎样追问。',
     heroSubnote:
-      '规则证据链免费扫描，AI 深度解读按 credits 消耗。适合计算机专业学生、实习求职者和早期开发者。',
+      '规则证据链免费扫描，AI 深度解读消耗 credits。适合计算机学生、实习求职者和早期开发者。',
     ctaAudit: '开始审计项目',
     ctaDemo: '查看演示流程',
     ctaFeatures: '查看功能',
@@ -111,11 +112,11 @@ export default {
       navAudit: '项目审计',
       navQa: '项目问答',
       navAdmin: '后台看板',
-      projectOne: 'AI 项目审计',
+      projectOne: '项目真实性审计',
       projectTwo: 'README 风险扫描',
       projectThree: '面试复盘',
       auditLabel: 'Evidence-first audit',
-      projectTitle: 'AI 项目审计报告',
+      projectTitle: '项目真实性审计报告',
       evidenceStatus: '证据已关联',
       score: '可信度',
       scoreNote: '适合继续复盘',
@@ -137,7 +138,7 @@ export default {
       reason: '命中原因',
       reasonText: '回答会尽量说明来自哪个文件、为什么相关、证据是否足够。',
       askPlaceholder: '继续追问：这个模块如何在面试中解释？',
-      shareReady: '只读报告可分享'
+      shareReady: '查看示例报告'
     },
     showcaseEyebrow: 'Product surface',
     showcaseTitle: '像产品控制台一样组织项目证据',
@@ -224,24 +225,24 @@ export default {
       ownership: '帮你把 AI 生成的项目逐步讲成自己真正理解的项目'
     },
     audienceEyebrow: 'For whom',
-    audienceTitle: '面向这些学习与求职场景',
-    audienceDesc: '适合需要验证项目真实性、整理证据和准备项目深挖的人。',
+    audienceTitle: '适合这些项目审计与求职场景',
+    audienceDesc: '面向需要验证项目真实性、整理代码证据和准备项目深挖的学习者与开发者。',
     audiences: {
       intern: {
-        title: '计算机学生、实习求职者与早期开发者',
-        description: '复盘课程、个人、竞赛或简历项目，提前看清亮点、风险点和可能被追问的实现细节。'
+        title: '计算机专业学生',
+        description: '复盘课程、个人或竞赛项目，让项目表达有代码证据支撑。'
       },
       aiBuilder: {
-        title: '使用 AI 做项目但担心不会讲的人',
-        description: '把生成出来的功能拆回证据链，补齐自己真正理解的部分。'
+        title: '实习求职者',
+        description: '在投递前检查项目描述是否夸大，并准备面试深挖问题。'
       },
       resume: {
-        title: '想优化 README / 简历项目描述的人',
-        description: '把夸大的表达改成更可信、更可追问的项目说明。'
+        title: '早期开发者',
+        description: '为个人产品和早期工程经历整理可信、可解释的项目证据。'
       },
       interview: {
-        title: '想提前模拟项目深挖面试的人',
-        description: '围绕技术选型、实现路径和项目边界持续追问。'
+        title: '想验证项目真实性的人',
+        description: '核对项目描述、实现证据与技术边界是否彼此一致。'
       },
       evidence: {
         title: '想检查项目证据不足的人',
@@ -301,7 +302,7 @@ export default {
       evidenceReview: '基于证据的审计',
       qa: '项目问答',
       interview: '模拟面试',
-      share: '只读分享报告',
+      share: '查看示例报告',
       hallucination: 'AI 幻觉检测',
       zip: 'ZIP 上传与证据解析',
       resume: '简历描述建议'

@@ -1299,8 +1299,21 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
+.hero-copy h1 > span:first-child {
+  margin-bottom: 14px;
+  font-size: clamp(30px, 3.2vw, 44px);
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+.hero-copy h1 > span:last-child {
+  font-size: clamp(46px, 5.2vw, 72px);
+  line-height: 1.08;
+  white-space: pre-line;
+}
+
 .landing-page--en .hero-copy h1 > span:last-child {
-  font-size: clamp(38px, 4vw, 52px);
+  font-size: clamp(34px, 2.7vw, 38px);
   line-height: 1.08;
 }
 
@@ -1531,6 +1544,17 @@ onBeforeUnmount(() => {
     overflow-wrap: anywhere;
     word-break: break-all;
     line-break: anywhere;
+  }
+
+  .hero-copy h1 > span:last-child,
+  .landing-page--en .hero-copy h1 > span:last-child {
+    font-size: clamp(30px, 8vw, 34px);
+    white-space: pre-line;
+  }
+
+  .hero-copy h1 > span:first-child {
+    margin-bottom: 10px;
+    font-size: clamp(24px, 7vw, 30px);
   }
 
   .hero-subtitle {

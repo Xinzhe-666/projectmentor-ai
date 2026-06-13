@@ -95,12 +95,12 @@ export default {
     finished: 'Finished'
   },
   landing: {
-    heroEyebrow: 'Rule evidence chain · AI deep review · Interview preparation',
-    heroHeadline: 'Authenticity audit for student projects in the AI era',
+    heroEyebrow: 'Code evidence chain · Authenticity audit · Interview deep-dive',
+    heroHeadline: 'Project authenticity audit\nand interview deep-dive platform',
     subtitle:
-      'Check whether code evidence supports project claims, strengthen resume wording, and prepare for interview deep-dives.',
+      'Use code evidence chains and AI deep review to check whether project claims are supported, whether resume wording is safe, and how interviewers may challenge your project.',
     heroSubnote:
-      'Rule-based evidence scanning is free. AI deep review consumes credits. Built for CS students, internship seekers, and early-career developers.',
+      'Rule-based evidence scanning is free. AI deep review consumes credits. Built for CS students, internship seekers, and early-stage developers.',
     ctaAudit: 'Start project audit',
     ctaDemo: 'View demo flow',
     ctaFeatures: 'View features',
@@ -112,11 +112,11 @@ export default {
       navAudit: 'Project Audit',
       navQa: 'Project Q&A',
       navAdmin: 'Admin Board',
-      projectOne: 'AI project audit',
+      projectOne: 'Authenticity audit',
       projectTwo: 'README risk scan',
       projectThree: 'Interview review',
       auditLabel: 'Evidence-first audit',
-      projectTitle: 'AI Project Audit Report',
+      projectTitle: 'Project Authenticity Audit Report',
       evidenceStatus: 'Evidence linked',
       score: 'Trust score',
       scoreNote: 'Ready for review',
@@ -138,7 +138,7 @@ export default {
       reason: 'Match reason',
       reasonText: 'Answers try to explain which file is relevant, why it matched, and whether evidence is enough.',
       askPlaceholder: 'Follow up: how should I explain this module in an interview?',
-      shareReady: 'Read-only report ready'
+      shareReady: 'View sample report'
     },
     showcaseEyebrow: 'Product surface',
     showcaseTitle: 'Organize project evidence like a product console',
@@ -228,24 +228,24 @@ export default {
       ownership: 'Turn an AI-assisted project into something you can explain yourself'
     },
     audienceEyebrow: 'For whom',
-    audienceTitle: 'Built for learning and early-career scenarios',
-    audienceDesc: 'For people who need to verify project authenticity, organize evidence, and prepare for project deep-dives.',
+    audienceTitle: 'Built for project review and interview preparation',
+    audienceDesc: 'For learners and developers who want to verify project authenticity, organize code evidence, and prepare for technical deep-dives.',
     audiences: {
       intern: {
-        title: 'CS students, internship seekers, and early-career developers',
-        description: 'Review course, personal, competition, or resume projects before interviews.'
+        title: 'CS students',
+        description: 'Review coursework, personal, or competition projects with code-backed evidence.'
       },
       aiBuilder: {
-        title: 'Builders using AI but unsure how to explain the project',
-        description: 'Trace generated features back to evidence and fill gaps in your own understanding.'
+        title: 'Internship seekers',
+        description: 'Check project claims before applying and prepare for interview follow-ups.'
       },
       resume: {
-        title: 'People improving README or resume project descriptions',
-        description: 'Rewrite inflated claims into more credible, interview-ready descriptions.'
+        title: 'Early-stage developers',
+        description: 'Organize credible, explainable evidence for personal products and early engineering work.'
       },
       interview: {
-        title: 'Candidates practicing project deep-dives',
-        description: 'Practice follow-ups around technical choices, implementation paths, and project boundaries.'
+        title: 'Builders who want evidence-backed project claims',
+        description: 'Verify that project descriptions, implementation evidence, and technical boundaries align.'
       },
       evidence: {
         title: 'Users checking for weak evidence',
@@ -305,7 +305,7 @@ export default {
       evidenceReview: 'Evidence-based Review',
       qa: 'Project Q&A',
       interview: 'Mock Interview',
-      share: 'Public Report Sharing',
+      share: 'View sample report',
       hallucination: 'AI Claim Check',
       zip: 'ZIP Upload and Evidence Parsing',
       resume: 'Resume Wording Suggestions'

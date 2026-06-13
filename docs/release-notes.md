@@ -4,7 +4,7 @@ Frontend experience, onboarding, and demo-flow refinement.
 
 This version adds:
 
-* A clearer bilingual Landing page for student-project authenticity audits and interview deep-dives.
+* A clearer bilingual Landing page for project authenticity audits and interview deep-dives, with students included as an audience rather than the primary positioning.
 * Three core value cards, a four-step workflow, a Rule vs AI comparison, audience cards, and an eight-step demo path.
 * A zero-project onboarding card with project creation, credit rules, and demo-guide actions.
 * Project-creation guidance and a read-only example that never writes sample data.

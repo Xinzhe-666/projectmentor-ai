@@ -3,7 +3,9 @@
     <el-icon :size="42"><Document /></el-icon>
     <h3>{{ title }}</h3>
     <p>{{ description }}</p>
-    <slot />
+    <div v-if="$slots.default" class="empty-state-actions">
+      <slot />
+    </div>
   </div>
 </template>
 
@@ -15,3 +17,17 @@ defineProps<{
   description?: string
 }>()
 </script>
+
+<style scoped>
+.empty-state p {
+  max-width: 620px;
+  line-height: 1.7;
+}
+
+.empty-state-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+</style>

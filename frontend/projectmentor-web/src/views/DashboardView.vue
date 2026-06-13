@@ -32,6 +32,37 @@
       :description="t('dashboard.trialDesc')"
     />
 
+    <section v-if="showOnboarding" class="panel onboarding-panel">
+      <div class="panel-title">
+        <div>
+          <p class="eyebrow">{{ t('dashboard.onboarding.eyebrow') }}</p>
+          <h3>{{ t('dashboard.onboarding.title') }}</h3>
+          <p class="muted">{{ t('dashboard.onboarding.description') }}</p>
+        </div>
+        <span class="pm-status-chip">{{ t('dashboard.onboarding.badge') }}</span>
+      </div>
+      <div class="panel-body">
+        <ol class="onboarding-steps">
+          <li v-for="(step, index) in onboardingSteps" :key="step.title">
+            <span>{{ index + 1 }}</span>
+            <div>
+              <strong>{{ step.title }}</strong>
+              <p>{{ step.description }}</p>
+            </div>
+          </li>
+        </ol>
+        <div class="onboarding-actions">
+          <el-button type="primary" :icon="Plus" @click="router.push('/projects/create')">
+            {{ t('dashboard.onboarding.create') }}
+          </el-button>
+          <el-button :icon="Coin" @click="router.push('/credits')">
+            {{ t('dashboard.onboarding.credits') }}
+          </el-button>
+          <el-button @click="scrollToDemo">{{ t('dashboard.onboarding.demo') }}</el-button>
+        </div>
+      </div>
+    </section>
+
     <section class="metric-grid dashboard-metric-grid" v-loading="loading">
       <button
         v-for="metric in metrics"
@@ -112,7 +143,11 @@
                 </template>
               </el-table-column>
             </el-table>
-            <EmptyState v-else :title="t('dashboard.noReportsTitle')" :description="t('dashboard.noReportsDesc')" />
+            <EmptyState v-else :title="t('dashboard.noReportsTitle')" :description="t('dashboard.noReportsDesc')">
+              <el-button type="primary" :icon="Plus" @click="router.push('/projects/create')">
+                {{ t('dashboard.noReportsAction') }}
+              </el-button>
+            </EmptyState>
           </el-tab-pane>
 
           <el-tab-pane :label="t('dashboard.recent.interviews')" name="interviews">
@@ -136,9 +171,19 @@
                 </template>
               </el-table-column>
             </el-table>
-            <EmptyState v-else :title="t('dashboard.noInterviewsTitle')" :description="t('dashboard.noInterviewsDesc')" />
+            <EmptyState v-else :title="t('dashboard.noInterviewsTitle')" :description="t('dashboard.noInterviewsDesc')">
+              <el-button type="primary" @click="router.push('/interview')">
+                {{ t('dashboard.noInterviewsAction') }}
+              </el-button>
+            </EmptyState>
           </el-tab-pane>
         </el-tabs>
+      </div>
+    </section>
+
+    <section id="dashboard-demo-flow" class="panel">
+      <div class="panel-body">
+        <DemoWorkflow compact />
       </div>
     </section>
   </div>
@@ -152,6 +197,7 @@ import { ChatDotRound, Coin, MagicStick, Plus } from '@element-plus/icons-vue'
 
 import { getAiStatus } from '@/api/ai'
 import { getDashboardSummary } from '@/api/dashboard'
+import DemoWorkflow from '@/components/DemoWorkflow.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { useUserStore } from '@/stores/user'
 import type { AiStatus, DashboardSummary, InterviewSessionListItem, Project, ReportListItem } from '@/types/api'
@@ -187,6 +233,26 @@ const recentProjects = computed<Project[]>(() => summary.value?.recentProjects |
 const recentReports = computed<ReportListItem[]>(() => summary.value?.recentReports || [])
 
 const recentInterviews = computed<InterviewSessionListItem[]>(() => summary.value?.recentInterviews || [])
+const showOnboarding = computed(() => !loading.value && (summary.value?.projectCount ?? 0) === 0)
+
+const onboardingSteps = computed(() => [
+  {
+    title: t('dashboard.onboarding.steps.create.title'),
+    description: t('dashboard.onboarding.steps.create.description')
+  },
+  {
+    title: t('dashboard.onboarding.steps.upload.title'),
+    description: t('dashboard.onboarding.steps.upload.description')
+  },
+  {
+    title: t('dashboard.onboarding.steps.scan.title'),
+    description: t('dashboard.onboarding.steps.scan.description')
+  },
+  {
+    title: t('dashboard.onboarding.steps.ai.title'),
+    description: t('dashboard.onboarding.steps.ai.description')
+  }
+])
 
 const quickEntries = computed(() => [
   {
@@ -236,6 +302,13 @@ function handleMetricClick(path?: string) {
   if (path) {
     router.push(path)
   }
+}
+
+function scrollToDemo() {
+  document.querySelector('#dashboard-demo-flow')?.scrollIntoView({
+    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+    block: 'start'
+  })
 }
 
 async function loadDashboard() {
@@ -342,6 +415,59 @@ onMounted(loadDashboard)
 
 .dashboard-metric-grid {
   grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.onboarding-panel {
+  overflow: hidden;
+}
+
+.onboarding-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.onboarding-steps li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  padding: 15px;
+  border: 1px solid rgba(223, 230, 240, 0.9);
+  border-radius: 8px;
+  background: #fbfdff;
+}
+
+.onboarding-steps li > span {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--pm-primary), var(--pm-teal));
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.onboarding-steps strong {
+  color: var(--pm-ink);
+}
+
+.onboarding-steps p {
+  margin: 6px 0 0;
+  color: var(--pm-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.onboarding-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+  flex-wrap: wrap;
 }
 
 .dashboard-metric {
@@ -457,12 +583,20 @@ button.dashboard-metric {
   .quick-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .onboarding-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 620px) {
   .dashboard-hero,
   .dashboard-metric-grid,
   .quick-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .onboarding-steps {
     grid-template-columns: 1fr;
   }
 

@@ -33,6 +33,7 @@
           :description="t('projects.emptyDesc')"
         >
           <el-button type="primary" :icon="Plus" @click="router.push('/projects/create')">{{ t('common.createProject') }}</el-button>
+          <el-button @click="router.push('/credits')">{{ t('projects.viewCreditRules') }}</el-button>
         </EmptyState>
       </div>
     </section>

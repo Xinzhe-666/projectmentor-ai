@@ -44,6 +44,13 @@
             </div>
           </template>
         </el-table-column>
+        <template #empty>
+          <div class="credit-empty">
+            <strong>{{ t('admin.emptyCreditUsers') }}</strong>
+            <span>{{ t('admin.emptyCreditUsersDesc') }}</span>
+            <el-button size="small" @click="clearSearchAndReload">{{ t('admin.clearAndRefresh') }}</el-button>
+          </div>
+        </template>
       </el-table>
 
       <div class="pagination-row">
@@ -133,6 +140,13 @@
           <el-table-column prop="description" :label="t('admin.transactionDescription')" min-width="260" show-overflow-tooltip />
           <el-table-column prop="balanceAfter" :label="t('admin.balanceAfter')" width="115" />
           <el-table-column prop="createdAt" :label="t('credits.time')" min-width="170" />
+          <template #empty>
+            <div class="credit-empty">
+              <strong>{{ t('admin.noCreditLogs') }}</strong>
+              <span>{{ t('admin.emptyCreditLogsDesc') }}</span>
+              <el-button size="small" @click="loadLogs">{{ t('common.refresh') }}</el-button>
+            </div>
+          </template>
         </el-table>
 
         <div class="pagination-row">
@@ -205,6 +219,13 @@ async function loadUsers() {
 }
 
 function handleSearch() {
+  page.value = 1
+  loadUsers()
+}
+
+function clearSearchAndReload() {
+  keyword.value = ''
+  sort.value = 'createdAtDesc'
   page.value = 1
   loadUsers()
 }
@@ -339,7 +360,7 @@ onMounted(loadUsers)
   grid-template-columns: minmax(240px, 420px) 210px auto;
   justify-content: flex-start;
   gap: 10px;
-  padding: 14px;
+  padding: 16px;
   border: 1px solid rgba(223, 230, 240, 0.82);
   border-radius: 8px;
   background: rgba(248, 251, 255, 0.92);
@@ -353,6 +374,26 @@ onMounted(loadUsers)
 
 .credit-actions :deep(.el-button) {
   margin-left: 0;
+}
+
+.credit-empty {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 24px 12px;
+  color: var(--pm-muted);
+}
+
+.credit-empty strong {
+  color: var(--pm-ink);
+}
+
+.dialog-stack :deep(.el-form) {
+  max-width: 440px;
+}
+
+.dialog-stack :deep(.el-input-number) {
+  width: min(220px, 100%);
 }
 
 .balance {

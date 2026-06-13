@@ -17,7 +17,7 @@
       </div>
 
       <div class="usage-table-grid">
-        <div>
+        <div class="usage-table-card">
           <h4>{{ t('admin.topModulesToday') }}</h4>
           <el-table :data="overview?.topModulesToday || []" stripe :empty-text="t('common.noData')">
             <el-table-column :label="t('admin.module')" min-width="210">
@@ -25,21 +25,35 @@
             </el-table-column>
             <el-table-column prop="aiCalls" :label="t('admin.aiCalls')" width="110" />
             <el-table-column prop="creditsConsumed" :label="t('admin.consumed')" width="130" />
+            <template #empty>
+              <div class="usage-empty">
+                <strong>{{ t('admin.emptyAiModules') }}</strong>
+                <span>{{ t('admin.emptyAiModulesDesc') }}</span>
+                <el-button size="small" @click="loadOverview">{{ t('common.refresh') }}</el-button>
+              </div>
+            </template>
           </el-table>
         </div>
 
-        <div>
+        <div class="usage-table-card">
           <h4>{{ t('admin.topUsersToday') }}</h4>
           <el-table :data="overview?.topUsersToday || []" stripe :empty-text="t('common.noData')">
             <el-table-column prop="username" :label="t('common.username')" min-width="130" />
             <el-table-column prop="email" :label="t('common.email')" min-width="190" show-overflow-tooltip />
             <el-table-column prop="aiCalls" :label="t('admin.aiCalls')" width="100" />
             <el-table-column prop="creditsConsumed" :label="t('admin.consumed')" width="120" />
+            <template #empty>
+              <div class="usage-empty">
+                <strong>{{ t('admin.emptyAiUsers') }}</strong>
+                <span>{{ t('admin.emptyAiUsersDesc') }}</span>
+                <el-button size="small" @click="loadOverview">{{ t('common.refresh') }}</el-button>
+              </div>
+            </template>
           </el-table>
         </div>
       </div>
 
-      <div>
+      <div class="usage-table-card">
         <h4>{{ t('admin.recentAiCreditLogs') }}</h4>
         <el-table :data="overview?.recentCreditLogs || []" stripe :empty-text="t('admin.noCreditLogs')">
           <el-table-column prop="userId" :label="t('common.userId')" width="100" />
@@ -59,6 +73,13 @@
           </el-table-column>
           <el-table-column prop="balanceAfter" :label="t('admin.balanceAfter')" width="120" />
           <el-table-column prop="createdAt" :label="t('credits.time')" min-width="170" />
+          <template #empty>
+            <div class="usage-empty">
+              <strong>{{ t('admin.noCreditLogs') }}</strong>
+              <span>{{ t('admin.emptyAiLogsDesc') }}</span>
+              <el-button size="small" @click="loadOverview">{{ t('common.refresh') }}</el-button>
+            </div>
+          </template>
         </el-table>
       </div>
     </div>
@@ -129,12 +150,23 @@ onMounted(loadOverview)
 }
 
 .usage-metric {
+  position: relative;
   display: grid;
   gap: 8px;
   padding: 16px;
   border: 1px solid rgba(31, 111, 235, 0.12);
-  border-radius: 10px;
-  background: linear-gradient(145deg, rgba(238, 246, 255, 0.9), rgba(240, 253, 250, 0.7));
+  border-radius: 8px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(238, 246, 255, 0.72));
+  box-shadow: 0 10px 24px rgba(31, 111, 235, 0.06);
+}
+
+.usage-metric::before {
+  display: block;
+  width: 26px;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--pm-primary), var(--pm-teal));
+  content: "";
 }
 
 .usage-metric span {
@@ -154,8 +186,28 @@ onMounted(loadOverview)
   gap: 18px;
 }
 
+.usage-table-card {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid rgba(223, 230, 240, 0.86);
+  border-radius: 8px;
+  background: #fbfdff;
+}
+
 .usage-stack h4 {
   margin: 0 0 10px;
+}
+
+.usage-empty {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 24px 12px;
+  color: var(--pm-muted);
+}
+
+.usage-empty strong {
+  color: var(--pm-ink);
 }
 
 @media (max-width: 900px) {

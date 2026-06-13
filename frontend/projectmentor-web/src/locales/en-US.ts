@@ -95,12 +95,14 @@ export default {
     finished: 'Finished'
   },
   landing: {
-    heroEyebrow: 'Project Audit · Project Q&A · Mock Interview · Public Report Sharing',
-    heroHeadline: 'Make project claims evidence-aware',
+    heroEyebrow: 'Rule evidence chain · AI deep review · Interview preparation',
+    heroHeadline: 'Authenticity audit for student projects in the AI era',
     subtitle:
-      'A project authenticity audit and interview preparation platform for CS students, internship seekers, and early-career developers.',
+      'Check whether code evidence supports project claims, strengthen resume wording, and prepare for interview deep-dives.',
     heroSubnote:
-      'It builds an evidence chain from README files, source code, configurations, deployment files, and project descriptions to identify overclaims, AI hallucinations, resume risks, and interview follow-ups. PMAI helps users explain projects from real evidence instead of blindly polishing or exaggerating them.',
+      'Rule-based evidence scanning is free. AI deep review consumes credits. Built for CS students, internship seekers, and early-career developers.',
+    ctaAudit: 'Start project audit',
+    ctaDemo: 'View demo flow',
     ctaFeatures: 'View features',
     trialTitle: 'Beta notice',
     trialDesc:
@@ -157,14 +159,14 @@ export default {
       }
     },
     bentoEyebrow: 'Core capabilities',
-    bentoTitle: 'A lightweight toolkit for project credibility',
+    bentoTitle: 'Check evidence before polishing the story',
     bentoDesc:
-      'PMAI does not package the project for you. It helps turn existing materials into clearer, reviewable evidence.',
+      'PMAI helps verify whether project claims hold up, then turns weak evidence into practical resume and interview review tasks.',
     bento: {
       audit: {
-        title: 'Project Audit',
-        description: 'Generate project scores, risks, strengths, gaps, and a reviewable audit report.',
-        meta: 'Score · Risk · Evidence'
+        title: 'Authenticity Audit',
+        description: 'Compare README and project descriptions with source evidence to find overclaims, missing materials, and risky statements.',
+        meta: 'Authenticity · Risk · Evidence'
       },
       scan: {
         title: 'README Risk Scan',
@@ -177,14 +179,14 @@ export default {
         meta: 'Answer with context'
       },
       interview: {
-        title: 'Mock Interview',
-        description: 'Practice realistic project deep-dives driven by project facts and evidence gaps.',
-        meta: 'Practice follow-ups'
+        title: 'Interview Deep-Dive & Resume Wording',
+        description: 'Turn weak evidence into interview follow-ups and safer resume wording grounded in real contribution.',
+        meta: 'Resume · Follow-ups · Review'
       },
       report: {
-        title: 'Evidence Chain',
-        description: 'Trace risks, suggestions, Q&A, and resume wording back to file-level evidence.',
-        meta: 'Traceable evidence'
+        title: 'Claim-Evidence Matrix',
+        description: 'Answer whether each project claim is supported by code, configuration, SQL, or deployment evidence.',
+        meta: 'Claim · Status · Evidence'
       },
       admin: {
         title: 'Admin & Feedback',
@@ -227,6 +229,7 @@ export default {
     },
     audienceEyebrow: 'For whom',
     audienceTitle: 'Built for learning and early-career scenarios',
+    audienceDesc: 'For people who need to verify project authenticity, organize evidence, and prepare for project deep-dives.',
     audiences: {
       intern: {
         title: 'CS students, internship seekers, and early-career developers',
@@ -269,6 +272,31 @@ export default {
         description: 'Keep refining resume wording, project facts, and interview answers.'
       }
     },
+    comparison: {
+      eyebrow: 'Rule vs AI',
+      title: 'Rule scans are free; AI enhancement uses credits',
+      description: 'Base evidence checks and generative deep review stay clearly separated: inspect for free, then choose whether to call AI.',
+      rule: {
+        badge: 'FREE',
+        title: 'Rule-based evidence scan',
+        description: 'Extracts risks, evidence files, and the base Claim-Evidence Matrix with deterministic rules.',
+        items: {
+          free: 'Free to use and does not consume credits',
+          stable: 'Stable output for repeated material checks',
+          explainable: 'Trace conclusions to file paths and match reasons'
+        }
+      },
+      ai: {
+        badge: 'CREDITS',
+        title: 'AI deep enhancement',
+        description: 'Adds deeper explanations, safer wording, and interview preparation on top of the evidence base.',
+        items: {
+          explanation: 'Generate Claim-Evidence deep explanations',
+          resume: 'Suggest safer resume wording',
+          interview: 'Generate Q&A, follow-ups, and mock interviews'
+        }
+      }
+    },
     capabilityEyebrow: 'Trial capabilities',
     capabilityTitle: 'Current beta capabilities',
     capabilities: {
@@ -294,6 +322,23 @@ export default {
       beta: 'ProjectMentor AI is still a beta version',
       verify: 'Evidence may be incomplete if uploaded files are incomplete'
     }
+  },
+  demoFlow: {
+    eyebrow: 'Demo flow',
+    title: 'Recommended demo path',
+    description: 'Show how PMAI moves from project materials to evidence checks, AI enhancement, and interview preparation.',
+    badge: '8 steps',
+    steps: {
+      create: 'Create a project',
+      upload: 'Paste README or upload ZIP',
+      scan: 'Review the free rule scan',
+      report: 'Generate an AI audit report',
+      matrix: 'Open the Claim-Evidence Matrix',
+      enhance: 'Run AI deep review',
+      interview: 'Start a mock interview',
+      share: 'Share a read-only report'
+    },
+    note: 'During demos, explain that rule-based scanning is free. AI audits, deep explanations, Q&A, and mock interviews consume credits and failed calls are refunded.'
   },
   auth: {
     loginTitle: 'Log in to ProjectMentor',
@@ -361,11 +406,40 @@ export default {
     interviewScore: 'Interview score',
     interviewQuestions: 'Answered / questions',
     noReportsTitle: 'No audit reports yet',
-    noReportsDesc: 'Generated audit reports will appear here.',
+    noReportsDesc: 'Create a project and upload README or ZIP materials to generate the first authenticity audit report.',
+    noReportsAction: 'Create project and add materials',
     noInterviewsTitle: 'No interview sessions yet',
-    noInterviewsDesc: 'Mock interview sessions will appear here.',
+    noInterviewsDesc: 'Choose an existing project and start a mock interview to keep the session here.',
+    noInterviewsAction: 'Start mock interview',
     emptyTitle: 'No projects yet',
-    emptyDesc: 'Create your first project, then save README content, upload ZIP files, and generate an audit report.'
+    emptyDesc: 'Create your first project, then save README content, upload ZIP files, and generate an audit report.',
+    onboarding: {
+      eyebrow: 'Getting started',
+      title: 'New user start',
+      description: 'Complete four lightweight steps: establish project evidence first, then choose whether to use AI enhancement.',
+      badge: 'Rule scan is free',
+      create: 'Create my first project',
+      credits: 'View credit rules',
+      demo: 'View demo guide',
+      steps: {
+        create: {
+          title: 'Create a project',
+          description: 'Enter the real project name, tech stack, and implemented scope.'
+        },
+        upload: {
+          title: 'Paste README or upload ZIP',
+          description: 'Provide source, configuration, and deployment materials for evidence extraction.'
+        },
+        scan: {
+          title: 'Review scan and matrix',
+          description: 'Check risks, evidence chains, and Claim-Evidence statuses for free.'
+        },
+        ai: {
+          title: 'Use AI deep review when needed',
+          description: 'AI features consume credits, and failed calls are automatically refunded.'
+        }
+      }
+    }
   },
   sidebar: {
     footnote: 'Reports are more useful after you upload README content and code evidence.'
@@ -378,6 +452,7 @@ export default {
     listDesc: 'Manage GitHub projects, README content, code files, and audit reports.',
     emptyTitle: 'No projects yet',
     emptyDesc: 'Create a project to save README content, upload ZIP files, and start an audit.',
+    viewCreditRules: 'View credit rules',
     deleteTitle: 'Delete project',
     deleteConfirm: 'Delete this project? Related files and reports may no longer be accessible.',
     deleted: 'Project deleted',
@@ -394,6 +469,27 @@ export default {
     typeAi: 'AI Project',
     nameRequired: 'Please enter project name',
     createSuccess: 'Project created',
+    createGuide: {
+      eyebrow: 'Before you create',
+      title: 'Describe the real scope, then upload evidence',
+      description: 'Project basics are used for Claim-Evidence extraction. Do not describe planned features as already implemented.',
+      ruleFree: 'README / ZIP rule scan is free',
+      tips: {
+        name: 'Use the real project name so reports and shares are easy to identify.',
+        techStack: 'List frameworks, databases, caches, and deployment tools you actually used.',
+        description: 'Describe implemented scope, your contribution, and current boundaries without overclaiming.',
+        upload: 'After creation, paste README or upload ZIP so the system can scan code and configuration evidence.',
+        credits: 'Rule scans are free; AI reports, deep review, and interviews consume credits.'
+      }
+    },
+    example: {
+      title: 'Example entry',
+      description: 'Reference only. It does not populate the form or create data.',
+      name: 'ProjectMentor AI',
+      techStack: 'Spring Boot, Vue 3, MySQL, Redis, Docker, OpenAI-compatible API',
+      projectDescription: 'An authenticity audit and interview preparation platform for student projects, supporting project upload, rule scans, AI audit reports, a Claim-Evidence Matrix, and mock interviews.',
+      notice: 'The example never creates a project automatically. Replace it with your real implementation and contribution.'
+    },
     detailTitle: 'Project Detail',
     noDescription: 'No description yet',
     artifactsTitle: 'Related artifacts',
@@ -477,6 +573,16 @@ export default {
   report: {
     eyebrow: 'ProjectMentor AI Audit Report',
     notice: 'Generated from rule scan and AI enhancement. For project review and interview preparation only.',
+    readingGuideEyebrow: 'How to read',
+    readingGuideTitle: 'How to interpret this report',
+    readingGuideHint: 'Expand for five key interpretation rules',
+    readingGuide: {
+      score: 'The total score is not an absolute ability score. It reflects the credibility and completeness of current project materials.',
+      risks: 'Risk items flag README or resume statements that may need evidence, softer wording, or interview preparation.',
+      matrix: 'The Claim-Evidence Matrix checks whether each statement is supported by code, configuration, or deployment evidence.',
+      ai: 'AI deep review consumes credits and adds explanations, resume strategy, and interview follow-ups.',
+      resume: 'Do not place DOC_ONLY, NO_EVIDENCE, or RISKY claims directly on a resume without revision.'
+    },
     summaryTitle: 'Report summary',
     summaryDesc: 'Start with the overall judgment, then review risks, evidence chains, and resume wording suggestions.',
     summaryLoading: 'Generating report summary',
@@ -507,8 +613,21 @@ export default {
     strongEvidence: 'Strong evidence',
     weakEvidence: 'Weak evidence',
     noEvidenceFiles: 'No evidence files found',
-    noClaimsForFilter: 'No claims match the current filter.',
+    noClaimsForFilter: 'No claims match the current filter',
+    noClaimsForFilterDesc: 'Switch to “All evidence statuses” to review the remaining claims.',
+    noClaimEvidenceTitle: 'No Claim-Evidence Matrix yet',
     noClaimEvidence: 'No claim-evidence matrix is available for this report yet. Regenerate the report or add a README or project description.',
+    backToProject: 'Return to project materials',
+    claimGuideTitle: 'Understanding Claim-Evidence statuses',
+    claimGuideSummary: 'Expand SUPPORTED / PARTIAL / DOC_ONLY / NO_EVIDENCE / RISKY',
+    claimResumeWarning: 'Do not place DOC_ONLY, NO_EVIDENCE, or RISKY wording directly on a resume. Add evidence or reduce the claim strength first.',
+    claimStatusDesc: {
+      supported: 'Enough code, configuration, SQL, or deployment evidence was found.',
+      partial: 'Some evidence exists, but the implementation scope or key path is incomplete.',
+      docOnly: 'The claim appears only in documentation or project descriptions without implementation evidence.',
+      noEvidence: 'No supporting evidence was found in the currently uploaded materials.',
+      risky: 'The wording is stronger than the evidence and is likely to trigger interview follow-ups.'
+    },
     claimAiButton: 'AI-enhance Claim-Evidence Matrix',
     claimAiCost: 'Costs 2 credits',
     claimAiConfirmTitle: 'Confirm credit usage',
@@ -516,6 +635,8 @@ export default {
     claimAiLoading: 'AI is analyzing claim and evidence relationships...',
     claimAiAnalyzing: 'AI analyzing',
     claimAiSuccess: 'AI enhancement generated',
+    claimAiEmptyTitle: 'No AI deep review yet',
+    claimAiEmptyDesc: 'The base Claim-Evidence Matrix is generated by free rules. Run AI only when you need item-level explanations, resume strategy, and interview follow-ups.',
     claimAiEnhancedLabel: 'AI enhancement',
     claimAiSummary: 'AI summary',
     claimAiRiskOverview: 'Main risks',
@@ -584,7 +705,8 @@ export default {
     shareReport: 'Share report',
     copyShare: 'Copy share',
     emptyTitle: 'No audit reports yet',
-    emptyDesc: 'Generated audit reports can be found and shared here.',
+    emptyDesc: 'Create a project and upload README or ZIP materials to generate your first authenticity audit report, then review and share it here.',
+    emptyAction: 'Create first project',
     shareCopied: 'Share link copied',
     shareReady: 'Share link ready'
   },
@@ -852,6 +974,11 @@ export default {
     note: 'Voluntary support only. This is not a formal payment system and does not connect to a payment API.'
   },
   credits: {
+    guideEyebrow: 'Credits guide',
+    guideTitle: 'Scan for free, use AI when needed',
+    guideDesc: 'Credits are used only for explicit AI calls. Project management, upload parsing, rule evidence chains, and history remain free.',
+    registrationGift: 'New users receive 10 credits',
+    betaNotice: 'Beta credits, not a real payment system',
     plan: 'Current plan',
     remaining: 'Credits left',
     expire: 'Expires at',
@@ -865,13 +992,26 @@ export default {
     after: 'After',
     remark: 'Remark',
     emptyTitle: 'No credit logs',
-    emptyDesc: 'Credit changes will appear here.',
+    emptyDesc: 'There are no credit changes yet. Registration gifts, AI usage, refunds, and admin adjustments will appear here.',
+    emptyAction: 'Refresh credit logs',
     estimatedCost: 'Estimated cost: {count} credits',
     confirmAiUse: 'This action will call AI and consume {count} credits. Continue?',
     insufficient: 'Insufficient credits to call AI',
     aiFailedRefunded: 'AI call failed. Credits have been refunded',
     ruleFree: 'Rule-based scanning is free',
     onlyAiConsumes: 'Only AI-powered features consume credits',
+    freeTitle: 'Features that do not consume credits',
+    freeDesc: 'Use these base capabilities to build and review project evidence.',
+    freeFeatures: {
+      ruleScan: 'Rule scans and the base Claim-Evidence Matrix',
+      upload: 'README saving and ZIP upload parsing',
+      projectManagement: 'Project creation, management, and file review',
+      dashboard: 'Dashboard and base statistics',
+      history: 'Report, Q&A, and interview history',
+      share: 'Public read-only report sharing'
+    },
+    creditUnit: '{count} credits',
+    refundNotice: 'If an AI call or result save fails, credits are automatically refunded and recorded in the transaction log.',
     standardsTitle: 'AI credit costs',
     standardsDesc: 'Credits are reserved before the call and refunded with a transaction log if AI or result saving fails.',
     costs: {
@@ -1007,10 +1147,22 @@ export default {
     saveStatus: 'Save status',
     noUsers: 'No user records',
     noFeedback: 'No feedback',
+    noFeedbackDesc: 'No feedback matches the current filters. Reset filters to review all records.',
     noProjects: 'No project records',
     noReports: 'No report records',
     noQa: 'No Q&A records',
     noCreditLogs: 'No credit logs',
+    emptyActivityTitle: 'No recent activity',
+    emptyActivityDesc: 'There are no user, project, report, or Q&A records yet. Refresh to fetch the latest statistics.',
+    emptyAiModules: 'No AI module usage today',
+    emptyAiModulesDesc: 'Module consumption rankings will appear after AI features are used.',
+    emptyAiUsers: 'No AI users today',
+    emptyAiUsersDesc: 'User call and credit consumption rankings will appear after AI usage.',
+    emptyAiLogsDesc: 'Recent AI consumption and refund logs will appear here.',
+    emptyCreditUsers: 'No matching credit users',
+    emptyCreditUsersDesc: 'There may be no users yet, or the current keyword may not match any record.',
+    emptyCreditLogsDesc: 'This user has no credit changes yet. Refresh to fetch the latest logs.',
+    clearAndRefresh: 'Clear filters and refresh',
     question: 'Question',
     amountRequired: 'Amount must be a positive integer',
     reasonRequired: 'Please enter an adjustment reason with at least 2 characters',
@@ -1048,14 +1200,14 @@ export default {
       conclusion: 'Conclusion',
       defaultConclusion: 'Evidence conclusion',
       emptyTitle: 'No evidence chain',
-      emptyDesc: 'The result did not return structured evidence.'
+      emptyDesc: 'No structured evidence is available yet. Add README or ZIP materials, then scan or generate the report again.'
     },
     risk: {
       riskType: 'Risk type',
       defaultRisk: 'Risk item',
       sourceFile: 'Source file',
       emptyTitle: 'No risk items',
-      emptyDesc: 'The result did not return structured risks.'
+      emptyDesc: 'No structured risks are available. Materials may not have been scanned yet, or no rule matched this time.'
     }
   }
 }

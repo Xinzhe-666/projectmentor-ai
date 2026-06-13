@@ -103,6 +103,13 @@
                 </div>
               </template>
             </el-table-column>
+            <template #empty>
+              <div class="admin-inline-empty">
+                <strong>{{ t('admin.noFeedback') }}</strong>
+                <span>{{ t('admin.noFeedbackDesc') }}</span>
+                <el-button size="small" @click="resetFeedbackFilters">{{ t('common.reset') }}</el-button>
+              </div>
+            </template>
           </el-table>
 
           <div class="feedback-pagination">
@@ -122,7 +129,14 @@
       </section>
 
       <div class="admin-section-label">{{ t('admin.sections.activity') }}</div>
-      <section class="admin-table-grid" v-loading="loading">
+      <EmptyState
+        v-if="!loading && !hasRecentActivity"
+        :title="t('admin.emptyActivityTitle')"
+        :description="t('admin.emptyActivityDesc')"
+      >
+        <el-button type="primary" :icon="Refresh" @click="loadAdminDashboard">{{ t('common.refresh') }}</el-button>
+      </EmptyState>
+      <section v-else class="admin-table-grid" v-loading="loading">
         <article class="panel admin-panel">
           <div class="panel-title">
             <div>
@@ -279,6 +293,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Refresh } from '@element-plus/icons-vue'
 
 import {
   getAdminFeedbackDetail,
@@ -293,6 +308,7 @@ import {
 } from '@/api/admin'
 import AdminAiUsagePanel from '@/components/admin/AdminAiUsagePanel.vue'
 import AdminCreditManagement from '@/components/admin/AdminCreditManagement.vue'
+import EmptyState from '@/components/EmptyState.vue'
 import type {
   AdminFeedback,
   AdminFeedbackDetail,
@@ -333,6 +349,12 @@ const feedbackForm = ref({
 })
 
 const isAdmin = computed(() => Boolean(adminMe.value?.admin))
+const hasRecentActivity = computed(() => Boolean(
+  recentUsers.value.length
+    || recentProjects.value.length
+    || recentReports.value.length
+    || recentQa.value.length
+))
 
 const feedbackTypeOptions = computed<Array<{ label: string; value: FeedbackType }>>(() => [
   { label: t('feedback.types.BUG'), value: 'BUG' },
@@ -739,6 +761,18 @@ onMounted(loadAdminDashboard)
 
 .admin-status-tag {
   font-weight: 700;
+}
+
+.admin-inline-empty {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 24px 12px;
+  color: var(--pm-muted);
+}
+
+.admin-inline-empty strong {
+  color: var(--pm-ink);
 }
 
 .admin-action-buttons {

@@ -63,6 +63,28 @@
       </div>
     </section>
 
+    <section class="panel report-reading-guide">
+      <el-collapse>
+        <el-collapse-item name="reading-guide">
+          <template #title>
+            <div class="reading-guide-title">
+              <div>
+                <p class="eyebrow">{{ t('report.readingGuideEyebrow') }}</p>
+                <h3>{{ t('report.readingGuideTitle') }}</h3>
+              </div>
+              <span>{{ t('report.readingGuideHint') }}</span>
+            </div>
+          </template>
+          <div class="reading-guide-grid">
+            <article v-for="(item, index) in readingGuideItems" :key="item">
+              <span>{{ index + 1 }}</span>
+              <p>{{ item }}</p>
+            </article>
+          </div>
+        </el-collapse-item>
+      </el-collapse>
+    </section>
+
     <section class="panel">
       <div class="panel-title">
         <div>
@@ -177,9 +199,19 @@
         v-loading="claimAiLoading"
         :element-loading-text="t('report.claimAiLoading')"
       >
+        <div v-if="report?.claimEvidenceList?.length && !hasClaimAiEnhancement" class="claim-ai-empty no-print">
+          <div>
+            <strong>{{ t('report.claimAiEmptyTitle') }}</strong>
+            <p>{{ t('report.claimAiEmptyDesc') }}</p>
+          </div>
+          <el-button type="primary" plain :icon="MagicStick" @click="handleClaimAiEnhance">
+            {{ t('report.claimAiButton') }}
+          </el-button>
+        </div>
         <ClaimEvidenceMatrix
           :claims="report?.claimEvidenceList"
           :ai-enhancement="report?.claimEvidenceAi"
+          @empty-action="goToProject"
         />
       </div>
     </section>
@@ -221,7 +253,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Close, CopyDocument, Link, MagicStick, Printer, Refresh } from '@element-plus/icons-vue'
@@ -241,6 +273,7 @@ import { useUserStore } from '@/stores/user'
 import type { AnalysisReport, Project, ReportShare } from '@/types/api'
 
 const route = useRoute()
+const router = useRouter()
 const { t } = useI18n()
 const reportId = Number(route.params.id)
 const loading = ref(false)
@@ -284,6 +317,24 @@ const radarScores = computed(() => ({
   engineeringScore: report.value?.engineeringScore,
   interviewScore: report.value?.interviewScore
 }))
+
+const hasClaimAiEnhancement = computed(() => Boolean(
+  report.value?.claimEvidenceAi?.aiEnhanced
+    || report.value?.claimEvidenceAi?.aiSummary
+    || report.value?.claimEvidenceAi?.aiRiskOverview
+    || report.value?.claimEvidenceAi?.aiResumeStrategy
+    || report.value?.claimEvidenceAi?.aiInterviewStrategy
+    || report.value?.claimEvidenceAi?.aiFallbackText
+    || report.value?.claimEvidenceAi?.aiEnhancedItems?.length
+))
+
+const readingGuideItems = computed(() => [
+  t('report.readingGuide.score'),
+  t('report.readingGuide.risks'),
+  t('report.readingGuide.matrix'),
+  t('report.readingGuide.ai'),
+  t('report.readingGuide.resume')
+])
 
 const scoreRows = computed(() => [
   { label: t('report.scores.runnability'), value: report.value?.runnabilityScore },
@@ -501,6 +552,11 @@ function handlePrint() {
   window.setTimeout(() => window.print(), 100)
 }
 
+function goToProject() {
+  const projectId = report.value?.projectId
+  router.push(projectId ? `/projects/${projectId}` : '/projects')
+}
+
 onMounted(() => {
   loadReport()
   loadShareInfo()
@@ -514,6 +570,80 @@ onMounted(() => {
 
 .report-cover {
   overflow: hidden;
+}
+
+.report-reading-guide {
+  overflow: hidden;
+}
+
+.report-reading-guide :deep(.el-collapse),
+.report-reading-guide :deep(.el-collapse-item__wrap) {
+  border: 0;
+}
+
+.report-reading-guide :deep(.el-collapse-item__header) {
+  min-height: 76px;
+  padding: 0 20px;
+  border: 0;
+  background: linear-gradient(180deg, rgba(248, 251, 255, 0.72), rgba(255, 255, 255, 0.86));
+}
+
+.report-reading-guide :deep(.el-collapse-item__content) {
+  padding: 0 20px 20px;
+}
+
+.reading-guide-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  padding-right: 12px;
+}
+
+.reading-guide-title h3 {
+  margin: 5px 0 0;
+  color: var(--pm-ink);
+}
+
+.reading-guide-title > span {
+  color: var(--pm-muted);
+  font-size: 12px;
+}
+
+.reading-guide-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.reading-guide-grid article {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--pm-border);
+  border-radius: 8px;
+  background: #fbfdff;
+}
+
+.reading-guide-grid span {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 8px;
+  background: #111827;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.reading-guide-grid p {
+  margin: 0;
+  color: #475467;
+  font-size: 13px;
+  line-height: 1.65;
 }
 
 .report-hero {
@@ -593,6 +723,28 @@ onMounted(() => {
 .claim-ai-action span {
   color: var(--pm-muted);
   font-size: 12px;
+}
+
+.claim-ai-empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px dashed rgba(31, 111, 235, 0.28);
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.claim-ai-empty strong {
+  color: var(--pm-ink);
+}
+
+.claim-ai-empty p {
+  margin: 5px 0 0;
+  color: var(--pm-muted);
+  line-height: 1.6;
 }
 
 .report-print-button {
@@ -696,7 +848,8 @@ onMounted(() => {
 @media (max-width: 920px) {
   .report-meta-grid,
   .report-content-grid,
-  .resume-copy-grid {
+  .resume-copy-grid,
+  .reading-guide-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -714,6 +867,12 @@ onMounted(() => {
   .claim-ai-action {
     justify-content: flex-start;
     width: 100%;
+  }
+
+  .reading-guide-title,
+  .claim-ai-empty {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .report-identity h1 {

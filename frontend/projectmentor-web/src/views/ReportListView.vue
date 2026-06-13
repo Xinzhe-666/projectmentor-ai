@@ -76,7 +76,11 @@
           </el-table-column>
         </el-table>
 
-        <EmptyState v-else :title="t('reports.emptyTitle')" :description="t('reports.emptyDesc')" />
+        <EmptyState v-else :title="t('reports.emptyTitle')" :description="t('reports.emptyDesc')">
+          <el-button type="primary" :icon="Plus" @click="router.push('/projects/create')">
+            {{ t('reports.emptyAction') }}
+          </el-button>
+        </EmptyState>
 
         <div class="pagination-row">
           <el-pagination
@@ -101,7 +105,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { DocumentChecked, Link, Refresh, Search } from '@element-plus/icons-vue'
+import { DocumentChecked, Link, Plus, Refresh, Search } from '@element-plus/icons-vue'
 
 import { listMyReports, type ReportListParams } from '@/api/analysis'
 import { listProjects } from '@/api/project'

@@ -1,3 +1,24 @@
+# v4.5-5
+
+Frontend experience, onboarding, and demo-flow refinement.
+
+This version adds:
+
+* A clearer bilingual Landing page for student-project authenticity audits and interview deep-dives.
+* Three core value cards, a four-step workflow, a Rule vs AI comparison, audience cards, and an eight-step demo path.
+* A zero-project onboarding card with project creation, credit rules, and demo-guide actions.
+* Project-creation guidance and a read-only example that never writes sample data.
+* A collapsible report-reading guide and explanations for `SUPPORTED`, `PARTIAL`, `DOC_ONLY`, `NO_EVIDENCE`, and `RISKY`.
+* A clearer credit center covering the 10-credit registration gift, free capabilities, AI costs, refunds, and beta-credit boundaries.
+* Actionable empty states for project, report, interview, credit, Claim-Evidence, AI enhancement, and admin views.
+* More consistent admin usage cards, credit-management spacing, table readability, and empty-data actions.
+* Updated README, demo guide, roadmap, interview preparation, and architecture documentation.
+
+Boundaries:
+
+* No backend API, database field, dependency, payment system, AI provider, credit-cost rule, external image, API key, or `.env.development` change is included.
+* Rule-based scanning remains free. AI-powered audit, explanation, Q&A, hallucination checks, and mock interviews continue to consume the existing credit amounts.
+
 # v4.5-4
 
 AI cost monitoring, admin credit operations, and basic registration abuse protection.

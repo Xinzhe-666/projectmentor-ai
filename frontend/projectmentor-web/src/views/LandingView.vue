@@ -1,5 +1,9 @@
 <template>
-  <div ref="landingRoot" class="landing-page pm-aurora-bg">
+  <div
+    ref="landingRoot"
+    class="landing-page pm-aurora-bg"
+    :class="{ 'landing-page--en': locale === 'en-US' }"
+  >
     <div class="pm-grid-overlay" />
     <div class="pm-noise-overlay" />
     <nav class="landing-nav">
@@ -24,10 +28,11 @@
           <span class="pm-gradient-text">{{ t('landing.heroHeadline') }}</span>
         </h1>
         <p class="hero-subtitle">{{ t('landing.subtitle') }}</p>
+        <p class="hero-subnote">{{ t('landing.heroSubnote') }}</p>
 
         <div class="hero-actions">
-          <el-button size="large" type="primary" :icon="ArrowRight" @click="goStart">{{ t('common.startNow') }}</el-button>
-          <el-button size="large" :icon="Search" @click="scrollToFeatures">{{ t('landing.ctaFeatures') }}</el-button>
+          <el-button size="large" type="primary" :icon="ArrowRight" @click="goStart">{{ t('landing.ctaAudit') }}</el-button>
+          <el-button size="large" :icon="Search" @click="scrollToDemo">{{ t('landing.ctaDemo') }}</el-button>
         </div>
 
         <div class="pm-chip-row hero-proof-row">
@@ -123,29 +128,6 @@
         </div>
       </section>
 
-      <section class="pm-section-shell pm-cinematic-section story-section">
-        <div class="pm-section-heading center pm-scroll-reveal">
-          <p class="eyebrow">{{ t('landing.storyEyebrow') }}</p>
-          <h2>{{ t('landing.storyTitle') }}</h2>
-          <p>{{ t('landing.storyDesc') }}</p>
-        </div>
-
-        <div class="story-list">
-          <article
-            v-for="(story, index) in storySections"
-            :key="story.title"
-            class="story-card pm-premium-card pm-scroll-reveal"
-            :style="{ '--reveal-index': index }"
-          >
-            <span>{{ index + 1 }}</span>
-            <div>
-              <h3>{{ story.title }}</h3>
-              <p>{{ story.description }}</p>
-            </div>
-          </article>
-        </div>
-      </section>
-
       <section class="pm-section-shell pm-cinematic-section workflow-section pm-scroll-reveal">
         <div class="pm-section-heading">
           <p class="eyebrow">{{ t('landing.workflowEyebrow') }}</p>
@@ -161,6 +143,51 @@
             <p>{{ step.description }}</p>
           </article>
         </div>
+      </section>
+
+      <section class="pm-section-shell pm-cinematic-section comparison-section pm-scroll-reveal">
+        <div class="pm-section-heading">
+          <p class="eyebrow">{{ t('landing.comparison.eyebrow') }}</p>
+          <h2>{{ t('landing.comparison.title') }}</h2>
+          <p>{{ t('landing.comparison.description') }}</p>
+        </div>
+        <div class="comparison-grid">
+          <article class="comparison-card comparison-card--rule pm-premium-card">
+            <span>{{ t('landing.comparison.rule.badge') }}</span>
+            <h3>{{ t('landing.comparison.rule.title') }}</h3>
+            <p>{{ t('landing.comparison.rule.description') }}</p>
+            <ul>
+              <li v-for="item in ruleBenefits" :key="item">{{ item }}</li>
+            </ul>
+          </article>
+          <article class="comparison-card comparison-card--ai pm-premium-card">
+            <span>{{ t('landing.comparison.ai.badge') }}</span>
+            <h3>{{ t('landing.comparison.ai.title') }}</h3>
+            <p>{{ t('landing.comparison.ai.description') }}</p>
+            <ul>
+              <li v-for="item in aiBenefits" :key="item">{{ item }}</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="pm-section-shell pm-cinematic-section audience-section pm-scroll-reveal">
+        <div class="pm-section-heading center">
+          <p class="eyebrow">{{ t('landing.audienceEyebrow') }}</p>
+          <h2>{{ t('landing.audienceTitle') }}</h2>
+          <p>{{ t('landing.audienceDesc') }}</p>
+        </div>
+        <div class="audience-grid">
+          <article v-for="(audience, index) in audiences" :key="audience.title" class="audience-card pm-premium-card">
+            <span>{{ index + 1 }}</span>
+            <h3>{{ audience.title }}</h3>
+            <p>{{ audience.description }}</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="demo-flow" class="pm-section-shell pm-cinematic-section demo-section pm-scroll-reveal">
+        <DemoWorkflow />
       </section>
 
       <section class="pm-section-shell pm-cinematic-section boundary-section pm-scroll-reveal">
@@ -193,7 +220,6 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
   ArrowRight,
-  ChatDotRound,
   Coffee,
   DocumentChecked,
   Files,
@@ -206,13 +232,14 @@ import {
 } from '@element-plus/icons-vue'
 
 import AppFooter from '@/components/AppFooter.vue'
+import DemoWorkflow from '@/components/DemoWorkflow.vue'
 import FeedbackDialog from '@/components/FeedbackDialog.vue'
 import DonateDialog from '@/components/DonateDialog.vue'
 import LanguageSwitch from '@/components/LanguageSwitch.vue'
 import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
-const { t } = useI18n()
+const { locale, t } = useI18n()
 const userStore = useUserStore()
 const feedbackVisible = ref(false)
 const donateVisible = ref(false)
@@ -232,20 +259,13 @@ const bentoFeatures = computed(() => [
     description: t('landing.bento.audit.description'),
     meta: t('landing.bento.audit.meta'),
     icon: DocumentChecked,
-    className: 'pm-bento-card-large pm-bento-card-accent'
+    className: 'pm-bento-card-accent'
   },
   {
-    title: t('landing.bento.scan.title'),
-    description: t('landing.bento.scan.description'),
-    meta: t('landing.bento.scan.meta'),
-    icon: Search,
-    className: ''
-  },
-  {
-    title: t('landing.bento.qa.title'),
-    description: t('landing.bento.qa.description'),
-    meta: t('landing.bento.qa.meta'),
-    icon: ChatDotRound,
+    title: t('landing.bento.report.title'),
+    description: t('landing.bento.report.description'),
+    meta: t('landing.bento.report.meta'),
+    icon: Files,
     className: ''
   },
   {
@@ -254,39 +274,6 @@ const bentoFeatures = computed(() => [
     meta: t('landing.bento.interview.meta'),
     icon: MagicStick,
     className: ''
-  },
-  {
-    title: t('landing.bento.report.title'),
-    description: t('landing.bento.report.description'),
-    meta: t('landing.bento.report.meta'),
-    icon: Files,
-    className: 'pm-bento-card-large'
-  },
-  {
-    title: t('landing.bento.admin.title'),
-    description: t('landing.bento.admin.description'),
-    meta: t('landing.bento.admin.meta'),
-    icon: Message,
-    className: ''
-  }
-])
-
-const storySections = computed(() => [
-  {
-    title: t('landing.story.why.title'),
-    description: t('landing.story.why.description')
-  },
-  {
-    title: t('landing.story.audit.title'),
-    description: t('landing.story.audit.description')
-  },
-  {
-    title: t('landing.story.interview.title'),
-    description: t('landing.story.interview.description')
-  },
-  {
-    title: t('landing.story.beta.title'),
-    description: t('landing.story.beta.description')
   }
 ])
 
@@ -313,6 +300,37 @@ const workflow = computed(() => [
   }
 ])
 
+const ruleBenefits = computed(() => [
+  t('landing.comparison.rule.items.free'),
+  t('landing.comparison.rule.items.stable'),
+  t('landing.comparison.rule.items.explainable')
+])
+
+const aiBenefits = computed(() => [
+  t('landing.comparison.ai.items.explanation'),
+  t('landing.comparison.ai.items.resume'),
+  t('landing.comparison.ai.items.interview')
+])
+
+const audiences = computed(() => [
+  {
+    title: t('landing.audiences.intern.title'),
+    description: t('landing.audiences.intern.description')
+  },
+  {
+    title: t('landing.audiences.aiBuilder.title'),
+    description: t('landing.audiences.aiBuilder.description')
+  },
+  {
+    title: t('landing.audiences.resume.title'),
+    description: t('landing.audiences.resume.description')
+  },
+  {
+    title: t('landing.audiences.interview.title'),
+    description: t('landing.audiences.interview.description')
+  }
+])
+
 const boundaries = computed(() => [
   t('landing.boundaries.notGuarantee'),
   t('landing.boundaries.reference'),
@@ -326,9 +344,9 @@ function goStart() {
   router.push(userStore.isLoggedIn ? '/dashboard' : '/register')
 }
 
-function scrollToFeatures() {
+function scrollToDemo() {
   const behavior: ScrollBehavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
-  landingRoot.value?.querySelector('#features')?.scrollIntoView({ behavior, block: 'start' })
+  landingRoot.value?.querySelector('#demo-flow')?.scrollIntoView({ behavior, block: 'start' })
 }
 
 function setupScrollReveal() {
@@ -911,6 +929,93 @@ onBeforeUnmount(() => {
   font-weight: 800;
 }
 
+.comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.comparison-card,
+.audience-card {
+  padding: 22px;
+}
+
+.comparison-card > span {
+  display: inline-flex;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(20, 184, 166, 0.12);
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.comparison-card--ai > span {
+  background: rgba(31, 111, 235, 0.12);
+  color: #245089;
+}
+
+.comparison-card h3,
+.audience-card h3 {
+  margin: 16px 0 8px;
+  color: var(--pm-ink);
+}
+
+.comparison-card p,
+.audience-card p {
+  margin: 0;
+  color: var(--pm-muted);
+  line-height: 1.75;
+}
+
+.comparison-card ul {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.comparison-card li {
+  position: relative;
+  padding-left: 20px;
+  color: #344054;
+  line-height: 1.6;
+}
+
+.comparison-card li::before {
+  position: absolute;
+  top: 0.55em;
+  left: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--pm-teal);
+  content: "";
+}
+
+.comparison-card--ai li::before {
+  background: var(--pm-primary);
+}
+
+.audience-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.audience-card > span {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 8px;
+  background: #111827;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 900;
+}
+
 .boundary-section {
   padding-top: 44px;
 }
@@ -987,6 +1092,10 @@ onBeforeUnmount(() => {
 
 @media (max-width: 980px) {
   .flow-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .audience-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1132,6 +1241,11 @@ onBeforeUnmount(() => {
   .flow-grid {
     grid-template-columns: 1fr;
   }
+
+  .comparison-grid,
+  .audience-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* V4.4-0.3: keep the landing hero in a stable document-flow two-column layout. */
@@ -1183,6 +1297,11 @@ onBeforeUnmount(() => {
 
 .hero-copy h1 span {
   min-width: 0;
+}
+
+.landing-page--en .hero-copy h1 > span:last-child {
+  font-size: clamp(38px, 4vw, 52px);
+  line-height: 1.08;
 }
 
 .hero-subtitle {

@@ -31,6 +31,30 @@
       <pre v-if="aiEnhancement?.aiFallbackText" class="claim-ai-fallback">{{ aiEnhancement.aiFallbackText }}</pre>
     </section>
 
+    <el-collapse v-if="claims.length" class="claim-guide no-print">
+      <el-collapse-item name="statuses">
+        <template #title>
+          <div class="claim-guide-title">
+            <strong>{{ t('report.claimGuideTitle') }}</strong>
+            <span>{{ t('report.claimGuideSummary') }}</span>
+          </div>
+        </template>
+        <div class="claim-status-guide">
+          <article v-for="item in statusExplanations" :key="item.status">
+            <el-tag :type="statusTagType(item.status)" effect="light">{{ item.status }}</el-tag>
+            <strong>{{ item.label }}</strong>
+            <p>{{ item.description }}</p>
+          </article>
+        </div>
+        <el-alert
+          :title="t('report.claimResumeWarning')"
+          type="warning"
+          show-icon
+          :closable="false"
+        />
+      </el-collapse-item>
+    </el-collapse>
+
     <div v-if="claims.length" class="claim-toolbar no-print">
       <el-select v-model="statusFilter" class="status-filter">
         <el-option
@@ -168,7 +192,11 @@
     </div>
 
     <div v-else class="claim-empty">
-      {{ claims.length ? t('report.noClaimsForFilter') : t('report.noClaimEvidence') }}
+      <strong>{{ claims.length ? t('report.noClaimsForFilter') : t('report.noClaimEvidenceTitle') }}</strong>
+      <p>{{ claims.length ? t('report.noClaimsForFilterDesc') : t('report.noClaimEvidence') }}</p>
+      <el-button v-if="!claims.length" type="primary" @click="emit('empty-action')">
+        {{ t('report.backToProject') }}
+      </el-button>
     </div>
   </div>
 </template>
@@ -193,6 +221,9 @@ const props = withDefaults(defineProps<{
   claims: () => [],
   aiEnhancement: undefined
 })
+const emit = defineEmits<{
+  (event: 'empty-action'): void
+}>()
 
 const { t } = useI18n()
 const statusFilter = ref<'ALL' | ClaimEvidenceStatus>('ALL')
@@ -246,6 +277,38 @@ const statusOptions = computed(() => [
   { value: 'DOC_ONLY', label: statusLabel('DOC_ONLY') },
   { value: 'PARTIAL', label: statusLabel('PARTIAL') },
   { value: 'SUPPORTED', label: statusLabel('SUPPORTED') }
+])
+
+const statusExplanations = computed<Array<{
+  status: ClaimEvidenceStatus
+  label: string
+  description: string
+}>>(() => [
+  {
+    status: 'SUPPORTED',
+    label: t('report.claimStatus.supported'),
+    description: t('report.claimStatusDesc.supported')
+  },
+  {
+    status: 'PARTIAL',
+    label: t('report.claimStatus.partial'),
+    description: t('report.claimStatusDesc.partial')
+  },
+  {
+    status: 'DOC_ONLY',
+    label: t('report.claimStatus.docOnly'),
+    description: t('report.claimStatusDesc.docOnly')
+  },
+  {
+    status: 'NO_EVIDENCE',
+    label: t('report.claimStatus.noEvidence'),
+    description: t('report.claimStatusDesc.noEvidence')
+  },
+  {
+    status: 'RISKY',
+    label: t('report.claimStatus.risky'),
+    description: t('report.claimStatusDesc.risky')
+  }
 ])
 
 function claimKey(claim: ClaimEvidenceItem, index: number) {
@@ -381,6 +444,73 @@ async function copyText(text: string) {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.claim-guide {
+  border: 1px solid var(--pm-border);
+  border-radius: 8px;
+  background: #fbfdff;
+}
+
+.claim-guide :deep(.el-collapse-item__header) {
+  min-height: 58px;
+  padding: 0 16px;
+  border-bottom: 0;
+  background: transparent;
+}
+
+.claim-guide :deep(.el-collapse-item__wrap) {
+  border-bottom: 0;
+  background: transparent;
+}
+
+.claim-guide :deep(.el-collapse-item__content) {
+  padding: 0 16px 16px;
+}
+
+.claim-guide-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.claim-guide-title strong {
+  color: var(--pm-ink);
+}
+
+.claim-guide-title span {
+  color: var(--pm-muted);
+  font-size: 12px;
+}
+
+.claim-status-guide {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.claim-status-guide article {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #eaecf0;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.claim-status-guide strong {
+  display: block;
+  margin-top: 8px;
+  color: #344054;
+  font-size: 13px;
+}
+
+.claim-status-guide p {
+  margin: 6px 0 0;
+  color: var(--pm-muted);
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .claim-toolbar span {
@@ -626,12 +756,24 @@ async function copyText(text: string) {
 }
 
 .claim-empty {
+  display: grid;
+  justify-items: center;
   padding: 28px 18px;
   border: 1px dashed var(--pm-border);
   border-radius: 8px;
   background: #fbfdff;
   text-align: center;
   line-height: 1.7;
+}
+
+.claim-empty strong {
+  color: var(--pm-ink);
+  font-size: 16px;
+}
+
+.claim-empty p {
+  max-width: 620px;
+  margin: 6px 0 16px;
 }
 
 @media (max-width: 760px) {
@@ -641,6 +783,10 @@ async function copyText(text: string) {
   .claim-ai-grid,
   .claim-ai-item-grid {
     display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .claim-status-guide {
     grid-template-columns: 1fr;
   }
 

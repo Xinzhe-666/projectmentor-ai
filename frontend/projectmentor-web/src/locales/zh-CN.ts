@@ -95,11 +95,13 @@ export default {
     finished: '已完成'
   },
   landing: {
-    heroEyebrow: '项目真实性审计 · 项目问答 · 模拟面试 · 报告分享',
-    heroHeadline: '让项目表达更有证据感',
-    subtitle: '面向计算机学生、实习求职者和早期开发者的项目真实性审计与面试深挖平台。',
+    heroEyebrow: '规则证据链 · AI 深度增强 · 面试准备',
+    heroHeadline: 'AI 时代的学生项目真实性审计与面试深挖平台',
+    subtitle: '帮你判断项目描述是否夸大、代码证据是否支撑、简历表达是否稳妥，以及面试会被怎样追问。',
     heroSubnote:
-      '围绕 README、源码、配置、部署文件和项目描述建立证据链，识别夸大表述、AI 幻觉、简历风险和面试追问风险，帮助你基于真实证据讲清楚项目。',
+      '规则证据链免费扫描，AI 深度解读按 credits 消耗。适合计算机专业学生、实习求职者和早期开发者。',
+    ctaAudit: '开始审计项目',
+    ctaDemo: '查看演示流程',
     ctaFeatures: '查看功能',
     trialTitle: '试用提示',
     trialDesc:
@@ -155,13 +157,13 @@ export default {
       }
     },
     bentoEyebrow: 'Core capabilities',
-    bentoTitle: '围绕项目可信度的一组轻量能力',
-    bentoDesc: 'PMAI 不替你包装项目，而是帮你把已有材料整理成更清楚、可追问、可复盘的证据结构。',
+    bentoTitle: '先核对证据，再准备表达',
+    bentoDesc: 'PMAI 不替你包装项目，而是帮助你确认项目主张是否站得住，并把风险转成可复盘的简历与面试材料。',
     bento: {
       audit: {
-        title: 'Project Audit / 项目审计',
-        description: '生成项目评分、风险点、优势短板和可复盘的审计报告。',
-        meta: 'Score · Risk · Evidence'
+        title: '真实性审计',
+        description: '核对 README、项目描述与源码证据，识别夸大表述、材料缺口和高风险主张。',
+        meta: 'Authenticity · Risk · Evidence'
       },
       scan: {
         title: 'README Risk Scan / README 风险扫描',
@@ -174,14 +176,14 @@ export default {
         meta: 'Answer with context'
       },
       interview: {
-        title: 'Mock Interview / 模拟面试',
-        description: '用项目事实驱动追问，帮助你练习更真实的项目深挖。',
-        meta: 'Practice follow-ups'
+        title: '面试深挖与简历表达',
+        description: '把薄弱证据转成面试追问和更稳妥的简历写法，帮助你基于真实贡献回答。',
+        meta: 'Resume · Follow-ups · Review'
       },
       report: {
-        title: 'Evidence Chain / 证据链',
-        description: '将风险、建议、问答和简历表达落到可追踪的文件证据上。',
-        meta: 'Traceable evidence'
+        title: 'Claim-Evidence 主张证据矩阵',
+        description: '逐条回答“你说的这句话，有没有代码、配置或部署证据支撑”。',
+        meta: 'Claim · Status · Evidence'
       },
       admin: {
         title: 'Admin & Feedback / 后台与反馈闭环',
@@ -223,6 +225,7 @@ export default {
     },
     audienceEyebrow: 'For whom',
     audienceTitle: '面向这些学习与求职场景',
+    audienceDesc: '适合需要验证项目真实性、整理证据和准备项目深挖的人。',
     audiences: {
       intern: {
         title: '计算机学生、实习求职者与早期开发者',
@@ -265,6 +268,31 @@ export default {
         description: '围绕简历描述、项目事实和面试问题继续打磨。'
       }
     },
+    comparison: {
+      eyebrow: 'Rule vs AI',
+      title: '规则扫描免费，AI 增强按 credits 使用',
+      description: '基础证据核对与深度生成能力清晰分开，先免费检查，再决定是否调用 AI。',
+      rule: {
+        badge: 'FREE',
+        title: '规则证据链扫描',
+        description: '用于稳定提取风险、证据文件与 Claim-Evidence 基础矩阵。',
+        items: {
+          free: '免费使用，不消耗 credits',
+          stable: '输出稳定，适合反复检查材料',
+          explainable: '结论可回到文件路径和命中原因'
+        }
+      },
+      ai: {
+        badge: 'CREDITS',
+        title: 'AI 深度增强',
+        description: '在基础证据上生成更深入的解释、表达建议和面试准备材料。',
+        items: {
+          explanation: '生成 Claim-Evidence 深度解读',
+          resume: '补充更稳妥的简历表达建议',
+          interview: '生成面试追问、问答和模拟面试'
+        }
+      }
+    },
     capabilityEyebrow: 'Trial capabilities',
     capabilityTitle: '当前试用能力',
     capabilities: {
@@ -289,6 +317,23 @@ export default {
       beta: '项目仍处于 Beta 测试迭代阶段',
       verify: '审计结果不代表绝对正确，需要用户结合代码自行判断'
     }
+  },
+  demoFlow: {
+    eyebrow: 'Demo flow',
+    title: '推荐演示路径',
+    description: '用一条完整路径展示 PMAI 如何从项目材料走到证据核对、AI 增强和面试准备。',
+    badge: '8 steps',
+    steps: {
+      create: '创建项目',
+      upload: '粘贴 README 或上传 ZIP',
+      scan: '查看免费规则扫描',
+      report: '生成 AI 审计报告',
+      matrix: '查看 Claim-Evidence 矩阵',
+      enhance: '点击 AI 深度解读',
+      interview: '进入模拟面试',
+      share: '公开分享只读报告'
+    },
+    note: '建议演示时先强调规则扫描免费，再说明 AI 审计、深度解读、问答与模拟面试会按 credits 扣减，失败会自动返还。'
   },
   auth: {
     loginTitle: '登录 ProjectMentor',
@@ -356,11 +401,40 @@ export default {
     interviewScore: '面试得分',
     interviewQuestions: '已答 / 问题',
     noReportsTitle: '还没有审计报告',
-    noReportsDesc: '生成项目审计报告后，会在这里显示最近记录。',
+    noReportsDesc: '创建项目并上传 README / ZIP 后，即可生成第一份项目真实性审计报告。',
+    noReportsAction: '创建项目并准备材料',
     noInterviewsTitle: '还没有面试会话',
-    noInterviewsDesc: '开始一次模拟面试后，会在这里显示最近记录。',
+    noInterviewsDesc: '选择已有项目并开始模拟面试后，会在这里显示最近记录。',
+    noInterviewsAction: '开始模拟面试',
     emptyTitle: '还没有项目',
-    emptyDesc: '创建第一个项目后，可以继续保存 README、上传 ZIP 并生成审计报告。'
+    emptyDesc: '创建第一个项目后，可以继续保存 README、上传 ZIP 并生成审计报告。',
+    onboarding: {
+      eyebrow: 'Getting started',
+      title: '新手开始',
+      description: '第一次使用只需要完成四步：先建立项目材料，再决定是否使用 AI 增强。',
+      badge: '规则扫描免费',
+      create: '创建我的第一个项目',
+      credits: '查看 credits 规则',
+      demo: '查看演示说明',
+      steps: {
+        create: {
+          title: '创建项目',
+          description: '填写真实项目名称、技术栈和实际范围。'
+        },
+        upload: {
+          title: '粘贴 README 或上传 ZIP',
+          description: '提供源码、配置和部署材料，便于提取证据。'
+        },
+        scan: {
+          title: '查看规则扫描与矩阵',
+          description: '免费检查风险、证据链和 Claim-Evidence 状态。'
+        },
+        ai: {
+          title: '按需使用 AI 深度解读',
+          description: 'AI 功能会消耗 credits，失败会自动返还。'
+        }
+      }
+    }
   },
   sidebar: {
     footnote: '上传 README 与代码证据后，再生成报告，会得到更可信的面试风险判断。'
@@ -373,6 +447,7 @@ export default {
     listDesc: '管理 GitHub 项目、README、代码文件和审计报告。',
     emptyTitle: '还没有项目',
     emptyDesc: '创建一个项目后，就可以保存 README、上传 ZIP 并启动审计。',
+    viewCreditRules: '查看 credits 规则',
     deleteTitle: '删除项目',
     deleteConfirm: '确认删除这个项目吗？相关文件和报告可能无法继续访问。',
     deleted: '已删除项目',
@@ -389,6 +464,27 @@ export default {
     typeAi: 'AI 项目',
     nameRequired: '请输入项目名称',
     createSuccess: '项目创建成功',
+    createGuide: {
+      eyebrow: 'Before you create',
+      title: '先写真实范围，再上传证据',
+      description: '项目基础信息会参与 Claim-Evidence 主张提取，请避免把计划功能写成已经实现。',
+      ruleFree: 'README / ZIP 规则扫描免费',
+      tips: {
+        name: '名称用真实项目名，便于报告与分享识别。',
+        techStack: '技术栈写实际使用过的框架、数据库、缓存和部署工具。',
+        description: '描述已实现范围、个人职责和当前边界，不要夸大。',
+        upload: '创建后粘贴 README 或上传 ZIP，系统会扫描代码与配置证据。',
+        credits: '规则扫描免费；AI 报告、深度解读和面试会消耗 credits。'
+      }
+    },
+    example: {
+      title: '示例填写',
+      description: '仅作表达参考，不会自动写入表单或创建数据。',
+      name: 'ProjectMentor AI',
+      techStack: 'Spring Boot, Vue 3, MySQL, Redis, Docker, OpenAI-compatible API',
+      projectDescription: '一个面向学生项目的真实性审计与面试准备平台，支持项目上传、规则扫描、AI 审计报告、Claim-Evidence 证据矩阵和模拟面试。',
+      notice: '示例不会自动创建项目。请根据自己的真实实现与贡献范围填写。'
+    },
     detailTitle: '项目详情',
     noDescription: '暂无项目描述',
     artifactsTitle: '相关产物',
@@ -472,6 +568,16 @@ export default {
   report: {
     eyebrow: 'ProjectMentor AI Audit Report',
     notice: '基于规则扫描与 AI 增强生成，仅供项目复盘和面试准备参考。',
+    readingGuideEyebrow: 'How to read',
+    readingGuideTitle: '这份报告应该怎么看',
+    readingGuideHint: '展开查看 5 个关键判断原则',
+    readingGuide: {
+      score: '总分不是绝对能力分，而是当前项目材料可信度与完整度的参考。',
+      risks: '风险项提醒 README 或简历中可能被追问、需要补证据或降级表达的地方。',
+      matrix: 'Claim-Evidence 矩阵用于判断“你说的话有没有代码、配置或部署证据支撑”。',
+      ai: 'AI 深度解读会消耗 credits，用于补充解释、简历策略和面试追问。',
+      resume: 'DOC_ONLY、NO_EVIDENCE、RISKY 内容不建议未经修改直接写进简历。'
+    },
     summaryTitle: '报告摘要',
     summaryDesc: '先看整体判断，再进入风险点、证据链和简历表达建议。',
     summaryLoading: '报告摘要生成中',
@@ -502,8 +608,21 @@ export default {
     strongEvidence: '强证据',
     weakEvidence: '弱证据',
     noEvidenceFiles: '未找到可展示的证据文件',
-    noClaimsForFilter: '当前筛选条件下没有主张。',
+    noClaimsForFilter: '当前筛选条件下没有主张',
+    noClaimsForFilterDesc: '切换到“全部证据状态”即可查看其他主张。',
+    noClaimEvidenceTitle: '暂无 Claim-Evidence 矩阵',
     noClaimEvidence: '当前报告暂无主张证据矩阵，请重新生成报告或补充 README / 项目描述后再试。',
+    backToProject: '返回项目补充材料',
+    claimGuideTitle: 'Claim-Evidence 状态怎么理解',
+    claimGuideSummary: '展开查看 SUPPORTED / PARTIAL / DOC_ONLY / NO_EVIDENCE / RISKY',
+    claimResumeWarning: 'DOC_ONLY、NO_EVIDENCE、RISKY 表述不建议直接写进简历，请先补充证据或降低表达强度。',
+    claimStatusDesc: {
+      supported: '有较充分的代码、配置、SQL 或部署证据。',
+      partial: '找到部分证据，但实现范围或关键链路仍不完整。',
+      docOnly: '只有 README 或项目描述，缺少实现证据。',
+      noEvidence: '当前上传材料中未找到能够支撑该主张的证据。',
+      risky: '表述强度较高或与证据不匹配，容易被面试继续追问。'
+    },
     claimAiButton: 'AI 深度解读主张证据矩阵',
     claimAiCost: '预计消耗 2 credits',
     claimAiConfirmTitle: '确认消耗额度',
@@ -511,6 +630,8 @@ export default {
     claimAiLoading: 'AI 正在分析主张与证据关系...',
     claimAiAnalyzing: 'AI 分析中',
     claimAiSuccess: 'AI 深度解读已生成',
+    claimAiEmptyTitle: '还没有 AI 深度解读',
+    claimAiEmptyDesc: '基础 Claim-Evidence 矩阵由规则生成且免费；如需逐条解释、简历策略和面试追问，可按需调用 AI。',
     claimAiEnhancedLabel: 'AI 深度解读',
     claimAiSummary: 'AI 总结',
     claimAiRiskOverview: '主要风险',
@@ -579,7 +700,8 @@ export default {
     shareReport: '分享报告',
     copyShare: '复制分享',
     emptyTitle: '暂无审计报告',
-    emptyDesc: '生成项目审计报告后，可以在这里找回和分享。',
+    emptyDesc: '创建项目并上传 README / ZIP 后，即可生成第一份项目真实性审计报告，并在这里查看与分享。',
+    emptyAction: '创建第一个项目',
     shareCopied: '分享链接已复制',
     shareReady: '分享链接已生成'
   },
@@ -844,6 +966,11 @@ export default {
     note: '自愿支持，不影响任何功能使用。这里不是正式支付系统，不接入支付接口。'
   },
   credits: {
+    guideEyebrow: 'Credits guide',
+    guideTitle: '先免费扫描，再按需使用 AI',
+    guideDesc: 'Credits 只用于明确的 AI 调用，不影响项目管理、上传解析、规则证据链和历史查看。',
+    registrationGift: '新用户注册送 10 credits',
+    betaNotice: '内测额度，不代表真实支付系统',
     plan: '当前套餐',
     remaining: '剩余额度',
     expire: '到期时间',
@@ -857,13 +984,26 @@ export default {
     after: '变更后',
     remark: '备注',
     emptyTitle: '暂无额度流水',
-    emptyDesc: '额度发生变化后，记录会出现在这里。',
+    emptyDesc: '当前还没有额度变更记录。注册赠送、AI 消耗、失败返还或管理员调整后会显示流水。',
+    emptyAction: '刷新额度流水',
     estimatedCost: '预计消耗 {count} credits',
     confirmAiUse: '该操作将调用 AI 并消耗 {count} credits，是否继续？',
     insufficient: '额度不足，无法调用 AI',
     aiFailedRefunded: 'AI 调用失败，额度已返还',
     ruleFree: '规则扫描免费',
     onlyAiConsumes: '仅 AI 功能消耗额度',
+    freeTitle: '不消耗 credits 的功能',
+    freeDesc: '这些基础能力可以直接使用，用于建立和查看项目证据。',
+    freeFeatures: {
+      ruleScan: '规则扫描与基础 Claim-Evidence 矩阵',
+      upload: 'README 保存与 ZIP 上传解析',
+      projectManagement: '项目创建、管理与文件查看',
+      dashboard: 'Dashboard 与基础统计',
+      history: '报告、问答和面试历史查看',
+      share: '只读报告公开分享'
+    },
+    creditUnit: '{count} credits',
+    refundNotice: 'AI 调用或结果保存失败时会自动返还额度，并在流水中记录对应退款。',
     standardsTitle: 'AI 功能扣费标准',
     standardsDesc: '调用前预扣额度；AI 调用或结果保存失败时自动返还并记录退款流水。',
     costs: {
@@ -999,10 +1139,22 @@ export default {
     saveStatus: '保存状态',
     noUsers: '暂无用户记录',
     noFeedback: '暂无反馈',
+    noFeedbackDesc: '当前筛选条件下没有反馈，重置筛选后可查看全部记录。',
     noProjects: '暂无项目记录',
     noReports: '暂无报告记录',
     noQa: '暂无问答记录',
     noCreditLogs: '暂无额度流水',
+    emptyActivityTitle: '暂无近期活动',
+    emptyActivityDesc: '当前还没有用户、项目、报告或问答记录。刷新后可重新拉取最新统计。',
+    emptyAiModules: '今日暂无 AI 模块调用',
+    emptyAiModulesDesc: '产生 AI 调用后，模块消耗排行会显示在这里。',
+    emptyAiUsers: '今日暂无 AI 使用用户',
+    emptyAiUsersDesc: '用户调用 AI 功能后，会显示今日调用与额度消耗。',
+    emptyAiLogsDesc: 'AI 消耗或失败返还发生后，最近流水会显示在这里。',
+    emptyCreditUsers: '没有匹配的额度用户',
+    emptyCreditUsersDesc: '可能还没有用户，也可能当前关键词筛选不到结果。',
+    emptyCreditLogsDesc: '该用户当前没有额度变化记录，可刷新查看最新流水。',
+    clearAndRefresh: '清除筛选并刷新',
     question: '问题',
     amountRequired: '额度必须为正整数',
     reasonRequired: '请填写至少 2 个字符的调整原因',
@@ -1040,14 +1192,14 @@ export default {
       conclusion: '结论',
       defaultConclusion: '证据结论',
       emptyTitle: '暂无证据链',
-      emptyDesc: '当前结果没有返回结构化证据信息。'
+      emptyDesc: '当前材料中还没有可展示的结构化证据。请补充 README / ZIP 后重新扫描或生成报告。'
     },
     risk: {
       riskType: '风险类型',
       defaultRisk: '风险点',
       sourceFile: '来源文件',
       emptyTitle: '暂无风险点',
-      emptyDesc: '当前结果没有返回结构化风险信息。'
+      emptyDesc: '当前没有结构化风险项，可能是材料尚未扫描，也可能是本轮未命中风险规则。'
     }
   }
 }

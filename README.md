@@ -65,15 +65,9 @@ ProjectMentor AI（PMAI）由李鑫哲独立设计、开发并上线。Copyright
 
 ProjectMentor AI 的定位不是“让 AI 直接打分”，而是先做规则扫描和证据链整理，再用 AI 做表达增强和审计补充。AI 不可用时，系统仍然可以输出规则版报告。
 
-## 当前公开预览版本：V4.6
+## 当前公开预览版本：V4.7
 
-V4.6 是 Public Preview Launch Pack，不新增后端复杂业务，不修改数据库结构，也不改变 credits 扣费逻辑。它重点补齐：
-
-- SEO、浏览器标题、Open Graph、Twitter card 和 robots 基础配置；
-- Public Preview Footer、隐私与免责声明入口；
-- 公开分享报告的证据来源、AI 增强状态和非官方认证说明；
-- Nginx 安全响应头与域名、HTTPS 部署文档；
-- 中文 / English 双语公开内测文案。
+V4.7 是 Public Preview Stabilization 版本，不新增重后端业务、不修改数据库结构、不改变 credits 扣费逻辑，重点统一公开文案、正式域名展示、已知边界、演示路径和文档可信度。
 
 PMAI 当前核心架构可以概括为：
 
@@ -115,6 +109,8 @@ Claim-Evidence 的核心价值，是把项目描述拆成可核对的主张，�
 - 当前未接入真实支付系统；
 - 当前项目问答仍是轻量证据检索增强，不是成熟向量数据库 RAG；
 - 当前主要用于学习、项目复盘、简历表达检查和答辩 / 面试准备。
+
+完整已知边界见：[docs/known-limitations.md](docs/known-limitations.md)。
 
 版本说明见：[docs/release-notes.md](docs/release-notes.md)。
 

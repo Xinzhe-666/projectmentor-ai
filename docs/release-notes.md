@@ -1,3 +1,26 @@
+# v4.7
+
+Public Preview Stabilization.
+
+ProjectMentor AI now enters a more stable public-preview stage. This version does not add heavy backend business logic, database schema changes, payment integration, or a new AI provider. It focuses on public-facing consistency, official-domain readiness, clearer product boundaries, and a more reliable demo path.
+
+This version adds:
+
+* A unified public-preview positioning around project authenticity audit, Claim-Evidence Matrix, and interview deep-dive.
+* Clearer official-site wording for public materials and future screenshots.
+* A dedicated known-limitations document to avoid overclaiming the project as an enterprise code-audit, security-audit, or mature vector-RAG system.
+* A cleaner demo path for teachers, interviewers, early users, and public-preview testers.
+* Documentation alignment across README, roadmap, release notes, architecture notes, and demo guide.
+* A clearer explanation that rule-based scanning and base Claim-Evidence checks are free, while AI enhancement features consume credits and refund on failure.
+* A stable wording boundary for project Q&A: lightweight evidence retrieval, not a mature vector database RAG system.
+* A stable wording boundary for credits: public-preview credits only, not a real payment or billing system.
+
+Boundaries:
+
+* No backend API, database field, dependency, payment system, analytics integration, AI provider, API key, or `.env` change is included.
+* No claim is made that PMAI is an enterprise-grade code audit platform, commercial security audit system, official authenticity certification system, or mature vector-RAG product.
+* The product remains a public-preview SaaS MVP for learning, project review, resume wording checks, and interview preparation.
+
 # v4.6
 
 Public Preview Launch Pack.

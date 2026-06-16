@@ -1,5 +1,14 @@
 # ProjectMentor AI Roadmap
 
+## V4.7 Public Preview Stabilization（进行中）
+
+- 统一公开版本口径为 V4.7 Public Preview Stabilization。
+- 正式公开材料优先使用 `https://www.projectmentorai.com`，不再优先展示旧 IP Demo 地址。
+- 补充 `docs/known-limitations.md`，明确 PMAI 不是企业级代码审计、安全审计、官方认证、成熟向量 RAG 或真实支付系统。
+- README、release notes、roadmap、demo guide 和 architecture 文档统一使用“规则证据链 + Claim-Evidence + AI 增强 + credits 成本控制”的产品表达。
+- 演示路径优先展示：创建项目 → README / ZIP → 规则扫描 → Claim-Evidence → AI 报告 → AI 深度解读 → 模拟面试 → 只读分享。
+- 不新增数据库字段、不新增后端复杂业务、不修改 credits 规则、不接入真实支付、不引入新 AI Provider。
+
 ## V4.6 Public Preview Launch Pack（已完成）
 
 - 统一公开定位为项目真实性审计与面试深挖平台，学生作为适用人群而不是主定位。

@@ -65,9 +65,9 @@ ProjectMentor AI（PMAI）由李鑫哲独立设计、开发并上线。Copyright
 
 ProjectMentor AI 的定位不是“让 AI 直接打分”，而是先做规则扫描和证据链整理，再用 AI 做表达增强和审计补充。AI 不可用时，系统仍然可以输出规则版报告。
 
-## 当前公开预览版本：V4.7
+## 当前公开预览版本：V4.8-0
 
-V4.7 是 Public Preview Stabilization 版本，不新增重后端业务、不修改数据库结构、不改变 credits 扣费逻辑，重点统一公开文案、正式域名展示、已知边界、演示路径和文档可信度。
+V4.8-0 是“中文版本记录与注册邮箱验证码”版本：release notes 改为中文主线表达，并新增注册邮箱验证码。验证码通过 SMTP 发送，默认 `EMAIL_VERIFICATION_ENABLED=false`，生产环境配置 SMTP 后再开启；本版本不新增数据库表，不改变 credits 扣费、登录 JWT、管理员权限或 AI 调用逻辑。
 
 PMAI 当前核心架构可以概括为：
 
@@ -94,6 +94,7 @@ Claim-Evidence 的核心价值，是把项目描述拆成可核对的主张，�
 - 我的报告与面试记录；
 - Dashboard 真实数据统计；
 - 额度账户与额度流水；
+- 注册邮箱验证码；
 - 管理员后台、AI 使用统计、额度发放 / 扣除与反馈管理；
 - 中文 / English 国际化；
 - Docker Compose + Nginx 部署；
@@ -124,7 +125,7 @@ PMAI 面向需要验证项目真实性的开发者，适用人群包括计算机
 
 | 功能 | 状态 | 说明 |
 | --- | --- | --- |
-| 用户认证 | 已完成 | 支持注册、登录、JWT 鉴权、BCrypt 密码加密；同 IP 每小时最多成功注册 3 个账号、每天最多 10 个账号 |
+| 用户认证 | 已完成 | 支持注册、登录、JWT 鉴权、BCrypt 密码加密；支持注册邮箱验证码校验；验证码通过 SMTP 发送，默认可通过 `EMAIL_VERIFICATION_ENABLED` 开关控制；同 IP 每小时最多成功注册 3 个账号、每天最多 10 个账号 |
 | 项目管理 | 已完成 | 支持创建、列表、详情、删除项目 |
 | README 保存 | 已完成 | 支持粘贴 README 并保存为项目文件 |
 | ZIP 上传解析 | 已完成 | 支持普通项目 ZIP，最大 800MB，解析源码核心文本并过滤依赖、构建、缓存、二进制和超大文件；文件结果支持分页、路径搜索和基础类型筛选 |
@@ -584,6 +585,19 @@ docker compose up -d backend
 | `JWT_SECRET` | JWT 签名密钥，请使用足够长的随机字符串 |
 | `ADMIN_EMAILS` | 管理员邮箱白名单，英文逗号分隔；配置后需要重启 backend 生效 |
 | `KNIFE4J_ENABLED` | 是否启用 Knife4j API 文档，默认 `false`；生产环境应保持关闭，本地开发可设为 `true` |
+| `EMAIL_VERIFICATION_ENABLED` | 是否启用注册邮箱验证码；`false` 时不会强制校验验证码，生产环境配置 SMTP 后建议设为 `true` |
+| `MAIL_HOST` | SMTP 服务器地址 |
+| `MAIL_PORT` | SMTP 端口，默认 `587` |
+| `MAIL_USERNAME` | SMTP 登录用户名 |
+| `MAIL_PASSWORD` | SMTP 密码或邮箱授权码，不要提交到仓库 |
+| `MAIL_FROM` | 验证码邮件发件人；可留空使用邮件服务默认发件人 |
+| `MAIL_SMTP_AUTH` | 是否启用 SMTP auth，默认 `true` |
+| `MAIL_SMTP_STARTTLS_ENABLE` | 是否启用 STARTTLS，默认 `true` |
+| `EMAIL_VERIFICATION_SUBJECT` | 注册验证码邮件标题，默认 `ProjectMentor AI 邮箱验证码` |
+| `EMAIL_VERIFICATION_TTL_MINUTES` | 验证码有效期分钟数，默认 `10` |
+| `EMAIL_VERIFICATION_COOLDOWN_SECONDS` | 同邮箱验证码发送冷却秒数，默认 `60` |
+| `EMAIL_VERIFICATION_EMAIL_HOURLY_LIMIT` | 单邮箱每小时最大发送次数，默认 `5` |
+| `EMAIL_VERIFICATION_IP_HOURLY_LIMIT` | 单 IP 每小时最大发送次数，默认 `20` |
 | `AI_ENABLED` | 是否启用 AI 增强；未配置 Key 或调用失败时仍会 fallback 到规则版报告 |
 | `AI_BASE_URL` | OpenAI-compatible API 地址，例如 DeepSeek 或其他兼容接口 |
 | `AI_API_KEY` | AI 服务密钥，可留空；留空时使用规则版报告 |
@@ -598,7 +612,7 @@ docker compose up -d backend
 - MySQL 和 Redis 只在 Docker Compose 内部网络中供后端通过服务名 `mysql`、`redis` 访问，不映射公网端口。
 - 生产环境只开放 `22`、`80`、`443`；云防火墙不应开放 `3306`、`6379`。
 - `.env` 不提交到仓库。
-- `AI_API_KEY`、`JWT_SECRET`、`MYSQL_ROOT_PASSWORD` 必须通过环境变量配置，不要写入代码或公开文档。
+- `AI_API_KEY`、`JWT_SECRET`、`MYSQL_ROOT_PASSWORD`、`MAIL_PASSWORD` 必须通过环境变量配置，不要写入代码或公开文档。
 - Nginx 会直接拦截常见敏感文件、备份文件、调试入口和漏洞扫描路径，避免进入 SPA fallback；这不替代后端接口鉴权。
 
 部署 Nginx 配置后先检查语法：

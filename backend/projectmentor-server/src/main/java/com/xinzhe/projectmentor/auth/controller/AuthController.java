@@ -2,13 +2,15 @@ package com.xinzhe.projectmentor.auth.controller;
 
 import com.xinzhe.projectmentor.auth.dto.LoginRequest;
 import com.xinzhe.projectmentor.auth.dto.RegisterRequest;
+import com.xinzhe.projectmentor.auth.dto.SendEmailCodeRequest;
 import com.xinzhe.projectmentor.auth.service.AuthService;
+import com.xinzhe.projectmentor.auth.service.EmailVerificationService;
 import com.xinzhe.projectmentor.auth.service.RegistrationRateLimitService;
 import com.xinzhe.projectmentor.auth.vo.LoginResponse;
 import com.xinzhe.projectmentor.auth.vo.UserInfoVO;
 import com.xinzhe.projectmentor.common.Result;
-import jakarta.validation.Valid;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import com.xinzhe.projectmentor.util.IpUtils;
@@ -22,11 +24,22 @@ public class AuthController {
 
     private final RegistrationRateLimitService registrationRateLimitService;
 
+    private final EmailVerificationService emailVerificationService;
+
+    @PostMapping("/email-code")
+    public Result<Void> sendEmailCode(@Valid @RequestBody SendEmailCodeRequest request,
+                                      HttpServletRequest httpServletRequest) {
+        String clientIp = IpUtils.resolveClientIp(httpServletRequest);
+        emailVerificationService.sendRegisterCode(request.getEmail(), clientIp);
+        return Result.success();
+    }
+
     @PostMapping("/register")
     public Result<LoginResponse> register(@Valid @RequestBody RegisterRequest request,
                                           HttpServletRequest httpServletRequest) {
         String clientIp = IpUtils.resolveClientIp(httpServletRequest);
         registrationRateLimitService.checkAllowed(clientIp);
+        emailVerificationService.verifyRegisterCode(request.getEmail(), request.getVerificationCode());
         LoginResponse response = authService.register(request);
         registrationRateLimitService.recordSuccessfulRegistration(clientIp);
         return Result.success(response);

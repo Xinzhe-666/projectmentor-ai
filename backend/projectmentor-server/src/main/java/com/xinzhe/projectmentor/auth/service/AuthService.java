@@ -21,6 +21,8 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Locale;
+
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -37,6 +39,8 @@ public class AuthService {
 
     @Transactional(rollbackFor = Exception.class)
     public LoginResponse register(RegisterRequest request) {
+        String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
+
         User existUser = userMapper.selectOne(
                 new LambdaQueryWrapper<User>()
                         .eq(User::getUsername, request.getUsername())
@@ -49,7 +53,7 @@ public class AuthService {
 
         User emailUser = userMapper.selectOne(
                 new LambdaQueryWrapper<User>()
-                        .eq(User::getEmail, request.getEmail())
+                        .eq(User::getEmail, email)
                         .last("LIMIT 1")
         );
 
@@ -60,7 +64,7 @@ public class AuthService {
         User user = new User();
         user.setUsername(request.getUsername());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setEmail(request.getEmail());
+        user.setEmail(email);
         user.setRole("USER");
         user.setStatus(1);
 

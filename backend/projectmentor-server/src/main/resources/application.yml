@@ -28,6 +28,19 @@ spring:
       password: ${REDIS_PASSWORD:}
       database: ${REDIS_DATABASE:0}
 
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    protocol: smtp
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_SMTP_AUTH:true}
+          starttls:
+            enable: ${MAIL_SMTP_STARTTLS_ENABLE:true}
+
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
@@ -47,6 +60,15 @@ knife4j:
 projectmentor:
   admin:
     emails: ${ADMIN_EMAILS:}
+
+  email-verification:
+    enabled: ${EMAIL_VERIFICATION_ENABLED:false}
+    from: ${MAIL_FROM:}
+    subject: ${EMAIL_VERIFICATION_SUBJECT:ProjectMentor AI 邮箱验证码}
+    code-ttl-minutes: ${EMAIL_VERIFICATION_TTL_MINUTES:10}
+    send-cooldown-seconds: ${EMAIL_VERIFICATION_COOLDOWN_SECONDS:60}
+    hourly-limit-per-email: ${EMAIL_VERIFICATION_EMAIL_HOURLY_LIMIT:5}
+    hourly-limit-per-ip: ${EMAIL_VERIFICATION_IP_HOURLY_LIMIT:20}
 
   jwt:
     secret: ${JWT_SECRET:projectmentor-ai-local-dev-secret-must-be-at-least-32-chars}

@@ -64,4 +64,40 @@ class AuthServiceCreditTests {
         assertThat(logCaptor.getValue().getChangeAmount()).isEqualTo(10);
         assertThat(logCaptor.getValue().getOperationType()).isEqualTo(CreditCostConstants.OP_REGISTER_GIFT);
     }
+
+    @Test
+    void registrationStoresEmailInLowercase() {
+        UserMapper userMapper = mock(UserMapper.class);
+        UserPlanMapper userPlanMapper = mock(UserPlanMapper.class);
+        CreditLogMapper creditLogMapper = mock(CreditLogMapper.class);
+        BCryptPasswordEncoder passwordEncoder = mock(BCryptPasswordEncoder.class);
+        JwtUtil jwtUtil = mock(JwtUtil.class);
+
+        when(userMapper.selectOne(any())).thenReturn(null);
+        when(passwordEncoder.encode("password123")).thenReturn("encoded");
+        when(jwtUtil.generateToken(8L, "tester2")).thenReturn("token");
+        doAnswer(invocation -> {
+            User user = invocation.getArgument(0);
+            user.setId(8L);
+            return 1;
+        }).when(userMapper).insert(any(User.class));
+
+        AuthService service = new AuthService(
+                userMapper,
+                userPlanMapper,
+                creditLogMapper,
+                passwordEncoder,
+                jwtUtil
+        );
+        RegisterRequest request = new RegisterRequest();
+        request.setUsername("tester2");
+        request.setPassword("password123");
+        request.setEmail("Tester2@Example.COM");
+
+        service.register(request);
+
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        verify(userMapper).insert(userCaptor.capture());
+        assertThat(userCaptor.getValue().getEmail()).isEqualTo("tester2@example.com");
+    }
 }

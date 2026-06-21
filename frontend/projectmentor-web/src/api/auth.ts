@@ -10,11 +10,24 @@ export interface RegisterParams {
   username: string
   email: string
   password: string
+  verificationCode: string
+}
+
+export interface SendEmailCodeParams {
+  email: string
 }
 
 export function register(data: RegisterParams) {
   return request<LoginResponse>({
     url: '/api/auth/register',
+    method: 'post',
+    data
+  })
+}
+
+export function sendRegisterEmailCode(data: SendEmailCodeParams) {
+  return request<void>({
+    url: '/api/auth/email-code',
     method: 'post',
     data
   })

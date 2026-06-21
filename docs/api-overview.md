@@ -10,7 +10,8 @@
 
 | 方法 | 路径 | 用途 | 是否需要登录 |
 | --- | --- | --- | --- |
-| `POST` | `/api/auth/register` | 注册用户并返回 token；成功注册受同 IP 每小时 3 次、每天 10 次限制 | 否 |
+| `POST` | `/api/auth/email-code` | 发送注册邮箱验证码；未登录可调用，受邮箱和 IP 频率限制 | 否 |
+| `POST` | `/api/auth/register` | 注册用户并返回 token；开启邮箱验证码后需要提交验证码；成功注册受同 IP 每小时 3 次、每天 10 次限制 | 否 |
 | `POST` | `/api/auth/login` | 用户登录并返回 token | 否 |
 | `GET` | `/api/auth/me` | 获取当前登录用户信息 | 是 |
 | `POST` | `/api/auth/logout` | 退出登录；当前版本主要由前端清理 token | 是 |

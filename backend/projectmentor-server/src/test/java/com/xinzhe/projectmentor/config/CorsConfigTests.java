@@ -67,7 +67,7 @@ class CorsConfigTests {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"/api/auth/login", "/api/auth/register"})
+    @ValueSource(strings = {"/api/auth/login", "/api/auth/register", "/api/auth/email-code"})
     void authPostPreflightAllowsProductionOrigin(String path) throws Exception {
         mockMvc.perform(options(path)
                         .header(HttpHeaders.ORIGIN, "https://projectmentorai.com")
@@ -139,6 +139,10 @@ class CorsConfigTests {
 
         @PostMapping("/api/auth/register")
         void register() {
+        }
+
+        @PostMapping("/api/auth/email-code")
+        void emailCode() {
         }
 
         @GetMapping("/api/health")

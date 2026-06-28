@@ -65,9 +65,9 @@ ProjectMentor AI（PMAI）由李鑫哲独立设计、开发并上线。Copyright
 
 ProjectMentor AI 的定位不是“让 AI 直接打分”，而是先做规则扫描和证据链整理，再用 AI 做表达增强和审计补充。AI 不可用时，系统仍然可以输出规则版报告。
 
-## 当前公开预览版本：V4.8-1
+## 当前公开预览版本：V4.8-2
 
-V4.8-1 是“注册邮箱验证码线上验收与部署配置固化”版本：注册邮箱验证码已上线，线上 Foxmail / QQ SMTP 发码已验证成功；生产环境需要配置 SMTP 并设置 `EMAIL_VERIFICATION_ENABLED=true`。`docker-compose.yml` 已让 backend 通过 `env_file: .env` 读取部署环境变量；真实 `.env` 不提交，`.env.example` 只保留示例。本版本不新增数据库表，不改变 credits 扣费、登录 JWT、管理员权限或 AI 调用逻辑。
+V4.8-2 是“注册登录体验与验证码提示打磨”版本：注册邮箱验证码已完成线上验证，注册页优化了验证码发送、60 秒倒计时、空验证码校验和错误提示体验；移动端验证码输入与发送按钮会自动上下排列，避免挤压。生产环境继续通过 SMTP 和 `EMAIL_VERIFICATION_ENABLED=true` 启用验证码；本版本不新增数据库表，不改变 credits 扣费、登录 JWT、管理员权限或 SMTP 配置结构。
 
 PMAI 当前核心架构可以概括为：
 
@@ -125,7 +125,7 @@ PMAI 面向需要验证项目真实性的开发者，适用人群包括计算机
 
 | 功能 | 状态 | 说明 |
 | --- | --- | --- |
-| 用户认证 | 已完成 | 支持注册、登录、JWT 鉴权、BCrypt 密码加密；注册邮箱验证码已上线，验证码通过 SMTP 发送；生产环境需要配置 SMTP 并设置 `EMAIL_VERIFICATION_ENABLED=true`，默认可通过 `EMAIL_VERIFICATION_ENABLED=false` 关闭强制校验；同 IP 每小时最多成功注册 3 个账号、每天最多 10 个账号 |
+| 用户认证 | 已完成 | 支持注册、登录、JWT 鉴权、BCrypt 密码加密；注册邮箱验证码已完成线上验证，验证码通过 SMTP 发送；注册页已优化验证码发送、60 秒倒计时、空验证码校验和错误提示体验；生产环境需要配置 SMTP 并设置 `EMAIL_VERIFICATION_ENABLED=true`，默认可通过 `EMAIL_VERIFICATION_ENABLED=false` 关闭强制校验；同 IP 每小时最多成功注册 3 个账号、每天最多 10 个账号 |
 | 项目管理 | 已完成 | 支持创建、列表、详情、删除项目 |
 | README 保存 | 已完成 | 支持粘贴 README 并保存为项目文件 |
 | ZIP 上传解析 | 已完成 | 支持普通项目 ZIP，最大 800MB，解析源码核心文本并过滤依赖、构建、缓存、二进制和超大文件；文件结果支持分页、路径搜索和基础类型筛选 |

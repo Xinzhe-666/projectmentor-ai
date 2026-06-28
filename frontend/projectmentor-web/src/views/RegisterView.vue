@@ -28,14 +28,24 @@
         </el-form-item>
         <el-form-item :label="t('auth.verificationCode')">
           <div class="email-code-row">
-            <el-input v-model="form.verificationCode" size="large" :placeholder="t('auth.verificationCodePlaceholder')" />
+            <el-input
+              v-model="form.verificationCode"
+              size="large"
+              maxlength="6"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              :placeholder="t('auth.verificationCodePlaceholder')"
+            />
             <el-button
+              class="email-code-button"
+              type="primary"
+              plain
               size="large"
               :loading="sendingCode"
-              :disabled="codeCountdown > 0"
+              :disabled="sendingCode || codeCountdown > 0"
               @click="handleSendEmailCode"
             >
-              {{ codeCountdown > 0 ? `${codeCountdown}s` : t('auth.sendVerificationCode') }}
+              {{ codeCountdown > 0 ? t('auth.codeCountdown', { seconds: codeCountdown }) : t('auth.sendCode') }}
             </el-button>
           </div>
         </el-form-item>
@@ -85,14 +95,18 @@ const authHighlights = computed(() => [
 ])
 
 async function handleSendEmailCode() {
-  if (!form.email) {
-    ElMessage.warning(t('auth.fillEmailFirst'))
+  if (codeCountdown.value > 0) {
+    return
+  }
+
+  if (!form.email.trim()) {
+    ElMessage.warning(t('auth.emailRequiredBeforeCode'))
     return
   }
 
   sendingCode.value = true
   try {
-    await sendRegisterEmailCode({ email: form.email })
+    await sendRegisterEmailCode({ email: form.email.trim() })
     ElMessage.success(t('auth.codeSent'))
     startCodeCountdown()
   } finally {
@@ -115,14 +129,23 @@ function startCodeCountdown() {
 }
 
 async function handleRegister() {
-  if (!form.username || !form.email || !form.password || !form.verificationCode) {
+  if (!form.username.trim() || !form.email.trim() || !form.password) {
     ElMessage.warning(t('auth.fillRegister'))
+    return
+  }
+
+  if (!form.verificationCode.trim()) {
+    ElMessage.warning(t('auth.verificationCodeRequired'))
     return
   }
 
   loading.value = true
   try {
-    const result = await register(form)
+    const result = await register({
+      ...form,
+      email: form.email.trim(),
+      verificationCode: form.verificationCode.trim()
+    })
     userStore.setLoginState(result)
     ElMessage.success(t('auth.registerSuccess'))
     router.push('/dashboard')
@@ -145,9 +168,21 @@ onBeforeUnmount(() => {
 
 .email-code-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 120px;
+  grid-template-columns: minmax(0, 1fr) minmax(118px, max-content);
+  align-items: center;
   gap: 10px;
   width: 100%;
+}
+
+.email-code-row :deep(.el-input__wrapper),
+.email-code-button {
+  min-height: 40px;
+}
+
+.email-code-button {
+  min-width: 120px;
+  padding: 0 14px;
+  white-space: nowrap;
 }
 
 .auth-topline {
@@ -177,6 +212,11 @@ onBeforeUnmount(() => {
 
   .email-code-row {
     grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .email-code-button {
+    width: 100%;
   }
 }
 </style>

@@ -21,6 +21,7 @@ cp .env.example .env
 - `MYSQL_ROOT_PASSWORD`：改成开发或部署环境自己的 MySQL root 密码。
 - `JWT_SECRET`：改成足够长的随机字符串，建议不少于 32 位。
 - `KNIFE4J_ENABLED`：控制 Knife4j API 文档开关，生产环境保持 `false`；本地开发需要时可设为 `true`。
+- 注册邮箱验证码上线时，配置 `EMAIL_VERIFICATION_ENABLED=true`，并填写 `MAIL_HOST`、`MAIL_PORT`、`MAIL_USERNAME`、`MAIL_PASSWORD`、`MAIL_FROM` 等 SMTP 信息。
 - `AI_API_KEY`：可选；未配置时，系统会降级使用规则报告。
 
 不要把真实 `.env` 提交到 Git。
@@ -37,7 +38,7 @@ docker compose config
 docker compose up -d --build
 ```
 
-该命令保留用于本地或资源充足环境的完整构建启动。2 核 2G 轻量服务器可以运行项目，但不适合每次在服务器上构建前端；不建议在服务器执行 `docker compose build frontend`、`docker compose up -d --build`，也不建议在服务器执行 `npm run build`。低配服务器上的前端更新推荐使用“本地构建 dist 后上传覆盖”的轻量流程。
+该命令保留用于本地或资源充足环境的完整构建启动。2 核 2G 轻量服务器可以运行项目，但不适合每次在服务器上构建前端或后端；不建议在服务器执行 `docker compose build frontend`、`docker compose up -d --build`、`npm run build` 或 `mvn clean package`。低配服务器上的前端更新推荐使用“本地构建 dist 后上传覆盖”的轻量流程，后端更新推荐使用“本地构建 jar 后上传”的快速流程。
 
 首次启动时 MySQL 初始化会比较慢。Compose 已加入 MySQL healthcheck，后端会等待 MySQL 和 Redis 健康后启动；如果本机或 Docker Desktop 较慢导致后端失败，可以等待 MySQL healthy 后重启后端：
 
@@ -50,7 +51,39 @@ docker compose restart backend
 - 2 核 2G 服务器可以运行 ProjectMentor AI 试用环境，但前端 Docker 构建和服务器本机 `npm run build` 都容易占用过多内存。
 - 日常前端更新不要在服务器执行 `docker compose build frontend` 或 `docker compose up -d --build`。
 - 前端推荐在本地 Windows 机器执行 `npm.cmd run build`，再把 `dist.zip` 上传到服务器覆盖静态文件。
+- 日常后端更新不要在服务器执行 `mvn clean package`；推荐本地执行 `mvn clean package -DskipTests` 后上传 jar。
 - Docker Compose 的正常启动能力仍然保留；本地开发、完整验证或资源充足服务器仍可使用完整 Compose 构建流程。
+
+## 注册邮箱验证码部署检查
+
+生产环境启用邮箱验证码时，服务器 `.env` 至少需要配置：
+
+```env
+EMAIL_VERIFICATION_ENABLED=true
+MAIL_HOST=smtp.qq.com
+MAIL_PORT=587
+MAIL_USERNAME=你的发信邮箱
+MAIL_PASSWORD=你的邮箱授权码
+MAIL_FROM=你的发信邮箱
+MAIL_SMTP_AUTH=true
+MAIL_SMTP_STARTTLS_ENABLE=true
+```
+
+`docker-compose.yml` 的 backend 服务通过 `env_file: .env` 读取这些变量。启动或重启 backend 后，先确认变量已经进入容器：
+
+```bash
+docker compose exec backend printenv | grep -E "EMAIL_VERIFICATION|MAIL_" | sed -E 's/(MAIL_PASSWORD=).*/\1******/'
+```
+
+再用线上接口发一封测试验证码：
+
+```bash
+curl -i -X POST https://projectmentorai.com/api/auth/email-code \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"你的测试邮箱@example.com\"}"
+```
+
+不要把真实 `.env`、SMTP 授权码或邮箱密码提交到 Git；仓库中只保留 `.env.example` 示例。
 
 ## 前端轻量更新流程
 

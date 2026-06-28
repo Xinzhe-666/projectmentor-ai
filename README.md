@@ -65,9 +65,9 @@ ProjectMentor AI（PMAI）由李鑫哲独立设计、开发并上线。Copyright
 
 ProjectMentor AI 的定位不是“让 AI 直接打分”，而是先做规则扫描和证据链整理，再用 AI 做表达增强和审计补充。AI 不可用时，系统仍然可以输出规则版报告。
 
-## 当前公开预览版本：V4.8-0
+## 当前公开预览版本：V4.8-1
 
-V4.8-0 是“中文版本记录与注册邮箱验证码”版本：release notes 改为中文主线表达，并新增注册邮箱验证码。验证码通过 SMTP 发送，默认 `EMAIL_VERIFICATION_ENABLED=false`，生产环境配置 SMTP 后再开启；本版本不新增数据库表，不改变 credits 扣费、登录 JWT、管理员权限或 AI 调用逻辑。
+V4.8-1 是“注册邮箱验证码线上验收与部署配置固化”版本：注册邮箱验证码已上线，线上 Foxmail / QQ SMTP 发码已验证成功；生产环境需要配置 SMTP 并设置 `EMAIL_VERIFICATION_ENABLED=true`。`docker-compose.yml` 已让 backend 通过 `env_file: .env` 读取部署环境变量；真实 `.env` 不提交，`.env.example` 只保留示例。本版本不新增数据库表，不改变 credits 扣费、登录 JWT、管理员权限或 AI 调用逻辑。
 
 PMAI 当前核心架构可以概括为：
 
@@ -125,7 +125,7 @@ PMAI 面向需要验证项目真实性的开发者，适用人群包括计算机
 
 | 功能 | 状态 | 说明 |
 | --- | --- | --- |
-| 用户认证 | 已完成 | 支持注册、登录、JWT 鉴权、BCrypt 密码加密；支持注册邮箱验证码校验；验证码通过 SMTP 发送，默认可通过 `EMAIL_VERIFICATION_ENABLED` 开关控制；同 IP 每小时最多成功注册 3 个账号、每天最多 10 个账号 |
+| 用户认证 | 已完成 | 支持注册、登录、JWT 鉴权、BCrypt 密码加密；注册邮箱验证码已上线，验证码通过 SMTP 发送；生产环境需要配置 SMTP 并设置 `EMAIL_VERIFICATION_ENABLED=true`，默认可通过 `EMAIL_VERIFICATION_ENABLED=false` 关闭强制校验；同 IP 每小时最多成功注册 3 个账号、每天最多 10 个账号 |
 | 项目管理 | 已完成 | 支持创建、列表、详情、删除项目 |
 | README 保存 | 已完成 | 支持粘贴 README 并保存为项目文件 |
 | ZIP 上传解析 | 已完成 | 支持普通项目 ZIP，最大 800MB，解析源码核心文本并过滤依赖、构建、缓存、二进制和超大文件；文件结果支持分页、路径搜索和基础类型筛选 |
@@ -442,6 +442,7 @@ cp .env.example .env
 
 - `MYSQL_ROOT_PASSWORD`
 - `JWT_SECRET`
+- 生产邮箱验证码：`EMAIL_VERIFICATION_ENABLED=true`、`MAIL_HOST`、`MAIL_PORT`、`MAIL_USERNAME`、`MAIL_PASSWORD`、`MAIL_FROM`
 - 可选：`AI_BASE_URL`、`AI_API_KEY`、`AI_MODEL`
 
 启动：
@@ -450,7 +451,7 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-说明：上述命令保留用于本地或资源充足环境的完整 Compose 构建启动。2 核 2G 轻量服务器可以运行项目，但不适合每次在服务器上构建前端；不建议在服务器执行 `docker compose build frontend`、`docker compose up -d --build`，也不建议在服务器执行 `npm run build`。前端更新推荐在本地构建 `dist`，压缩后上传服务器覆盖静态文件。
+说明：上述命令保留用于本地或资源充足环境的完整 Compose 构建启动。2 核 2G 轻量服务器可以运行项目，但不适合每次在服务器上构建前端或后端；不建议在服务器执行 `docker compose build frontend`、`docker compose up -d --build`、`npm run build` 或 `mvn clean package`。前端更新推荐在本地构建 `dist`，压缩后上传服务器覆盖静态文件；后端更新推荐在本地构建 jar 后上传服务器。
 
 访问：
 
@@ -604,6 +605,8 @@ docker compose up -d backend
 | `AI_MODEL` | AI 模型名称，例如 `deepseek-chat` |
 | `AI_MAX_PROMPT_CHARS` | AI 提示词最大字符数，默认 `12000` |
 | `AI_MAX_RESPONSE_TOKENS` | AI 响应 token 上限，默认 `1600` |
+
+生产环境启用注册邮箱验证码时，在服务器 `.env` 中配置 SMTP 并设置 `EMAIL_VERIFICATION_ENABLED=true`；`.env.example` 只保留示例值，不能写入真实授权码、邮箱密码、AI Key 或 `JWT_SECRET`。
 
 不要提交真实 `.env` 文件或真实密钥。仓库中只保留 `.env.example`。
 

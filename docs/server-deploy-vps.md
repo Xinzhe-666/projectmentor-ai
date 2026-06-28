@@ -13,7 +13,7 @@
 
 ## 低配服务器部署建议
 
-2 核 2G 服务器可以运行 ProjectMentor AI 试用环境，但不适合每次在服务器上构建前端。服务器上不建议执行 `docker compose build frontend`，不建议执行 `docker compose up -d --build`，也不建议执行 `npm run build`。前端更新推荐在本地构建 `dist`，压缩为 `dist.zip` 后上传服务器覆盖。
+2 核 2G 服务器可以运行 ProjectMentor AI 试用环境，但不适合每次在服务器上构建前端或后端。服务器上不建议执行 `docker compose build frontend`，不建议执行 `docker compose up -d --build`，也不建议执行 `npm run build` 或 `mvn clean package`。前端更新推荐在本地构建 `dist`，压缩为 `dist.zip` 后上传服务器覆盖；后端更新推荐在本地构建 jar 后上传服务器。
 
 Docker Compose 的正常启动能力仍然保留；本地开发、完整验证或资源充足服务器仍可使用完整构建流程。低配服务器日常启动或重启优先使用：
 
@@ -41,6 +41,22 @@ AI_API_KEY=可留空；留空时使用规则版 fallback
 
 生产环境应保持 `KNIFE4J_ENABLED=false`，避免公开 Knife4j API 文档。本地开发如需调试接口，可通过 `KNIFE4J_ENABLED=true` 开启。
 
+注册邮箱验证码上线时，还需要在服务器 `.env` 中配置 SMTP 并开启邮箱验证码：
+
+```env
+EMAIL_VERIFICATION_ENABLED=true
+MAIL_HOST=smtp.qq.com
+MAIL_PORT=587
+MAIL_USERNAME=你的发信邮箱
+MAIL_PASSWORD=你的邮箱授权码
+MAIL_FROM=你的发信邮箱
+MAIL_SMTP_AUTH=true
+MAIL_SMTP_STARTTLS_ENABLE=true
+EMAIL_VERIFICATION_SUBJECT=ProjectMentor AI 邮箱验证码
+```
+
+真实 `.env` 不提交到 Git；`.env.example` 只保留示例值，不写入真实 SMTP 授权码、邮箱密码、AI Key 或 `JWT_SECRET`。
+
 启动服务：
 
 ```bash
@@ -61,6 +77,25 @@ docker compose logs -f nginx
 cd /opt/projectmentor-ai
 bash scripts/check-prod.sh
 ```
+
+## 注册邮箱验证码线上验收
+
+`docker-compose.yml` 的 backend 服务通过 `env_file: .env` 读取邮箱验证码和 SMTP 配置。更新 `.env` 后重启 backend，并确认变量已经进入容器：
+
+```bash
+docker compose up -d backend
+docker compose exec backend printenv | grep -E "EMAIL_VERIFICATION|MAIL_" | sed -E 's/(MAIL_PASSWORD=).*/\1******/'
+```
+
+再用线上接口发一封测试验证码：
+
+```bash
+curl -i -X POST https://projectmentorai.com/api/auth/email-code \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"你的测试邮箱@example.com\"}"
+```
+
+Foxmail / QQ SMTP 推荐使用邮箱授权码作为 `MAIL_PASSWORD`，不要使用网页登录密码，也不要把授权码写入公开文档或提交到仓库。
 
 ## 访问
 

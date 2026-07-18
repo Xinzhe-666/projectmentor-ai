@@ -65,9 +65,9 @@ ProjectMentor AI（PMAI）由李鑫哲独立设计、开发并上线。Copyright
 
 ProjectMentor AI 的定位不是“让 AI 直接打分”，而是先做规则扫描和证据链整理，再用 AI 做表达增强和审计补充。AI 不可用时，系统仍然可以输出规则版报告。
 
-## 当前公开预览版本：V4.8-2
+## 当前公开预览版本：V4.8-3
 
-V4.8-2 是“注册登录体验与验证码提示打磨”版本：注册邮箱验证码已完成线上验证，注册页优化了验证码发送、60 秒倒计时、空验证码校验和错误提示体验；移动端验证码输入与发送按钮会自动上下排列，避免挤压。生产环境继续通过 SMTP 和 `EMAIL_VERIFICATION_ENABLED=true` 启用验证码；本版本不新增数据库表，不改变 credits 扣费、登录 JWT、管理员权限或 SMTP 配置结构。
+V4.8-3 是“HTTPS 下 Nginx 安全规则恢复与回归验收”版本：修复正式 HTTPS 配置曾意外移除敏感路径拦截的问题，恢复环境配置、数据库备份、压缩文件、Swagger、Actuator、GraphQL、调试入口和常见扫描特征防护，同时保留正式域名、HTTPS、HTTP/2、ACME challenge、API 代理、静态资源和 Vue Router history fallback。新增 `scripts/check-nginx-security.sh` 用于部署后的只读回归检查。本版本不改变后端业务、数据库、credits、AI、邮箱验证码或前端页面逻辑，也不将这些规则描述为完整 WAF 或绝对安全保障。
 
 PMAI 当前核心架构可以概括为：
 
@@ -147,7 +147,7 @@ PMAI 面向需要验证项目真实性的开发者，适用人群包括计算机
 | 异步任务 | 已完成 | 支持异步分析任务，Redis 缓存任务进度 |
 | Docker 部署 | 已完成 | 支持 Docker Compose 启动 MySQL、Redis、后端、前端和 Nginx |
 | 线上备份与恢复 | 已完成 | V4.4-1 提供 MySQL 备份、恢复和线上状态检查脚本，便于服务器迁移和故障排查 |
-| Nginx 安全收口 | 已完成 | V4.4-1.1 拦截 `.env`、SQL 备份、调试入口和常见扫描路径，减少公网扫描噪音 |
+| Nginx 安全收口 | V4.8-3 | HTTPS 下拦截 `.env`、数据库备份、压缩文件、Swagger / Actuator / GraphQL、调试入口和常见扫描特征，并提供部署后回归脚本；不替代后端鉴权或完整 WAF |
 
 ## 产品流程图
 
@@ -297,13 +297,13 @@ V4.4-0.5 基于真实用户测试反馈做可用性和证据边界优化，不�
 
 ## V4.4-1.1 Nginx 敏感路径拦截
 
-V4.4-1.1 在 Nginx 层拦截明显公网扫描路径，用于减少日志噪音和误访问风险，不替代后端鉴权：
+V4.4-1.1 首次加入 Nginx 敏感路径拦截；V4.8-3 将曾在 HTTPS 配置切换中遗漏的规则恢复到当前正式 HTTPS server。规则用于减少日志噪音和误访问风险，不替代后端鉴权或完整 WAF：
 
-- 拦截 `.env`、`env.json`、`runtime-env.json`、`assets/env.json`、`static/env.json`、`static/config.json`。
+- 拦截 `.env`、`.env.*`、`.env-*`、`env.json`、`runtime-env.json`、`assets/env.json`、`static/env.json`、`static/config.json`。
 - 拦截 `.sql`、`.dump`、`.bak`、`.backup`、`.tar`、`.tar.gz`、`.tgz`、`.gz`、`.zip`、`.7z`、`.rar` 等备份或压缩文件请求。
-- 拦截 `/@fs/`、`/__better_errors`、`/_debug`、`/trace.axd`、`/swagger`、`/swagger-ui`、`/v2/api-docs`、`/v3/api-docs`、`/actuator`、`/graphql`、`/v2/graphql`、`/api/install` 等调试或探测路径。
-- 拦截包含 `/shell`、`wget`、`chmod`、`rm+-rf`、`GponForm`、`geoserver` 的明显扫描请求。
-- 保留 `/api/**` 后端代理、前端路由 fallback、`/share/**`、`/assets/**` 和 `/donate/**` 正常访问。
+- 拦截 `/@fs/`、`/__better_errors`、`/_debug`、`/trace.axd`、`/rails/info/routes`、`/swagger`、`/swagger-ui`、`/swagger-ui.html`、`/doc.html`、`/webjars/`、`/v2/api-docs`、`/v3/api-docs`、`/actuator`、`/graphql`、`/v2/graphql`、`/api/install` 等调试或探测路径。
+- 对包含 `/shell`、`wget`、`chmod`、`rm+-rf`、`rm%20-rf`、`rm%2b-rf`、`GponForm`、`geoserver` 的明显扫描请求返回 403。
+- 保留 ACME challenge、`/api/**` 后端代理、前端路由 fallback、`/share/**`、`/assets/**` 和 `/donate/**` 正常访问；`/api/projects/{projectId}/upload-zip` 不以 `.zip` 结尾，继续由后端处理。
 
 ## V4.4-2 大项目上传与源码核心包
 
@@ -490,6 +490,14 @@ bash scripts/check-prod.sh
 
 该脚本只读输出当前时间、Git commit、`docker compose ps`、核心容器状态、磁盘、内存、`docker stats`、backend 最近日志和 nginx 最近日志，适合复制给排查问题使用。
 
+Nginx 部署后的安全回归检查：
+
+```bash
+bash scripts/check-nginx-security.sh https://projectmentorai.com
+```
+
+该脚本只请求公开页面和预定义的探测路径，不发送 Cookie、Token 或密码；任一检查失败时会返回非 0 退出码。
+
 迁移服务器时至少需要带走：
 
 - MySQL SQL 备份。
@@ -616,7 +624,7 @@ docker compose up -d backend
 - 生产环境只开放 `22`、`80`、`443`；云防火墙不应开放 `3306`、`6379`。
 - `.env` 不提交到仓库。
 - `AI_API_KEY`、`JWT_SECRET`、`MYSQL_ROOT_PASSWORD`、`MAIL_PASSWORD` 必须通过环境变量配置，不要写入代码或公开文档。
-- Nginx 会直接拦截常见敏感文件、备份文件、调试入口和漏洞扫描路径，避免进入 SPA fallback；这不替代后端接口鉴权。
+- Nginx 会直接拦截环境配置、备份与压缩文件、公开调试入口和明显扫描特征，避免敏感路径进入 SPA fallback；ACME challenge、API、静态资源和正常前端路由继续保留。这不替代后端接口鉴权或完整 WAF。
 
 部署 Nginx 配置后先检查语法：
 
@@ -625,23 +633,14 @@ cd /opt/projectmentor-ai
 docker compose exec nginx nginx -t
 ```
 
-如果 `nginx -t` 失败，不要 reload / restart。检查通过后重启：
+如果 `nginx -t` 失败，不要 reload / restart。检查通过后重启并执行回归脚本：
 
 ```bash
 docker compose restart nginx
+bash scripts/check-nginx-security.sh https://projectmentorai.com
 ```
 
-常用验证：
-
-```bash
-curl -I http://127.0.0.1/.env
-curl -I http://127.0.0.1/backup.sql
-curl -I 'http://127.0.0.1/@fs/etc/passwd?raw'
-curl -I http://127.0.0.1/
-curl -I http://127.0.0.1/api/auth/me
-```
-
-期望 `.env`、`backup.sql`、`/@fs/...` 返回 404 或 403，首页返回 200，`/api/auth/me` 返回 401 或正常业务响应，不能被 Nginx 误拦截。
+脚本要求 `/`、`/login`、`/register` 返回 200；敏感路径返回 403 或 404 且不能落入 Vue 首页；明显扫描特征返回 403。
 
 ## API 模块概览
 

@@ -80,4 +80,5 @@ df -h
 free -h
 bash scripts/backup-mysql.sh
 bash scripts/restore-mysql.sh backups/mysql/xxx.sql
+bash scripts/check-nginx-security.sh https://projectmentorai.com
 EOF

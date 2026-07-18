@@ -129,7 +129,8 @@ scp target\projectmentor-server.jar root@服务器IP:/opt/projectmentor-ai/backe
 
 ```bash
 cd /opt/projectmentor-ai
-git pull
+git status
+git pull --ff-only
 mkdir -p backend/projectmentor-server/target
 ls -lh backend/projectmentor-server/target/projectmentor-server.jar
 docker compose -f docker-compose.yml -f docker-compose.fast.yml build backend
@@ -137,6 +138,8 @@ docker compose up -d backend
 docker compose logs --tail=120 backend
 docker compose ps
 ```
+
+如果 `git status` 显示服务器仓库存在未提交修改，先执行 `git diff` 核对并停止拉取，不要直接覆盖。
 
 `docker-compose.fast.yml` 只覆盖 backend 的 build 配置，其他服务仍使用原 `docker-compose.yml`。`Dockerfile.fast` 只复制 `target/projectmentor-server.jar`，不会在服务器内执行 Maven 或下载 Maven 依赖。
 
@@ -192,16 +195,16 @@ bash scripts/check-prod.sh
 
 ## Nginx 敏感路径拦截
 
-V4.4-1.1 在 Nginx 层拦截明显敏感路径，用于减少公网扫描噪音和误访问风险，不替代后端鉴权。
+V4.8-3 在正式 HTTPS 配置中恢复并整理 Nginx 敏感路径规则，用于减少公网扫描噪音和误访问风险，不替代后端鉴权或完整 WAF。
 
 当前会直接返回 404 或 403 的典型请求：
 
-- `.env`、`.env.local`、`.env.production.local`、`env.json`、`runtime-env.json`、`assets/env.json`、`static/env.json`、`static/config.json`。
+- `.env`、`.env.*`、`.env-*`、`env.json`、`runtime-env.json`、`assets/env.json`、`static/env.json`、`static/config.json`。
 - `.sql`、`.dump`、`.bak`、`.backup`、`.tar`、`.tar.gz`、`.tgz`、`.gz`、`.zip`、`.7z`、`.rar` 等备份或压缩文件请求。
-- `/@fs/`、`/__better_errors`、`/_debug`、`/trace.axd`、`/rails/info/routes`、`/swagger`、`/swagger-ui`、`/v2/api-docs`、`/v3/api-docs`、`/actuator`、`/graphql`、`/v2/graphql`、`/api/install`。
-- 包含 `/shell`、`wget`、`chmod`、`rm+-rf`、`GponForm`、`geoserver` 的明显扫描请求。
+- `/@fs/`、`/__better_errors`、`/_debug`、`/trace.axd`、`/rails/info/routes`、`/swagger`、`/swagger-ui`、`/swagger-ui.html`、`/doc.html`、`/webjars/`、`/v2/api-docs`、`/v3/api-docs`、`/actuator`、`/graphql`、`/v2/graphql`、`/api/install`。
+- 包含 `/shell`、`wget`、`chmod`、`rm+-rf`、`rm%20-rf`、`rm%2b-rf`、`GponForm`、`geoserver` 的明显扫描请求。
 
-该配置不影响 `/api/**` 正常代理，不影响前端路由 fallback，不影响 `/share/**`、`/assets/**` 和 `/donate/**`。
+该配置保留 ACME challenge、`/api/**` 正常代理、前端路由 fallback、`/share/**`、`/assets/**` 和 `/donate/**`。`/api/projects/{projectId}/upload-zip` 不以 `.zip` 结尾，继续正常代理。
 
 部署前先检查 Nginx 配置：
 
@@ -210,36 +213,28 @@ cd /opt/projectmentor-ai
 docker compose exec nginx nginx -t
 ```
 
-如果 `nginx -t` 失败，不要 reload / restart。检查通过后重启：
+如果 `nginx -t` 失败，不要 reload / restart。检查通过后重启并执行线上回归：
 
 ```bash
 docker compose restart nginx
+bash scripts/check-nginx-security.sh https://projectmentorai.com
 ```
 
-测试命令：
-
-```bash
-curl -I http://127.0.0.1/.env
-curl -I http://127.0.0.1/backup.sql
-curl -I 'http://127.0.0.1/@fs/etc/passwd?raw'
-curl -I http://127.0.0.1/
-curl -I http://127.0.0.1/api/auth/me
-```
-
-期望 `.env`、`backup.sql`、`/@fs/...` 返回 404 或 403，首页返回 200，`/api/auth/me` 返回 401 或正常业务响应。
+回归脚本要求 `/`、`/login`、`/register` 返回 200；敏感路径返回 403 或 404，且不能回退到 Vue 首页；明显扫描特征返回 403。脚本不发送 Cookie、Token 或密码，任一检查失败时退出码非 0。
 
 ## 访问
 
-- 前端入口：http://localhost
-- 后端健康检查：http://localhost/api/health
+- 正式前端入口：https://projectmentorai.com
+- 正式前端入口：https://www.projectmentorai.com
+- 后端健康检查：https://projectmentorai.com/api/health
 
-生产构建中前端 API 使用同源 `/api`，由 Nginx 反向代理到后端 `backend:8080`，不会把 `AI_API_KEY` 放进前端。
+当前仓库中的 Nginx 配置面向正式 HTTPS 部署，启动时需要服务器已有正式证书文件。生产构建中前端 API 使用同源 `/api`，由 Nginx 反向代理到后端 `backend:8080`，不会把 `AI_API_KEY` 放进前端。不要为本地测试提交临时证书或私钥。
 
 ## 域名、HTTPS 与反向代理
 
-域名不是当前部署的必选项。已有域名时，可添加 `A` 记录指向服务器公网 IP，并把 `deploy/nginx/nginx.conf` 的 `server_name _;` 替换为实际域名。
+当前正式域名为 `https://projectmentorai.com` 和 `https://www.projectmentorai.com`。`deploy/nginx/nginx.conf` 已配置这两个 `server_name`、HTTP 到 HTTPS 跳转、HTTP/2、TLS 1.2 / 1.3 和 ACME challenge。证书继续使用服务器上的正式路径，不提交证书或私钥。
 
-HTTPS 推荐使用 Certbot / Let's Encrypt 或云厂商证书。证书文件路径和私钥由部署者自行配置，不应提交到 Git。启用 HTTPS 时要继续保留：
+当前 HTTPS 配置继续保留：
 
 - `/api` 反向代理到 `backend:8080`；
 - `try_files $uri $uri/ /index.html;`，支持 Vue Router history 刷新；
@@ -255,7 +250,7 @@ HTTPS 推荐使用 Certbot / Let's Encrypt 或云厂商证书。证书文件路�
 
 Content-Security-Policy 暂不强制写入默认配置。正式启用前应先核对前端脚本、样式、图片、API 和第三方来源，避免策略过严破坏现有页面。
 
-当前没有 canonical 公共域名，因此不生成 `sitemap.xml`。正式域名确定后再使用绝对 HTTPS URL 添加 sitemap，不要写服务器 IP 或占位域名。
+当前正式域名已经确定；如后续增加 `sitemap.xml`，应使用正式 HTTPS 绝对 URL，不要写服务器 IP 或占位域名。
 
 ## 迁移资料清单
 

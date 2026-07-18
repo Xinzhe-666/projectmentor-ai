@@ -7,8 +7,7 @@
 - 一台 Ubuntu 服务器。
 - 已安装 Git。
 - 已安装 Docker 和 Docker Compose。
-- 服务器防火墙开放 `22` 和 `80`。
-- 可选开放 `443`，用于后续配置 HTTPS。
+- 服务器防火墙开放 `22`、`80` 和 `443`。
 - 不要在云防火墙开放 `3306`、`6379`。
 
 ## 低配服务器部署建议
@@ -100,26 +99,22 @@ Foxmail / QQ SMTP 推荐使用邮箱授权码作为 `MAIL_PASSWORD`，不要使�
 ## 访问
 
 ```text
-http://服务器IP
+https://projectmentorai.com
+https://www.projectmentorai.com
 ```
 
-## 可选域名与 HTTPS
+## 正式域名与 HTTPS
 
-公开内测可以继续使用服务器 IP，并不要求现在购买域名。如果已有域名，可按下面步骤绑定：
+当前正式域名为 `projectmentorai.com` 和 `www.projectmentorai.com`。`deploy/nginx/nginx.conf` 已配置两个域名、HTTP 到 HTTPS 跳转、HTTP/2、TLS 1.2 / 1.3 和 ACME challenge；不要修改正式证书路径，也不要把证书或私钥提交到仓库。
 
-1. 在域名服务商控制台添加 `A` 记录，指向服务器公网 IP。
-2. 将 `deploy/nginx/nginx.conf` 中的 `server_name _;` 替换为自己的域名。
-3. 确认云防火墙和服务器防火墙开放 `80`；启用 HTTPS 时再开放 `443`。
-4. 等待 DNS 生效后，先用 HTTP 验证首页、`/api` 和前端 history 路由。
-
-HTTPS 推荐使用 Certbot / Let's Encrypt 或云厂商证书。证书路径、自动续期方式和 Nginx `listen 443 ssl` 配置需要根据实际域名与部署方式自行设置，不要把私钥提交到仓库。启用 HTTPS 后应保留：
+当前 HTTPS 配置继续保留：
 
 - `/api` 转发到 `backend:8080`；
 - `try_files $uri $uri/ /index.html;` 前端 history fallback；
 - `client_max_body_size 820m` 和现有上传超时设置；
 - `X-Forwarded-Proto $scheme` 等代理请求头。
 
-当前项目没有写死 canonical 公共域名，因此没有生成 `sitemap.xml`。正式域名确定后，可在 Vite `public/` 目录添加包含绝对 HTTPS URL 的 sitemap，并在 `robots.txt` 中加入对应 `Sitemap:` 地址；不要使用服务器 IP 或占位域名。
+当前正式域名已经确定；如后续增加 sitemap，应使用正式 HTTPS 绝对 URL，不要使用服务器 IP 或占位域名。
 
 ## 数据库备份与恢复
 
@@ -143,16 +138,16 @@ bash scripts/restore-mysql.sh backups/mysql/xxx.sql
 
 ## Nginx 敏感路径拦截
 
-V4.4-1.1 在 `deploy/nginx/nginx.conf` 增加 Nginx 层敏感路径拦截，用于减少公网扫描噪音和误访问风险，不替代后端鉴权。
+V4.8-3 在正式 HTTPS 配置中恢复并整理 Nginx 层敏感路径拦截，用于减少公网扫描噪音和误访问风险，不替代后端鉴权或完整 WAF。
 
 当前会拦截：
 
-- `.env`、`.env.local`、`.env.production`、`.env.production.local`、`.env.development`、`.env.development.local`、`env.json`、`runtime-env.json`、`assets/env.json`、`static/env.json`、`static/config.json`。
+- `.env`、`.env.*`、`.env-*`、`env.json`、`runtime-env.json`、`assets/env.json`、`static/env.json`、`static/config.json`。
 - `.sql`、`.dump`、`.bak`、`.backup`、`.tar`、`.tar.gz`、`.tgz`、`.gz`、`.zip`、`.7z`、`.rar` 等备份或压缩文件请求。
-- `/@fs/`、`/__better_errors`、`/_debug`、`/trace.axd`、`/rails/info/routes`、`/swagger`、`/swagger-ui`、`/v2/api-docs`、`/v3/api-docs`、`/actuator`、`/graphql`、`/v2/graphql`、`/api/install`。
-- 包含 `/shell`、`wget`、`chmod`、`rm+-rf`、`GponForm`、`geoserver` 的明显扫描请求。
+- `/@fs/`、`/__better_errors`、`/_debug`、`/trace.axd`、`/rails/info/routes`、`/swagger`、`/swagger-ui`、`/swagger-ui.html`、`/doc.html`、`/webjars/`、`/v2/api-docs`、`/v3/api-docs`、`/actuator`、`/graphql`、`/v2/graphql`、`/api/install`。
+- 包含 `/shell`、`wget`、`chmod`、`rm+-rf`、`rm%20-rf`、`rm%2b-rf`、`GponForm`、`geoserver` 的明显扫描请求。
 
-该配置保留 `/api/**` 正常代理、前端路由 fallback、`/share/**`、`/assets/**` 和 `/donate/**` 正常访问。
+该配置保留 ACME challenge、`/api/**` 正常代理、前端路由 fallback、`/share/**`、`/assets/**` 和 `/donate/**` 正常访问。`/api/projects/{projectId}/upload-zip` 不以 `.zip` 结尾，继续正常代理。
 
 部署前先检查 Nginx 配置：
 
@@ -161,29 +156,14 @@ cd /opt/projectmentor-ai
 docker compose exec nginx nginx -t
 ```
 
-如果 `nginx -t` 失败，不要 reload / restart。检查通过后重启 Nginx：
+如果 `nginx -t` 失败，不要 reload / restart。检查通过后重启 Nginx 并执行线上回归：
 
 ```bash
 docker compose restart nginx
+bash scripts/check-nginx-security.sh https://projectmentorai.com
 ```
 
-测试命令：
-
-```bash
-curl -I http://127.0.0.1/.env
-curl -I http://127.0.0.1/backup.sql
-curl -I 'http://127.0.0.1/@fs/etc/passwd?raw'
-curl -I http://127.0.0.1/
-curl -I http://127.0.0.1/api/auth/me
-```
-
-期望：
-
-- `/.env` 返回 404 或 403。
-- `/backup.sql` 返回 404 或 403。
-- `/@fs/etc/passwd?raw` 返回 404 或 403。
-- `/` 返回 200。
-- `/api/auth/me` 返回 401 或正常业务响应，不能被 Nginx 误拦截。
+回归脚本要求正常页面返回 200，敏感路径返回 403 或 404 且不能落入 Vue 首页，明显扫描特征返回 403；任一检查失败时退出码非 0。
 
 ## 前端轻量更新流程
 
@@ -229,7 +209,8 @@ scp target\projectmentor-server.jar root@服务器IP:/opt/projectmentor-ai/backe
 
 ```bash
 cd /opt/projectmentor-ai
-git pull
+git status
+git pull --ff-only
 
 mkdir -p backend/projectmentor-server/target
 ls -lh backend/projectmentor-server/target/projectmentor-server.jar
@@ -240,12 +221,15 @@ docker compose logs --tail=120 backend
 docker compose ps
 ```
 
+如果 `git status` 显示服务器仓库存在未提交修改，先执行 `git diff` 核对并停止拉取，不要直接覆盖。
+
 快速方案使用 `backend/projectmentor-server/Dockerfile.fast`，只复制 `target/projectmentor-server.jar`，不执行 `mvn clean package`。`docker-compose.fast.yml` 只覆盖 backend 的 build 配置，MySQL、Redis、frontend 和 nginx 仍沿用原 `docker-compose.yml`。
 
 如果没有本地 jar，或需要在资源充足环境里完整验证 Docker 构建链路，仍可使用原方案：
 
 ```bash
-git pull
+git status
+git pull --ff-only
 docker compose build backend
 docker compose up -d backend
 ```

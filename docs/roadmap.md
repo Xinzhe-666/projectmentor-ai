@@ -1,6 +1,14 @@
 # ProjectMentor AI Roadmap
 
-## V4.7 Public Preview Stabilization（进行中）
+## V4.8-3 HTTPS Security Regression Fix（已完成）
+
+- 修复 HTTPS 配置切换时遗漏既有 Nginx 敏感路径规则的回退问题。
+- 恢复环境配置、备份与压缩文件、Swagger / Actuator / GraphQL、调试入口和明显扫描特征拦截。
+- 保留正式域名、HTTPS、HTTP/2、ACME challenge、API 代理、静态资源、Vue history fallback 和 820MB 上传能力。
+- 新增只读安全回归脚本，部署后可统一验收正常页面、敏感路径和扫描特征响应。
+- 不改变后端业务、数据库、credits、AI、邮箱验证码或前端页面逻辑；不将路径规则描述为完整 WAF。
+
+## V4.7 Public Preview Stabilization（已完成）
 
 - 统一公开版本口径为 V4.7 Public Preview Stabilization。
 - 正式公开材料优先使用 `https://www.projectmentorai.com`，不再优先展示旧 IP Demo 地址。

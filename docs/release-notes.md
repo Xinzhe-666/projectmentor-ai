@@ -1,3 +1,19 @@
+# V4.8-3 HTTPS 下 Nginx 安全规则恢复与回归验收
+
+本版本修复 HTTPS 部署过程中敏感路径规则被意外移除的问题，使当前配置与既有安全说明重新一致。
+
+新增与修复：
+
+- 在正式 HTTPS server 中恢复 `.env` 和运行时配置文件拦截。
+- 恢复数据库备份、压缩文件、Swagger、Actuator、GraphQL、调试入口和常见扫描路径拦截，避免这些请求进入 Vue SPA fallback。
+- 保留 `projectmentorai.com` 与 `www.projectmentorai.com`、HTTPS、HTTP/2、TLS 1.2 / 1.3、ACME challenge、`/api` 代理、静态资源、Vue Router history fallback 和 820MB 上传配置。
+- 新增 `scripts/check-nginx-security.sh`，用于部署后检查正常页面、敏感路径和明显扫描特征的响应状态，并在敏感请求错误返回 Vue 首页时报告失败。
+
+边界：
+
+- 本版本不改变后端业务、数据库、credits、AI、邮箱验证码和前端页面逻辑。
+- 这些 Nginx 规则用于阻断已知敏感路径和减少扫描噪音，不是完整 WAF、企业级安全审计或绝对安全保障。
+
 # V4.8-2 注册登录体验与验证码提示打磨
 
 本版本只做注册 / 登录体验和邮箱验证码提示打磨，不改变数据库、credits、SMTP 配置和鉴权逻辑。

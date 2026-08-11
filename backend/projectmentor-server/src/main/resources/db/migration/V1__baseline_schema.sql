@@ -1,9 +1,3 @@
-CREATE DATABASE IF NOT EXISTS projectmentor_ai
-DEFAULT CHARACTER SET utf8mb4
-COLLATE utf8mb4_unicode_ci;
-
-USE projectmentor_ai;
-
 CREATE TABLE IF NOT EXISTS pm_user
 (
     id          BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '用户ID',

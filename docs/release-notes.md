@@ -1,3 +1,24 @@
+# V4.9-0 Flyway 数据库迁移基线与 Schema 版本治理
+
+本版本将业务 schema 的唯一真源从持续修改的 `init.sql` 切换为不可变的 Flyway versioned migrations。这是迁移基础设施版本，不是业务表优化版本。
+
+新增与调整：
+
+- 后端引入 Flyway，并新增 `db/migration/V1__baseline_schema.sql`，表示 V4.9-0 接入前已经存在的当前业务 schema。
+- 全新空数据库在 backend 启动时执行 V1，创建 `flyway_schema_history` 与当前业务表；Docker MySQL 不再通过 entrypoint mount 执行业务初始化 SQL。
+- 已有非空数据库采用一次性 legacy baseline：首次接入前备份并确认实际 schema 与 V1 等价，临时启用 `FLYWAY_BASELINE_ON_MIGRATE=true`，建立 version 1 baseline 后立即恢复为 `false`。
+- Flyway 默认开启 migration validation、关闭 out-of-order，并禁用 clean；已应用 migration 不允许修改，修复通过后续新版本 migration 完成。
+- CI 增加真实 MySQL migration smoke test，验证空数据库执行 V1、13 张业务表、V1 SQL history 和 backend 健康状态，并验证非空 legacy schema 建立 version 1 baseline 时不会执行 V1。
+- 新增 migration 文件名与重复版本检查，并补充独立的数据库迁移、备份、恢复和 legacy baseline 文档。
+- 完整数据库备份会自然包含 `flyway_schema_history`；无 history 的旧备份恢复后按 legacy baseline 流程处理。
+
+边界：
+
+- V1 保留现有 schema，包括邮箱暂时没有数据库 UNIQUE、`remaining_credits` 仍为历史默认值 `3`、项目文件没有组合唯一索引且没有外键；这些留给后续 migration 治理。
+- 对已有生产库，首次接入只新增 Flyway history / baseline metadata，不执行 V1，也不修改现有业务表。
+- baseline 不比较或修复真实 schema，不提供自动数据库回滚、零停机迁移、完整 drift detection 或灾难恢复保证。
+- 本版本不自动连接、baseline 或部署生产数据库。
+
 # V4.8-5 GitHub Actions CI 与工程质量门禁
 
 本版本为仓库建立可重复、无生产密钥依赖的基础 CI 与工程质量检查，不扩展到自动部署。

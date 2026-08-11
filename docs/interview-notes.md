@@ -100,7 +100,7 @@ Redis 当前用于缓存异步分析任务进度。任务进度 key 类似 `anal
 
 Docker Compose 编排了 5 个服务：
 
-- `mysql`：保存业务数据，并通过 init.sql 初始化表结构。
+- `mysql`：保存业务数据并创建空 database；业务表由 backend 启动时通过 Flyway versioned migrations 创建或升级。
 - `redis`：缓存异步任务进度。
 - `backend`：Spring Boot 后端。
 - `frontend`：构建 Vue 前端静态资源。

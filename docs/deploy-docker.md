@@ -21,6 +21,8 @@ cp .env.example .env
 - `MYSQL_ROOT_PASSWORD`：改成开发或部署环境自己的 MySQL root 密码。
 - `JWT_SECRET`：改成足够长的随机字符串，建议不少于 32 位。
 - `KNIFE4J_ENABLED`：控制 Knife4j API 文档开关，生产环境保持 `false`；本地开发需要时可设为 `true`。
+- `FLYWAY_ENABLED=true`：默认启用数据库 migration。
+- `FLYWAY_BASELINE_ON_MIGRATE=false`：全新数据库和完成接入后的环境保持 `false`；只允许 legacy 非空数据库首次接入时临时设为 `true`。
 - 注册邮箱验证码上线时，配置 `EMAIL_VERIFICATION_ENABLED=true`，并填写 `MAIL_HOST`、`MAIL_PORT`、`MAIL_USERNAME`、`MAIL_PASSWORD`、`MAIL_FROM` 等 SMTP 信息。
 - `AI_API_KEY`：可选；未配置时，系统会降级使用规则报告。
 
@@ -40,7 +42,7 @@ docker compose up -d --build
 
 该命令保留用于本地或资源充足环境的完整构建启动。2 核 2G 轻量服务器可以运行项目，但不适合每次在服务器上构建前端或后端；不建议在服务器执行 `docker compose build frontend`、`docker compose up -d --build`、`npm run build` 或 `mvn clean package`。低配服务器上的前端更新推荐使用“本地构建 dist 后上传覆盖”的轻量流程，后端更新推荐使用“本地构建 jar 后上传”的快速流程。
 
-首次启动时 MySQL 初始化会比较慢。Compose 已加入 MySQL healthcheck，后端会等待 MySQL 和 Redis 健康后启动；如果本机或 Docker Desktop 较慢导致后端失败，可以等待 MySQL healthy 后重启后端：
+全新 Compose 环境中，MySQL 先创建空 `projectmentor_ai` database；backend 等待 MySQL 和 Redis 健康后，由 Flyway 执行 `V1__baseline_schema.sql` 创建业务表，migration 成功后 backend 才完成启动。Compose 不再通过 MySQL entrypoint 执行业务 `init.sql`。如果本机或 Docker Desktop 较慢导致后端启动失败，可以等待 MySQL healthy 后重启 backend：
 
 ```bash
 docker compose restart backend
@@ -114,6 +116,8 @@ docker compose ps
 
 低配服务器日常后端更新推荐使用快速方案：先在本地构建 jar，再上传服务器，服务器只用 `Dockerfile.fast` 打包运行镜像。
 
+如果本次后端版本包含新的 `db/migration/V*.sql`，部署前必须先执行数据库备份并审查 migration。backend 启动时会自动执行尚未应用的 migration；不要通过关闭 Flyway、修改旧 migration 或直接编辑 `flyway_schema_history` 绕过失败。
+
 本地 Windows PowerShell：
 
 ```powershell
@@ -175,14 +179,17 @@ bash scripts/backup-mysql.sh
 
 备份文件输出到 `backups/mysql/`，文件名形如 `pmai_mysql_20260603_223000.sql`。脚本通过 `docker exec projectmentor-mysql` 在容器内执行 `mysqldump`，并从容器环境变量读取 `MYSQL_ROOT_PASSWORD` 和 `MYSQL_DATABASE`。
 
-恢复 MySQL：
+恢复 MySQL 前先停止 backend，避免恢复期间继续写入或触发 migration：
 
 ```bash
 cd /opt/projectmentor-ai
+docker compose stop backend
 bash scripts/restore-mysql.sh backups/mysql/xxx.sql
 ```
 
-恢复脚本需要输入 `YES` 才会继续。恢复前请先备份当前数据库。
+恢复脚本需要输入 `YES` 才会继续。恢复前请先备份当前数据库。V4.9-0 baseline 后生成的完整备份会自然包含 `flyway_schema_history`；恢复后保持 `FLYWAY_BASELINE_ON_MIGRATE=false`，启动 backend 时 Flyway 会从已记录版本继续验证并执行后续 migration。
+
+旧备份如果没有 `flyway_schema_history`，不能直接启动 backend 或假定 V1 会补齐旧结构。先确认恢复后的业务 schema 与 V1 等价，再按 [数据库迁移说明](database-migrations.md) 执行一次性 legacy baseline；不等价时应停止并制定显式修复方案。
 
 线上状态检查：
 
@@ -266,7 +273,7 @@ Content-Security-Policy 暂不强制写入默认配置。正式启用前应先�
 - 后端 jar 可重新本地构建。
 - 前端 `dist.zip` 可重新本地构建。
 
-推荐迁移流程见 [server-deploy-vps.md](server-deploy-vps.md)：旧服务器先执行 `bash scripts/backup-mysql.sh`，下载 SQL 备份并保存 `.env` 与 donate 二维码；新服务器安装 Docker / Docker Compose、clone 仓库、复制 `.env` 和二维码、启动 `mysql redis`、执行恢复脚本，再按快速方案构建 backend、覆盖 frontend dist 并启动 nginx。
+推荐迁移流程见 [server-deploy-vps.md](server-deploy-vps.md)：旧服务器先执行 `bash scripts/backup-mysql.sh`，下载 SQL 备份并保存 `.env` 与 donate 二维码；新服务器安装 Docker / Docker Compose、clone 仓库、复制 `.env` 和二维码，只启动 `mysql redis` 后执行恢复。带 `flyway_schema_history` 的备份保持 baseline-on-migrate 为 `false`；无 history 的旧备份必须先完成 legacy schema 核对与一次性 baseline，再启动 backend。
 
 ## 安全说明
 
@@ -290,11 +297,13 @@ docker compose down
 docker compose down -v
 ```
 
+再次启动全新环境时，MySQL 会重新创建空 database，Flyway 会重新执行 V1。该流程不可恢复已删除数据，执行前必须确认不需要保留现有 volume。
+
 ## 常见问题
 
 ### MySQL 启动慢导致后端连接失败
 
-Compose 已配置 MySQL healthcheck，后端会等待 MySQL healthy。首次初始化仍可能因为机器性能或镜像拉取较慢而失败，等待一两分钟后执行：
+Compose 已配置 MySQL healthcheck，backend 会等待 MySQL healthy 后执行 Flyway migration。首次拉取镜像、创建 database 或执行 V1 可能较慢；先查看 backend 日志中的 Flyway 错误，不要通过关闭 Flyway 绕过，再按情况重启：
 
 ```bash
 docker compose restart backend
@@ -335,16 +344,8 @@ proxy_request_buffering off;
 
 后端 Spring Boot multipart 文件和请求限制均为 820MB，业务上传上限为 800MB。ZIP 上传会自动过滤常见依赖、构建、缓存和 IDE 目录；单个文本文件最多解析 2MB，最多保存 8000 个有效文件，累计有效处理大小最多 1GB。大文件上传可能需要数分钟，请不要刷新页面。仍建议删除 `node_modules`、`target`、`dist`、`.git`、`logs`、`coverage` 后再压缩，或直接制作源码核心包，可显著提升上传速度。
 
-如果线上 `pm_project` 字段仍是旧长度，可执行：
+### 旧数据库字段或表与 V1 不一致
 
-```sql
-ALTER TABLE pm_project MODIFY COLUMN description TEXT NULL COMMENT '项目描述';
-ALTER TABLE pm_project MODIFY COLUMN tech_stack TEXT NULL COMMENT '技术栈';
-```
+历史版本曾通过手工 ALTER 或建表 SQL 补齐 `pm_project` 字段、`pm_project_qa_record`、`pm_feedback` 和 `pm_analysis_report.claim_evidence`。V4.9-0 的 legacy baseline 不会执行 V1，也不会比较或修复这些差异。
 
-V4.5-1 新增 Claim-Evidence 主张证据矩阵。已有数据库需要执行：
-
-```sql
-ALTER TABLE pm_analysis_report
-ADD COLUMN claim_evidence LONGTEXT NULL COMMENT '主张证据矩阵JSON';
-```
+首次 baseline 前应将实际 schema 与 `V1__baseline_schema.sql` 逐表核对。如果缺表、缺列、字段类型、默认值、索引、字符集或排序规则不一致，停止 baseline，先制定经过审查的显式修复方案。V4.9-0 后不要继续复制历史手工 SQL 作为常规升级方式，详见 [数据库迁移说明](database-migrations.md)。

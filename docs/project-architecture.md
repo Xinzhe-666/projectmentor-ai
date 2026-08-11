@@ -185,10 +185,11 @@ Nginx :80
 backend
 ├── 连接 mysql:3306
 ├── 连接 redis:6379
+├── 启动时执行 Flyway migrations
 └── 可选调用 AI_BASE_URL
 
 mysql
-└── 使用 init.sql 初始化数据库结构
+└── 保存业务数据与 flyway_schema_history
 
 redis
 └── 存储异步分析任务进度缓存
@@ -196,7 +197,7 @@ redis
 
 Compose 服务：
 
-- `mysql`：MySQL 8，挂载初始化 SQL。
+- `mysql`：MySQL 8，创建空 database 并持久化数据；不再挂载业务初始化 SQL。
 - `redis`：Redis 7 alpine。
 - `backend`：Spring Boot 后端服务。
 - `frontend`：构建前端静态文件并写入共享卷。

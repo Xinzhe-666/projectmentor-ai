@@ -1,5 +1,18 @@
 # ProjectMentor AI Roadmap
 
+## V4.9-0 Database Migration Baseline（已完成）
+
+- 引入 Flyway，并以 `V1__baseline_schema.sql` 固化当前业务 schema；后续数据库变更通过不可变的 V2、V3 等 migration 演进。
+- 全新空数据库由 backend 启动时执行 V1；Docker MySQL 不再通过 entrypoint `init.sql` mount 维护业务表。
+- 已有非空数据库采用先备份、核对 schema、临时开启 baseline-on-migrate、验证 version 1 history、立即恢复关闭的一次性接入流程。
+- CI 增加真实 MySQL migration smoke test，覆盖 fresh V1 与 legacy version 1 baseline，并增加 migration 文件命名、版本合法性和重复版本检查。
+- Flyway clean 保持禁用；本版本不修改现有业务表，不提供自动回滚、零停机迁移或完整灾难恢复能力。
+
+后续数据库治理：
+
+- V4.9-1：Schema integrity + project deletion consistency。
+- V4.9-2：Credits concurrency safety。
+
 ## V4.8-5 CI & Repository Quality Gate（已完成）
 
 - 新增 `ProjectMentor AI CI`，覆盖推送到 `main`、向 `main` 提交 pull request 和手动触发。
@@ -186,7 +199,7 @@ V4.3-3 已完成：
 - 前端反馈弹窗从轻量复制模板升级为站内提交，保留复制模板和 GitHub Issues 作为备用入口。
 - `/admin` 页面新增“反馈管理”区域，可查看反馈详情并更新状态为待处理、处理中、已解决或暂不处理。
 - 当前不是复杂工单系统，不做邮件通知、客服聊天、反馈删除、用户删除、封号、扣减额度或数据导出。
-- 已有线上数据库需要手动执行 `pm_feedback` 建表 SQL；全新部署会随 `init.sql` 初始化。
+- 该版本发布时已有线上数据库曾需要手动建表、全新部署曾依赖 `init.sql`；V4.9-0 起此历史流程已由 Flyway migration 取代。
 
 计划目标：
 
@@ -259,7 +272,7 @@ V4.4-2 已完成：
 - ZIP 解析继续防 zip slip，并扩展忽略目录、二进制/压缩包/模型/大数据文件跳过规则；单个文本文件最多解析 2MB，最多保存 8000 个有效文件，累计有效处理大小最多 1GB。
 - skippedFiles reason 统一为 `ignored_directory`、`unsupported_type`、`file_too_large`、`unsafe_path`、`max_file_count_exceeded`、`max_total_size_exceeded`、`empty_file`、`binary_file`。
 - 项目描述上限调整为 10000 字符，技术栈上限调整为 5000 字符；前端创建项目表单同步 maxlength、字数统计和 placeholder。
-- `pm_project.description` 和 `pm_project.tech_stack` 在初始化脚本中均为 `TEXT`，文档补充线上 ALTER TABLE SQL。
+- 该版本将 `pm_project.description` 和 `pm_project.tech_stack` 记录为 `TEXT`，并曾通过手工 ALTER 文档处理旧库；V4.9-0 起后续 schema 变更统一通过新 migration。
 - README 和演示文档补充“如何用 PMAI 自查 PMAI 自己”，建议制作源码核心包。
 - 本轮不改 AI / 额度逻辑，不新增 AI 调用，不引入复杂依赖，不影响上传、报告、问答和面试主流程。
 

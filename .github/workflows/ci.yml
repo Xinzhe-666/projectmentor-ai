@@ -86,6 +86,9 @@ jobs:
       - name: Check repository hygiene
         run: bash scripts/check-repo-hygiene.sh
 
+      - name: Check database migration hygiene
+        run: bash scripts/check-db-migrations.sh
+
       - name: Check shell script syntax
         shell: bash
         run: |
@@ -121,3 +124,256 @@ jobs:
 
           docker compose -f docker-compose.yml config --quiet
           docker compose -f docker-compose.yml -f docker-compose.fast.yml config --quiet
+
+  database-migration:
+    name: database-migration
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: backend/projectmentor-server
+    services:
+      fresh_mysql:
+        image: mysql:8.0
+        command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+        env:
+          MYSQL_ROOT_PASSWORD: ci-database-migration-password
+          MYSQL_DATABASE: projectmentor_ai
+        ports:
+          - 3306/tcp
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pci-database-migration-password --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-start-period=20s
+          --health-retries=30
+      legacy_mysql:
+        image: mysql:8.0
+        command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+        env:
+          MYSQL_ROOT_PASSWORD: ci-database-migration-password
+          MYSQL_DATABASE: projectmentor_ai
+        ports:
+          - 3306/tcp
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pci-database-migration-password --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-start-period=20s
+          --health-retries=30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+          cache-dependency-path: backend/projectmentor-server/pom.xml
+
+      - name: Make Maven wrapper executable
+        run: chmod +x mvnw
+
+      - name: Package backend for migration smoke tests
+        run: ./mvnw -B clean package -DskipTests
+
+      - name: Verify fresh migration and legacy baseline
+        shell: bash
+        env:
+          FRESH_MYSQL_CONTAINER: ${{ job.services.fresh_mysql.id }}
+          FRESH_MYSQL_PORT: ${{ job.services.fresh_mysql.ports['3306'] }}
+          LEGACY_MYSQL_CONTAINER: ${{ job.services.legacy_mysql.id }}
+          LEGACY_MYSQL_PORT: ${{ job.services.legacy_mysql.ports['3306'] }}
+          MYSQL_ROOT_PASSWORD: ci-database-migration-password
+          JWT_SECRET: ci-database-migration-jwt-secret-at-least-32-characters
+        run: |
+          set -euo pipefail
+
+          readonly database_name='projectmentor_ai'
+          readonly migration_file='src/main/resources/db/migration/V1__baseline_schema.sql'
+          readonly expected_table_count='13'
+          app_pid=''
+          app_log=''
+
+          stop_app() {
+            if [[ -n "$app_pid" ]] && kill -0 "$app_pid" 2>/dev/null; then
+              kill "$app_pid" 2>/dev/null || true
+              wait "$app_pid" 2>/dev/null || true
+            fi
+            app_pid=''
+          }
+
+          cleanup() {
+            exit_status=$?
+            stop_app
+            if ((exit_status != 0)) && [[ -n "$app_log" && -f "$app_log" ]]; then
+              printf '%s\n' 'Backend log tail:' >&2
+              tail -n 200 "$app_log" >&2
+            fi
+            exit "$exit_status"
+          }
+          trap cleanup EXIT
+
+          mapfile -d '' -t backend_jars < <(
+            find target -maxdepth 1 -type f -name '*.jar' -print0
+          )
+          if ((${#backend_jars[@]} != 1)); then
+            printf 'Expected exactly one packaged backend jar, found %d.\n' "${#backend_jars[@]}" >&2
+            exit 1
+          fi
+          readonly backend_jar="${backend_jars[0]}"
+
+          query_database() {
+            local container_id="$1"
+            local sql="$2"
+            docker exec \
+              -e MYSQL_PWD="$MYSQL_ROOT_PASSWORD" \
+              "$container_id" \
+              mysql --protocol=TCP -h 127.0.0.1 -uroot \
+              --database="$database_name" --batch --skip-column-names \
+              --execute="$sql"
+          }
+
+          assert_query_equals() {
+            local container_id="$1"
+            local sql="$2"
+            local expected="$3"
+            local label="$4"
+            local actual
+            actual="$(query_database "$container_id" "$sql")"
+            if [[ "$actual" != "$expected" ]]; then
+              printf '%s: expected %s, got %s.\n' "$label" "$expected" "$actual" >&2
+              exit 1
+            fi
+          }
+
+          start_app() {
+            local database_port="$1"
+            local baseline_on_migrate="$2"
+            local log_name="$3"
+            local ready='false'
+
+            app_log="$RUNNER_TEMP/$log_name"
+            DB_HOST='127.0.0.1' \
+            DB_PORT="$database_port" \
+            DB_NAME="$database_name" \
+            DB_USERNAME='root' \
+            DB_PASSWORD="$MYSQL_ROOT_PASSWORD" \
+            JWT_SECRET="$JWT_SECRET" \
+            AI_ENABLED='false' \
+            EMAIL_VERIFICATION_ENABLED='false' \
+            FLYWAY_ENABLED='true' \
+            FLYWAY_BASELINE_ON_MIGRATE="$baseline_on_migrate" \
+              java -jar "$backend_jar" >"$app_log" 2>&1 &
+            app_pid=$!
+
+            for _ in {1..60}; do
+              if ! kill -0 "$app_pid" 2>/dev/null; then
+                break
+              fi
+              if curl --fail --silent --show-error \
+                'http://127.0.0.1:8080/api/health' >/dev/null 2>&1; then
+                ready='true'
+                break
+              fi
+              sleep 2
+            done
+
+            if [[ "$ready" != 'true' ]]; then
+              printf 'Backend did not become healthy with baseline-on-migrate=%s.\n' \
+                "$baseline_on_migrate" >&2
+              exit 1
+            fi
+          }
+
+          readonly business_tables="
+            'pm_user',
+            'pm_user_plan',
+            'pm_credit_log',
+            'pm_project',
+            'pm_project_file',
+            'pm_project_qa_record',
+            'pm_feedback',
+            'pm_analysis_report',
+            'pm_report_share',
+            'pm_interview_session',
+            'pm_interview_message',
+            'pm_analysis_task',
+            'pm_ai_call_log'
+          "
+
+          assert_query_equals \
+            "$FRESH_MYSQL_CONTAINER" \
+            "SELECT default_collation_name FROM information_schema.schemata
+             WHERE schema_name = '$database_name';" \
+            'utf8mb4_unicode_ci' \
+            'fresh database collation'
+          start_app "$FRESH_MYSQL_PORT" 'false' 'fresh-migration-backend.log'
+          assert_query_equals \
+            "$FRESH_MYSQL_CONTAINER" \
+            "SELECT COUNT(*) FROM information_schema.tables
+             WHERE table_schema = '$database_name'
+               AND table_name IN ($business_tables);" \
+            "$expected_table_count" \
+            'fresh business table count'
+          assert_query_equals \
+            "$FRESH_MYSQL_CONTAINER" \
+            "SELECT COUNT(*) FROM flyway_schema_history
+             WHERE version = '1'
+               AND type = 'SQL'
+               AND script = 'V1__baseline_schema.sql'
+               AND success = 1;" \
+            '1' \
+            'fresh V1 SQL history'
+          assert_query_equals \
+            "$FRESH_MYSQL_CONTAINER" \
+            'SELECT COUNT(*) FROM flyway_schema_history;' \
+            '1' \
+            'fresh history row count'
+          stop_app
+
+          assert_query_equals \
+            "$LEGACY_MYSQL_CONTAINER" \
+            "SELECT default_collation_name FROM information_schema.schemata
+             WHERE schema_name = '$database_name';" \
+            'utf8mb4_unicode_ci' \
+            'legacy database collation'
+          docker exec -i \
+            -e MYSQL_PWD="$MYSQL_ROOT_PASSWORD" \
+            "$LEGACY_MYSQL_CONTAINER" \
+            mysql --protocol=TCP -h 127.0.0.1 -uroot \
+            --database="$database_name" <"$migration_file"
+
+          start_app "$LEGACY_MYSQL_PORT" 'true' 'legacy-baseline-backend.log'
+          assert_query_equals \
+            "$LEGACY_MYSQL_CONTAINER" \
+            "SELECT COUNT(*) FROM information_schema.tables
+             WHERE table_schema = '$database_name'
+               AND table_name IN ($business_tables);" \
+            "$expected_table_count" \
+            'legacy business table count'
+          assert_query_equals \
+            "$LEGACY_MYSQL_CONTAINER" \
+            "SELECT COUNT(*) FROM flyway_schema_history
+             WHERE version = '1'
+               AND type = 'BASELINE'
+               AND success = 1;" \
+            '1' \
+            'legacy V1 baseline history'
+          assert_query_equals \
+            "$LEGACY_MYSQL_CONTAINER" \
+            "SELECT COUNT(*) FROM flyway_schema_history
+             WHERE version = '1' AND type = 'SQL';" \
+            '0' \
+            'legacy V1 SQL skip'
+          assert_query_equals \
+            "$LEGACY_MYSQL_CONTAINER" \
+            'SELECT COUNT(*) FROM flyway_schema_history;' \
+            '1' \
+            'legacy history row count'
+
+          printf '%s\n' 'PASS fresh Flyway migration and legacy baseline validation'

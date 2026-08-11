@@ -35,10 +35,14 @@ MYSQL_ROOT_PASSWORD=请换成数据库 root 密码
 JWT_SECRET=请换成长随机字符串
 ADMIN_EMAILS=your-admin@example.com
 KNIFE4J_ENABLED=false
+FLYWAY_ENABLED=true
+FLYWAY_BASELINE_ON_MIGRATE=false
 AI_API_KEY=可留空；留空时使用规则版 fallback
 ```
 
 生产环境应保持 `KNIFE4J_ENABLED=false`，避免公开 Knife4j API 文档。本地开发如需调试接口，可通过 `KNIFE4J_ENABLED=true` 开启。
+
+`FLYWAY_BASELINE_ON_MIGRATE` 默认和日常运行必须保持 `false`。只有已经存在业务表、尚无 `flyway_schema_history` 且已确认 schema 与 V1 等价的 legacy 数据库，才在首次接入时临时设为 `true`；成功后应立即恢复为 `false`。
 
 注册邮箱验证码上线时，还需要在服务器 `.env` 中配置 SMTP 并开启邮箱验证码：
 
@@ -61,6 +65,8 @@ EMAIL_VERIFICATION_SUBJECT=ProjectMentor AI 邮箱验证码
 ```bash
 docker compose up -d
 ```
+
+全新环境中，MySQL 只创建空 `projectmentor_ai` database；backend 等待 MySQL healthy 后由 Flyway 执行 `V1__baseline_schema.sql` 创建业务表，migration 成功后才完成启动。已有非空数据库不要直接按 fresh 流程启动，先执行本文“Flyway 数据库迁移与 legacy baseline”章节。
 
 ## 查看状态
 
@@ -127,14 +133,17 @@ bash scripts/backup-mysql.sh
 
 备份文件会写入 `backups/mysql/`，文件名形如 `pmai_mysql_20260603_223000.sql`。脚本从 `projectmentor-mysql` 容器环境变量读取 `MYSQL_ROOT_PASSWORD` 和 `MYSQL_DATABASE`，不会在脚本中写死真实密码。
 
-从指定 SQL 文件恢复：
+从指定 SQL 文件恢复前先停止 backend，避免恢复期间继续写入或触发 migration：
 
 ```bash
 cd /opt/projectmentor-ai
+docker compose stop backend
 bash scripts/restore-mysql.sh backups/mysql/xxx.sql
 ```
 
 恢复脚本会提示“恢复操作会覆盖或影响当前数据库，请确认已备份当前数据。”，并要求输入 `YES` 后才继续。恢复前请务必先备份当前数据库。
+
+baseline 后创建的完整备份会自然包含 `flyway_schema_history`，恢复后保持 `FLYWAY_BASELINE_ON_MIGRATE=false` 再启动 backend，Flyway 会从已记录版本继续验证和迁移。旧备份如果没有 history 表，必须先确认业务 schema 与 V1 等价，再执行一次性 legacy baseline；baseline 不会补缺表、缺列或修复旧字段类型。
 
 ## Nginx 敏感路径拦截
 
@@ -193,6 +202,8 @@ docker compose ps
 ## 后端快速部署流程
 
 2 核 2G 服务器日常更新后端时，推荐使用“本地构建 jar + 上传服务器 + 服务器快速构建运行镜像”。这样服务器只执行 Docker 镜像打包，不在服务器内运行 Maven，也不会在服务器内下载 Maven 依赖。
+
+如果本次版本包含新的 `db/migration/V*.sql`，部署 backend 前必须先备份数据库并审查 migration。backend 启动会自动应用尚未执行的 migration；不得通过关闭 Flyway、修改已应用 migration 或直接编辑 `flyway_schema_history` 绕过错误。
 
 本地 Windows PowerShell：
 
@@ -274,11 +285,11 @@ mkdir -p backups/mysql frontend/projectmentor-web/public/donate
 # 4. 先启动 MySQL 和 Redis
 docker compose up -d mysql redis
 
-# 5. 恢复数据库
+# 5. 保持 backend 停止并恢复数据库
 bash scripts/restore-mysql.sh backups/mysql/xxx.sql
 ```
 
-恢复数据库后，按现有轻量部署方式继续：
+恢复后先判断备份是否包含 `flyway_schema_history`。包含 history 的当前备份保持 `FLYWAY_BASELINE_ON_MIGRATE=false`；没有 history 的旧备份必须按下一节完成 schema 核对与一次性 legacy baseline。确认后再按现有轻量部署方式继续：
 
 ```bash
 # 本地重新构建 backend jar 后上传到：
@@ -326,52 +337,21 @@ docker compose up -d backend
 docker compose down
 ```
 
-## 数据库变更
+## Flyway 数据库迁移与 legacy baseline
 
-V4.2-1 新增项目问答记录表 `pm_project_qa_record`，V4.3-3 新增反馈表 `pm_feedback`，V4.5-1 为审计报告新增 `claim_evidence` 字段。全新部署会在 MySQL 初始化时执行 `init.sql`；已有数据库不会自动重放初始化脚本，需要手动执行下面的 SQL：
+V4.9-0 起，`db/migration/V*.sql` 是业务 schema 的唯一真源。`V1__baseline_schema.sql` 是供全新空数据库执行的 versioned migration；对已有非空数据库执行 baseline 时，Flyway 只创建 version 1 history，不会执行 V1，也不会比较或修复真实表结构。
 
-```sql
-ALTER TABLE pm_analysis_report
-ADD COLUMN claim_evidence LONGTEXT NULL COMMENT '主张证据矩阵JSON';
-```
+现有生产数据库首次接入必须按以下顺序人工执行：
 
-```sql
-CREATE TABLE IF NOT EXISTS pm_project_qa_record (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
-    user_id BIGINT NOT NULL COMMENT '用户ID',
-    project_id BIGINT NOT NULL COMMENT '项目ID',
-    question VARCHAR(1000) NOT NULL COMMENT '问题',
-    answer TEXT NULL COMMENT '回答',
-    ai_used TINYINT NOT NULL DEFAULT 0 COMMENT '是否使用AI',
-    evidence_json TEXT NULL COMMENT '证据JSON',
-    suggested_follow_ups_json TEXT NULL COMMENT '建议追问JSON',
-    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',
-    INDEX idx_user_project (user_id, project_id),
-    INDEX idx_create_time (create_time)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='项目问答记录表';
-```
+1. 保持旧服务正常，执行 `bash scripts/backup-mysql.sh`，确认备份文件已生成并另行妥善保存。
+2. 确认数据库尚无 `flyway_schema_history`，并将现有表、列类型、null/default、索引、字符集与排序规则逐项对照 V1。
+3. 如果缺少 `pm_project_qa_record`、`pm_feedback`、`claim_evidence`，或仍存在旧字段类型等偏差，停止 baseline，先制定经过审查的显式修复方案。
+4. 仅本次在服务器 `.env` 中设置 `FLYWAY_ENABLED=true`、`FLYWAY_BASELINE_ON_MIGRATE=true`，然后使用已构建的新 backend 启动。
+5. 检查 backend 日志和健康接口，并在 MySQL 中确认 `flyway_schema_history` 存在 version 1、`type` 为 `BASELINE` 且成功。
+6. 验证登录、项目、报告、问答、反馈、额度和管理员后台等关键业务，确认原有数据仍可读取。
+7. 立即把 `FLYWAY_BASELINE_ON_MIGRATE` 恢复为 `false`，执行 `docker compose up -d --force-recreate backend` 重新创建 backend 容器，再次检查日志与健康状态。
 
-```sql
-CREATE TABLE IF NOT EXISTS pm_feedback (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '反馈ID',
-    user_id BIGINT NOT NULL COMMENT '用户ID',
-    contact VARCHAR(255) NULL COMMENT '联系方式',
-    type VARCHAR(50) NOT NULL COMMENT '反馈类型',
-    content TEXT NOT NULL COMMENT '反馈内容',
-    page_url VARCHAR(500) NULL COMMENT '反馈来源页面',
-    status VARCHAR(50) NOT NULL DEFAULT 'PENDING' COMMENT '状态',
-    admin_note TEXT NULL COMMENT '管理员备注',
-    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',
-    INDEX idx_user_id (user_id),
-    INDEX idx_status (status),
-    INDEX idx_type (type),
-    INDEX idx_create_time (create_time)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户反馈表';
-```
+如果 history 表已经存在，不要再次 baseline。不要运行 `flyway clean`、不要修改已应用 migration、不要直接改 history 表。后续所有数据库变更从 V2 开始通过新 migration 发布。完整规范见 [数据库迁移说明](database-migrations.md)。
 
 ## 重置数据库
 
@@ -380,6 +360,8 @@ docker compose down -v
 ```
 
 注意：这会删除 Docker volume 中的 MySQL 和 Redis 数据，数据库内容会被清空。
+
+再次启动全新环境时，MySQL 会重新创建空 database，Flyway 会重新执行 V1；该操作不能恢复已删除的数据。
 
 ## 常见问题
 
@@ -397,13 +379,14 @@ sudo lsof -i :80
 
 如果已有 Nginx、Apache 或其他服务占用 80 端口，需要先停止冲突服务，或调整 `docker-compose.yml` 中 nginx 的端口映射。
 
-### MySQL 首次启动慢
+### MySQL / Flyway 首次启动慢
 
-首次启动会初始化数据库并执行 `init.sql`，可能需要几十秒。可以查看状态：
+首次启动需要拉取镜像、创建空 database，并由 backend 执行 Flyway V1，可能需要几十秒。可以查看状态和 migration 日志：
 
 ```bash
 docker compose ps
 docker compose logs -f mysql
+docker compose logs -f backend
 ```
 
 ### 后端连接数据库失败
@@ -439,14 +422,9 @@ docker compose logs -f nginx
 
 当前 nginx 已为大文件上传设置 `client_body_timeout 1200s`、`send_timeout 1200s`、`proxy_send_timeout 1200s`、`proxy_read_timeout 1200s`，并对 `/api/` 关闭 `proxy_request_buffering`。如果网络较慢，大文件上传可能需要数分钟，请不要刷新页面；建议删除 `node_modules`、`target`、`dist`、`.git` 后再压缩，可显著提升速度。
 
-### 项目字段长度不足
+### 旧数据库字段、表或索引与 V1 不一致
 
-V4.4-2 将项目描述上限调整为 10000 字符、技术栈上限调整为 5000 字符。`init.sql` 中 `pm_project.description` 和 `pm_project.tech_stack` 均为 `TEXT`。如果线上已有库仍使用旧字段长度，可执行：
-
-```sql
-ALTER TABLE pm_project MODIFY COLUMN description TEXT NULL COMMENT '项目描述';
-ALTER TABLE pm_project MODIFY COLUMN tech_stack TEXT NULL COMMENT '技术栈';
-```
+历史版本曾依靠手工 SQL 补齐字段和表。legacy baseline 不会执行 V1，也不会检测 schema drift；如果实际数据库与 V1 不一致，不要直接 baseline 或复制旧 ALTER，应先备份并制定显式修复方案，详见 [数据库迁移说明](database-migrations.md)。
 
 ### 前端刷新 404
 

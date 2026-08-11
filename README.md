@@ -67,16 +67,16 @@ ProjectMentor AI（PMAI）由李鑫哲独立设计、开发并上线。Copyright
 
 ProjectMentor AI 的定位不是“让 AI 直接打分”，而是先做规则扫描和证据链整理，再用 AI 做表达增强和审计补充。AI 不可用时，系统仍然可以输出规则版报告。
 
-## 当前公开预览版本：V4.8-5
+## 当前公开预览版本：V4.9-0
 
-V4.8-5 是“GitHub Actions CI 与工程质量门禁”版本：
+V4.9-0 是“Flyway 数据库迁移基线与 Schema 版本治理”版本：
 
-- `ProjectMentor AI CI` 在推送到 `main`、向 `main` 提交 pull request 或手动触发时运行。
-- 后端使用 Java 17 执行 Maven 测试和跳过重复测试的完整打包。
-- 前端使用 Node 20 执行 `npm ci` 与 `npm run build`；现有构建命令同时包含 `vue-tsc --noEmit` 类型检查和 Vite 生产构建。
-- 工程质量检查同时校验基础 Compose 与 fast override 配置、对 `scripts` 下全部 Bash 脚本执行 `bash -n`，并检查 Git 已跟踪文件中的敏感文件与构建产物。
-- Workflow 使用 `contents: read` 最小权限，并发新任务会取消同一分支或 PR 的旧任务。
-- CI 不使用生产 secrets、不连接或修改生产服务器，也不包含自动部署。
+- 引入 Flyway，并以 `db/migration/V1__baseline_schema.sql` 作为当前业务 schema 的 V1 基线；已应用的 migration 不再修改，后续变更通过 V2、V3 等新文件演进。
+- 全新空数据库由 MySQL 创建 database，backend 启动时由 Flyway 执行 V1 并创建业务表，不再依赖 Docker MySQL entrypoint 执行 `init.sql`。
+- 已有非空数据库首次接入前必须备份并确认实际 schema 与 V1 等价；仅首次显式设置 `FLYWAY_BASELINE_ON_MIGRATE=true` 建立 version 1 baseline，随后立即恢复为 `false`。
+- CI 增加 MySQL migration smoke test：验证空数据库执行 V1、13 张业务表与 `flyway_schema_history` 存在、backend 能健康启动，并验证非空 legacy schema 建立 version 1 baseline 时跳过 V1。
+- 生产配置禁用 Flyway clean；baseline 不会比较或修复旧库表结构，也不等同于自动回滚、零停机迁移或完整灾难恢复。
+- 本版本不修改现有业务表结构，不补邮箱唯一约束、额度默认值、项目文件唯一索引或外键。
 
 PMAI 当前核心架构可以概括为：
 
@@ -107,6 +107,7 @@ Claim-Evidence 的核心价值，是把项目描述拆成可核对的主张，�
 - 管理员后台、AI 使用统计、额度发放 / 扣除与反馈管理；
 - 中文 / English 国际化；
 - Docker Compose + Nginx 部署；
+- Flyway 数据库迁移基线与版本治理；
 - MySQL 备份、恢复和线上检查脚本；
 - Nginx 敏感路径拦截；
 - Source-Available / All Rights Reserved 使用边界。
@@ -235,7 +236,7 @@ V4.2-1 增加项目详情页的“项目问答”入口，用于围绕当前项�
 - AI 可用时，回答必须基于证据组织；证据不足时要明确提示。
 - AI 关闭、Key 缺失、调用失败或超时时，接口会返回规则检索到的证据片段，不直接编造答案。
 - 新增问答记录表 `pm_project_qa_record`，用于保存问题、回答、AI 是否使用、证据 JSON 和建议追问 JSON。
-- 已有数据库需要手动执行 `backend/projectmentor-server/src/main/resources/db/init.sql` 中的 `pm_project_qa_record` 建表 SQL。
+- V4.2-1 发布时已有数据库曾需要手工补建该表；V4.9-0 起这属于历史流程，当前 schema 统一由 Flyway migration 管理。
 
 V4.2-2 补齐项目问答体验闭环：
 
@@ -277,7 +278,7 @@ V4.3-3 在原轻量反馈入口基础上补齐站内提交和管理员处理闭�
 - 管理员后台新增“反馈管理”区域，可按类型、状态和关键词筛选反馈，查看详情并更新状态为待处理、处理中、已解决或暂不处理。
 - 管理员反馈接口位于 `/api/admin/feedback/**`，继续复用 `ADMIN_EMAILS`、`AuthInterceptor` 和 `AdminInterceptor`。
 - 该能力不是复杂工单系统，不做邮件通知、客服聊天、删除反馈或用户数据导出。
-- 已有线上数据库不会自动重放 `init.sql`，需要手动执行 `pm_feedback` 建表 SQL。
+- V4.3-3 发布时已有线上数据库曾需要手工补建该表；V4.9-0 起这属于历史流程，当前 schema 统一由 Flyway migration 管理。
 
 ## V4.4-0 国际化与产品视觉升级
 
@@ -323,12 +324,7 @@ V4.4-2 优化大项目上传和自查体验，不修改 AI / 额度逻辑，不�
 - 项目描述上限调整为 10000 字符，技术栈上限调整为 5000 字符；创建项目表单同步显示字数统计。
 - ZIP 解析会跳过依赖目录、构建产物、缓存目录、二进制文件、压缩包、模型/大数据文件和超大文本文件。
 - skippedFiles reason 统一为 `ignored_directory`、`unsupported_type`、`file_too_large`、`unsafe_path`、`max_file_count_exceeded`、`max_total_size_exceeded`、`empty_file`、`binary_file`。
-- 数据库初始化脚本中 `pm_project.description` 与 `pm_project.tech_stack` 均使用 `TEXT`。线上已有库如仍为旧字段长度，可执行：
-
-```sql
-ALTER TABLE pm_project MODIFY COLUMN description TEXT NULL COMMENT '项目描述';
-ALTER TABLE pm_project MODIFY COLUMN tech_stack TEXT NULL COMMENT '技术栈';
-```
+- 当前 V1 基线中 `pm_project.description` 与 `pm_project.tech_stack` 均为 `TEXT`。旧版本曾使用手工 ALTER 对齐历史数据库；V4.9-0 起不得继续修改已应用的 V1，后续 schema 调整必须新增 migration。
 
 ## V4.5-1 Claim-Evidence 主张—证据链审计引擎
 
@@ -418,10 +414,10 @@ projectmentor-ai
 
 后端：
 
-1. 创建 MySQL 数据库 `projectmentor_ai`。
-2. 执行初始化脚本：`backend/projectmentor-server/src/main/resources/db/init.sql`。
-3. 配置环境变量，例如 `DB_HOST`、`DB_PORT`、`DB_USERNAME`、`DB_PASSWORD`、`JWT_SECRET`。
-4. 启动后端：
+1. 创建空 MySQL 数据库 `projectmentor_ai`，字符集使用 `utf8mb4`，排序规则使用 `utf8mb4_unicode_ci`。
+2. 配置环境变量，例如 `DB_HOST`、`DB_PORT`、`DB_NAME`、`DB_USERNAME`、`DB_PASSWORD`、`JWT_SECRET`。
+3. 全新数据库保持 `FLYWAY_ENABLED=true`、`FLYWAY_BASELINE_ON_MIGRATE=false`。
+4. 启动后端；Flyway 会执行 `V1__baseline_schema.sql` 创建当前业务表：
 
 ```bash
 cd backend/projectmentor-server
@@ -462,6 +458,8 @@ docker compose up -d --build
 
 说明：上述命令保留用于本地或资源充足环境的完整 Compose 构建启动。2 核 2G 轻量服务器可以运行项目，但不适合每次在服务器上构建前端或后端；不建议在服务器执行 `docker compose build frontend`、`docker compose up -d --build`、`npm run build` 或 `mvn clean package`。前端更新推荐在本地构建 `dist`，压缩后上传服务器覆盖静态文件；后端更新推荐在本地构建 jar 后上传服务器。
 
+全新 Compose 环境的数据库启动顺序是：MySQL 创建空 `projectmentor_ai` database，backend 等待 MySQL 健康后由 Flyway 执行 V1，migration 成功后 backend 才完成启动。已有非空数据库不能直接套用 fresh 流程，必须先备份并按 [数据库迁移说明](docs/database-migrations.md) 执行一次性 legacy baseline。
+
 访问：
 
 ```text
@@ -481,14 +479,17 @@ bash scripts/backup-mysql.sh
 
 备份文件会输出到 `backups/mysql/`，文件名形如 `pmai_mysql_20260603_223000.sql`。`backups/` 和 `*.sql` 已被 `.gitignore` 忽略，不要提交备份文件。
 
-从指定 SQL 文件恢复 MySQL：
+从指定 SQL 文件恢复 MySQL 前先停止 backend，避免恢复期间继续写入或触发 migration：
 
 ```bash
 cd /opt/projectmentor-ai
+docker compose stop backend
 bash scripts/restore-mysql.sh backups/mysql/xxx.sql
 ```
 
 恢复脚本会提示风险，并要求输入 `YES` 后才继续。恢复前请先确认已经备份当前数据库。
+
+V4.9-0 baseline 后生成的完整数据库备份会自然包含 `flyway_schema_history`。这类备份恢复后保持 `FLYWAY_BASELINE_ON_MIGRATE=false`，重新启动 backend 并检查容器、Flyway 日志与 `/api/health`；Flyway 会从 history 记录的 migration version 继续验证和迁移。旧备份如果没有该表，必须保持 backend 停止，先确认恢复后的业务 schema 与 V1 等价，再按 legacy baseline 流程接入；baseline 本身不会补缺表、缺列或修复旧字段类型。
 
 线上状态检查：
 
@@ -603,6 +604,8 @@ docker compose up -d backend
 | `JWT_SECRET` | JWT 签名密钥，请使用足够长的随机字符串 |
 | `ADMIN_EMAILS` | 管理员邮箱白名单，英文逗号分隔；配置后需要重启 backend 生效 |
 | `KNIFE4J_ENABLED` | 是否启用 Knife4j API 文档，默认 `false`；生产环境应保持关闭，本地开发可设为 `true` |
+| `FLYWAY_ENABLED` | 是否启用 Flyway，默认 `true`；生产环境不应为了绕过 migration 失败而关闭 |
+| `FLYWAY_BASELINE_ON_MIGRATE` | 是否在无 history 的非空 schema 上自动建立 baseline，默认 `false`；仅 legacy 数据库首次接入时临时设为 `true`，成功后立即恢复为 `false` |
 | `EMAIL_VERIFICATION_ENABLED` | 是否启用注册邮箱验证码；`false` 时不会强制校验验证码，生产环境配置 SMTP 后建议设为 `true` |
 | `MAIL_HOST` | SMTP 服务器地址 |
 | `MAIL_PORT` | SMTP 端口，默认 `587` |
@@ -722,6 +725,7 @@ bash scripts/check-nginx-security.sh https://projectmentorai.com
 - [Docker 部署说明](docs/deploy-docker.md)
 - [Cloudflare Tunnel 临时试用](docs/cloudflare-tunnel-demo.md)
 - [VPS 试用版部署](docs/server-deploy-vps.md)
+- [数据库迁移说明](docs/database-migrations.md)
 - [面试准备与简历写法](docs/interview-preparation.md)
 - [Roadmap](docs/roadmap.md)
 - [Release Notes](docs/release-notes.md)

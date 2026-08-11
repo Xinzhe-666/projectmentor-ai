@@ -59,6 +59,16 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Flyway：数据库版本迁移与校验 -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-mysql</artifactId>
+        </dependency>
+
         <!-- MyBatis-Plus：简化 CRUD -->
         <dependency>
             <groupId>com.baomidou</groupId>

@@ -39,8 +39,13 @@ public class AuthController {
                                           HttpServletRequest httpServletRequest) {
         String clientIp = IpUtils.resolveClientIp(httpServletRequest);
         registrationRateLimitService.checkAllowed(clientIp);
-        emailVerificationService.verifyRegisterCode(request.getEmail(), request.getVerificationCode());
+        emailVerificationService.validateRegisterCode(
+                request.getEmail(),
+                request.getVerificationCode(),
+                clientIp
+        );
         LoginResponse response = authService.register(request);
+        emailVerificationService.consumeRegisterCode(request.getEmail());
         registrationRateLimitService.recordSuccessfulRegistration(clientIp);
         return Result.success(response);
     }

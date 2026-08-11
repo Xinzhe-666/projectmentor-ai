@@ -65,9 +65,15 @@ ProjectMentor AI（PMAI）由李鑫哲独立设计、开发并上线。Copyright
 
 ProjectMentor AI 的定位不是“让 AI 直接打分”，而是先做规则扫描和证据链整理，再用 AI 做表达增强和审计补充。AI 不可用时，系统仍然可以输出规则版报告。
 
-## 当前公开预览版本：V4.8-3
+## 当前公开预览版本：V4.8-4
 
-V4.8-3 是“HTTPS 下 Nginx 安全规则恢复与回归验收”版本：修复正式 HTTPS 配置曾意外移除敏感路径拦截的问题，恢复环境配置、数据库备份、压缩文件、Swagger、Actuator、GraphQL、调试入口和常见扫描特征防护，同时保留正式域名、HTTPS、HTTP/2、ACME challenge、API 代理、静态资源和 Vue Router history fallback。新增 `scripts/check-nginx-security.sh` 用于部署后的只读回归检查。本版本不改变后端业务、数据库、credits、AI、邮箱验证码或前端页面逻辑，也不将这些规则描述为完整 WAF 或绝对安全保障。
+V4.8-4 是“邮箱验证码一致性与注册安全收口”版本：
+
+- 验证码校验与消费分离，只有注册成功后才一次性消费验证码；注册业务失败时，原验证码仍可用于修正信息后重试。
+- SMTP 发送失败时尽力清理本次验证码和发送 cooldown，同时保留 email / IP 小时发送计数。
+- 注册验证码增加错误尝试次数限制，默认最多 5 次；达到上限后当前验证码失效，成功发送新验证码会重置该邮箱各 IP 维度的旧失败次数。
+- Redis 不可用时继续使用进程内本地 fallback，避免验证码与失败次数限制因 Redis 异常直接不可用。
+- 本版本不修改数据库、JWT、credits 或 AI，不做密码找回，也不更换 SMTP Provider。
 
 PMAI 当前核心架构可以概括为：
 
@@ -125,7 +131,7 @@ PMAI 面向需要验证项目真实性的开发者，适用人群包括计算机
 
 | 功能 | 状态 | 说明 |
 | --- | --- | --- |
-| 用户认证 | 已完成 | 支持注册、登录、JWT 鉴权、BCrypt 密码加密；注册邮箱验证码已完成线上验证，验证码通过 SMTP 发送；注册页已优化验证码发送、60 秒倒计时、空验证码校验和错误提示体验；生产环境需要配置 SMTP 并设置 `EMAIL_VERIFICATION_ENABLED=true`，默认可通过 `EMAIL_VERIFICATION_ENABLED=false` 关闭强制校验；同 IP 每小时最多成功注册 3 个账号、每天最多 10 个账号 |
+| 用户认证 | 已完成 | 支持注册、登录、JWT 鉴权、BCrypt 密码加密；注册邮箱验证码已完成线上验证，验证码通过 SMTP 发送；验证码校验与消费分离，注册成功后才一次性消费，校验失败默认最多尝试 5 次；SMTP 失败会清理本次验证码和 cooldown；Redis 不可用时保留本地 fallback；生产环境需要配置 SMTP 并设置 `EMAIL_VERIFICATION_ENABLED=true`，默认可通过 `EMAIL_VERIFICATION_ENABLED=false` 关闭强制校验；同 IP 每小时最多成功注册 3 个账号、每天最多 10 个账号 |
 | 项目管理 | 已完成 | 支持创建、列表、详情、删除项目 |
 | README 保存 | 已完成 | 支持粘贴 README 并保存为项目文件 |
 | ZIP 上传解析 | 已完成 | 支持普通项目 ZIP，最大 800MB，解析源码核心文本并过滤依赖、构建、缓存、二进制和超大文件；文件结果支持分页、路径搜索和基础类型筛选 |
@@ -607,6 +613,7 @@ docker compose up -d backend
 | `EMAIL_VERIFICATION_COOLDOWN_SECONDS` | 同邮箱验证码发送冷却秒数，默认 `60` |
 | `EMAIL_VERIFICATION_EMAIL_HOURLY_LIMIT` | 单邮箱每小时最大发送次数，默认 `5` |
 | `EMAIL_VERIFICATION_IP_HOURLY_LIMIT` | 单 IP 每小时最大发送次数，默认 `20` |
+| `EMAIL_VERIFICATION_MAX_VERIFY_ATTEMPTS` | 单个注册验证码允许的最大校验失败次数，默认 `5`；达到上限后当前验证码失效 |
 | `AI_ENABLED` | 是否启用 AI 增强；未配置 Key 或调用失败时仍会 fallback 到规则版报告 |
 | `AI_BASE_URL` | OpenAI-compatible API 地址，例如 DeepSeek 或其他兼容接口 |
 | `AI_API_KEY` | AI 服务密钥，可留空；留空时使用规则版报告 |

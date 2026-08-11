@@ -1,5 +1,13 @@
 # ProjectMentor AI Roadmap
 
+## V4.8-4 Email Verification Consistency Hardening（已完成）
+
+- 验证码校验与消费分离，只有注册成功后才一次性消费；注册业务失败不会提前消耗有效验证码。
+- SMTP 发送失败时尽力清理本次验证码和发送 cooldown，同时保留 email / IP 小时发送计数。
+- 注册验证码增加默认 5 次校验失败上限；达到上限后当前验证码失效，成功发送新验证码会重置该邮箱各 IP 维度的旧失败次数。
+- Redis 不可用时继续使用进程内验证码和失败次数限制 fallback。
+- 不改变数据库、credits、JWT、AI 或 SMTP Provider，不扩展密码找回能力。
+
 ## V4.8-3 HTTPS Security Regression Fix（已完成）
 
 - 修复 HTTPS 配置切换时遗漏既有 Nginx 敏感路径规则的回退问题。

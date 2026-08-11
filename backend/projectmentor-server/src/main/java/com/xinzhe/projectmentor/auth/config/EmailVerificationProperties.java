@@ -22,4 +22,6 @@ public class EmailVerificationProperties {
     private int hourlyLimitPerEmail = 5;
 
     private int hourlyLimitPerIp = 20;
+
+    private int maxVerifyAttempts = 5;
 }

@@ -1,5 +1,7 @@
 # ProjectMentor AI｜项目真实性审计与面试深挖平台
 
+[![ProjectMentor AI CI](https://github.com/Xinzhe-666/projectmentor-ai/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Xinzhe-666/projectmentor-ai/actions/workflows/ci.yml)
+
 ProjectMentor AI 是一个项目真实性审计与面试深挖平台，基于代码证据链、规则扫描和 AI 深度解读，帮助开发者检查项目描述是否夸大、代码证据是否支撑、简历表达是否稳妥，以及面试中可能被怎样追问。
 
 ProjectMentor AI is a project authenticity audit and interview deep-dive platform. It uses code evidence chains, rule-based scanning, and AI deep review to help developers verify project claims, improve resume wording, and prepare for technical interviews.
@@ -65,15 +67,16 @@ ProjectMentor AI（PMAI）由李鑫哲独立设计、开发并上线。Copyright
 
 ProjectMentor AI 的定位不是“让 AI 直接打分”，而是先做规则扫描和证据链整理，再用 AI 做表达增强和审计补充。AI 不可用时，系统仍然可以输出规则版报告。
 
-## 当前公开预览版本：V4.8-4
+## 当前公开预览版本：V4.8-5
 
-V4.8-4 是“邮箱验证码一致性与注册安全收口”版本：
+V4.8-5 是“GitHub Actions CI 与工程质量门禁”版本：
 
-- 验证码校验与消费分离，只有注册成功后才一次性消费验证码；注册业务失败时，原验证码仍可用于修正信息后重试。
-- SMTP 发送失败时尽力清理本次验证码和发送 cooldown，同时保留 email / IP 小时发送计数。
-- 注册验证码增加错误尝试次数限制，默认最多 5 次；达到上限后当前验证码失效，成功发送新验证码会重置该邮箱各 IP 维度的旧失败次数。
-- Redis 不可用时继续使用进程内本地 fallback，避免验证码与失败次数限制因 Redis 异常直接不可用。
-- 本版本不修改数据库、JWT、credits 或 AI，不做密码找回，也不更换 SMTP Provider。
+- `ProjectMentor AI CI` 在推送到 `main`、向 `main` 提交 pull request 或手动触发时运行。
+- 后端使用 Java 17 执行 Maven 测试和跳过重复测试的完整打包。
+- 前端使用 Node 20 执行 `npm ci` 与 `npm run build`；现有构建命令同时包含 `vue-tsc --noEmit` 类型检查和 Vite 生产构建。
+- 工程质量检查同时校验基础 Compose 与 fast override 配置、对 `scripts` 下全部 Bash 脚本执行 `bash -n`，并检查 Git 已跟踪文件中的敏感文件与构建产物。
+- Workflow 使用 `contents: read` 最小权限，并发新任务会取消同一分支或 PR 的旧任务。
+- CI 不使用生产 secrets、不连接或修改生产服务器，也不包含自动部署。
 
 PMAI 当前核心架构可以概括为：
 

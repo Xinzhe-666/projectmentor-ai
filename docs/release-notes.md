@@ -1,3 +1,21 @@
+# V4.8-5 GitHub Actions CI 与工程质量门禁
+
+本版本为仓库建立可重复、无生产密钥依赖的基础 CI 与工程质量检查，不扩展到自动部署。
+
+新增与检查：
+
+- 新增 `.github/workflows/ci.yml`，在推送到 `main`、向 `main` 提交 pull request 或手动触发时运行。
+- `backend` job 使用 Java 17 执行后端测试，并执行跳过重复测试的 Maven 完整打包。
+- `frontend` job 使用 Node 20 执行 `npm ci` 与 `npm run build`；构建同时覆盖 `vue-tsc --noEmit` 类型检查和 Vite 生产构建。
+- `repository-quality` job 使用安全占位配置检查基础 `docker-compose.yml` 与 `docker-compose.fast.yml` 组合，不输出展开后的 Compose 配置。
+- 对 `scripts` 下全部 Bash 脚本执行 `bash -n`，并通过 repository hygiene 脚本检查 Git 已跟踪的敏感文件、构建产物和常见 IDE / OS 文件。
+- Workflow 权限限制为 `contents: read`，并通过 concurrency 取消同一分支或 pull request 的旧运行。
+
+边界：
+
+- CI 不使用生产 secrets，不 SSH、SCP、推送生产镜像或修改生产服务器，也不自动部署。
+- 本版本不改变产品业务、数据库、credits、JWT、邮箱验证码、AI 或前端功能。
+
 # V4.8-4 邮箱验证码一致性与注册安全收口
 
 本版本收口注册邮箱验证码的状态一致性与连续猜测边界，不扩展到密码找回或其他用户体系功能。

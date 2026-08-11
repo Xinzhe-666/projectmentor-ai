@@ -1,5 +1,14 @@
 # ProjectMentor AI Roadmap
 
+## V4.8-5 CI & Repository Quality Gate（已完成）
+
+- 新增 `ProjectMentor AI CI`，覆盖推送到 `main`、向 `main` 提交 pull request 和手动触发。
+- 后端使用 Java 17 自动执行 Maven 测试与打包；前端使用 Node 20 执行 `npm ci`、类型检查和 Vite 生产构建。
+- 工程质量 job 校验基础 Compose 与 fast override 配置，并对 `scripts` 下全部 Bash 脚本执行语法检查。
+- 新增 Git 已跟踪文件 hygiene 检查，阻止敏感环境文件、构建产物和常见 IDE / OS 文件进入仓库。
+- Workflow 使用 `contents: read` 最小权限和并发取消策略，不依赖生产 secrets，也不包含自动部署。
+- V4.8 系列完成认证、部署安全和基础 CI 收口，后续进入 V4.9 数据一致性与数据库治理。
+
 ## V4.8-4 Email Verification Consistency Hardening（已完成）
 
 - 验证码校验与消费分离，只有注册成功后才一次性消费；注册业务失败不会提前消耗有效验证码。

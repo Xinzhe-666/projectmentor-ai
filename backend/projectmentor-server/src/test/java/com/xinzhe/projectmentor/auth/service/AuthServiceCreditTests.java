@@ -12,12 +12,16 @@ import com.xinzhe.projectmentor.credit.mapper.UserPlanMapper;
 import com.xinzhe.projectmentor.util.JwtUtil;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -99,5 +103,40 @@ class AuthServiceCreditTests {
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
         verify(userMapper).insert(userCaptor.capture());
         assertThat(userCaptor.getValue().getEmail()).isEqualTo("tester2@example.com");
+    }
+
+    @Test
+    void duplicateConstraintReturnsStableBusinessErrorWithoutCreatingCredits() {
+        UserMapper userMapper = mock(UserMapper.class);
+        UserPlanMapper userPlanMapper = mock(UserPlanMapper.class);
+        CreditLogMapper creditLogMapper = mock(CreditLogMapper.class);
+        BCryptPasswordEncoder passwordEncoder = mock(BCryptPasswordEncoder.class);
+        JwtUtil jwtUtil = mock(JwtUtil.class);
+
+        when(userMapper.selectOne(any())).thenReturn(null);
+        when(passwordEncoder.encode("password123")).thenReturn("encoded");
+        doThrow(new DuplicateKeyException("database constraint detail"))
+                .when(userMapper).insert(any(User.class));
+
+        AuthService service = new AuthService(
+                userMapper,
+                userPlanMapper,
+                creditLogMapper,
+                passwordEncoder,
+                jwtUtil
+        );
+        RegisterRequest request = new RegisterRequest();
+        request.setUsername("racing-user");
+        request.setPassword("password123");
+        request.setEmail("racing@example.com");
+
+        assertThatThrownBy(() -> service.register(request))
+                .isInstanceOf(com.xinzhe.projectmentor.common.BusinessException.class)
+                .hasMessage("用户名或邮箱已被注册")
+                .hasMessageNotContaining("database constraint detail");
+
+        verify(userPlanMapper, never()).insert(any(UserPlan.class));
+        verify(creditLogMapper, never()).insert(any(CreditLog.class));
+        verify(jwtUtil, never()).generateToken(any(), any());
     }
 }

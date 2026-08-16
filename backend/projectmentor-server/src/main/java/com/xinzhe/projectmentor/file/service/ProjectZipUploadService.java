@@ -261,31 +261,15 @@ public class ProjectZipUploadService {
     }
 
     private ProjectFile upsertProjectFile(Long projectId, String filePath, String content) {
-        ProjectFile existingFile = projectFileMapper.selectOne(
-                new LambdaQueryWrapper<ProjectFile>()
-                        .eq(ProjectFile::getProjectId, projectId)
-                        .eq(ProjectFile::getFilePath, filePath)
-                        .last("LIMIT 1")
-        );
-
         String fileType = ZipFileUtil.detectFileType(filePath);
+        ProjectFile projectFile = new ProjectFile();
+        projectFile.setProjectId(projectId);
+        projectFile.setFilePath(filePath);
+        projectFile.setFileType(fileType);
+        projectFile.setContent(content);
 
-        if (existingFile == null) {
-            ProjectFile projectFile = new ProjectFile();
-            projectFile.setProjectId(projectId);
-            projectFile.setFilePath(filePath);
-            projectFile.setFileType(fileType);
-            projectFile.setContent(content);
-
-            projectFileMapper.insert(projectFile);
-            return projectFile;
-        }
-
-        existingFile.setFileType(fileType);
-        existingFile.setContent(content);
-        projectFileMapper.updateById(existingFile);
-
-        return projectFileMapper.selectById(existingFile.getId());
+        projectFileMapper.upsertProjectFile(projectFile);
+        return projectFileMapper.selectByProjectIdAndFilePath(projectId, filePath);
     }
 
     private ReadFileResult readTextFile(ZipInputStream zipInputStream, long remainingTotalBytes) throws IOException {

@@ -1,3 +1,28 @@
+# V4.9-1 Schema Integrity + Project Deletion Consistency
+
+本版本补齐关键数据库约束、项目文件原子写入与事务化项目删除，范围限定为“数据库约束与项目删除一致性”，不宣称建立全库外键或解决所有分布式并发问题。
+
+新增与调整：
+
+- 新增不可变 migration `V2__schema_integrity_constraints.sql`：`pm_user.email` 增加 `uk_user_email` 唯一索引，`pm_project_file(project_id, file_path)` 增加组合唯一索引，`pm_user_plan.remaining_credits` 的新记录默认值改为 `10`，`pm_project_qa_record.project_id` 增加清理索引。
+- V2 只修改 credits 的列默认值，不更新任何既有用户余额；发现历史重复邮箱或重复项目文件时 UNIQUE 变更会失败，不会自动删除、合并或选择保留某条数据。
+- 注册保留友好的 username / email 预检查，并捕获数据库 `DuplicateKeyException`，统一返回“用户名或邮箱已被注册”；失败路径不创建套餐或注册送 credits 流水。
+- README 与 ZIP 项目文件写入收口到参数绑定的 `INSERT ... ON DUPLICATE KEY UPDATE`，以 `(project_id, file_path)` 为原子冲突键，更新 `file_type`、`content` 与 `update_time`。
+- 删除项目先阻止存在 `PENDING` / `RUNNING` 分析任务的项目，再在一个事务内清理 report shares、interview messages、QA、analysis tasks、reports、interview sessions、project files 和 project；QA 包括既有逻辑删除记录在内均物理清理。
+- 删除项目不删除 credits ledger、AI call audit、feedback、用户或套餐记录；报告分享记录删除后原 token 立即失效。
+- database-migration CI 覆盖 fresh `V1 SQL + V2 SQL` 和 legacy `V1 BASELINE + V2 SQL`，断言 13 张业务表、V2 索引/default、legacy user/project/file 哨兵数据保留，并通过后端 API 真实调用 Mapper 验证 README upsert 结果。
+
+生产迁移：
+
+- 部署 V2 前必须先备份，并执行 duplicate email 与 duplicate `(project_id, file_path)` preflight；两条查询都必须返回 0 行。任何返回都应 **STOP**，禁止由 migration 自动删除数据。
+- 已有 V4.9-0 version 1 history 的数据库保持 `FLYWAY_BASELINE_ON_MIGRATE=false`，由 Flyway 执行 V2。
+- 尚无 history 的 legacy 数据库在确认 schema 与 V1 等价后，临时开启 baseline-on-migrate；预期 history 为 `V1 BASELINE`、`V2 SQL`，随后立即恢复为 `false` 并重建 backend。
+
+边界：
+
+- 本版本不增加全库 foreign keys / `ON DELETE CASCADE`，不实现 credits 并发扣减、异步任务取消、账号注销、数据库自动回滚或零停机 migration。
+- 本版本不连接或修改生产数据库，不读取生产 `.env`，也不自动部署生产环境。
+
 # V4.9-0 Flyway 数据库迁移基线与 Schema 版本治理
 
 本版本将业务 schema 的唯一真源从持续修改的 `init.sql` 切换为不可变的 Flyway versioned migrations。这是迁移基础设施版本，不是业务表优化版本。

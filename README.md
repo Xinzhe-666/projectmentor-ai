@@ -67,16 +67,18 @@ ProjectMentor AI（PMAI）由李鑫哲独立设计、开发并上线。Copyright
 
 ProjectMentor AI 的定位不是“让 AI 直接打分”，而是先做规则扫描和证据链整理，再用 AI 做表达增强和审计补充。AI 不可用时，系统仍然可以输出规则版报告。
 
-## 当前公开预览版本：V4.9-0
+## 当前公开预览版本：V4.9-1
 
-V4.9-0 是“Flyway 数据库迁移基线与 Schema 版本治理”版本：
+V4.9-1 是“数据库约束与项目删除一致性”版本：
 
-- 引入 Flyway，并以 `db/migration/V1__baseline_schema.sql` 作为当前业务 schema 的 V1 基线；已应用的 migration 不再修改，后续变更通过 V2、V3 等新文件演进。
-- 全新空数据库由 MySQL 创建 database，backend 启动时由 Flyway 执行 V1 并创建业务表，不再依赖 Docker MySQL entrypoint 执行 `init.sql`。
-- 已有非空数据库首次接入前必须备份并确认实际 schema 与 V1 等价；仅首次显式设置 `FLYWAY_BASELINE_ON_MIGRATE=true` 建立 version 1 baseline，随后立即恢复为 `false`。
-- CI 增加 MySQL migration smoke test：验证空数据库执行 V1、13 张业务表与 `flyway_schema_history` 存在、backend 能健康启动，并验证非空 legacy schema 建立 version 1 baseline 时跳过 V1。
-- 生产配置禁用 Flyway clean；baseline 不会比较或修复旧库表结构，也不等同于自动回滚、零停机迁移或完整灾难恢复。
-- 本版本不修改现有业务表结构，不补邮箱唯一约束、额度默认值、项目文件唯一索引或外键。
+- 新增不可变的 `V2__schema_integrity_constraints.sql`：为用户邮箱增加数据库唯一约束，为项目文件增加 `(project_id, file_path)` 组合唯一约束，将新套餐记录的 credits 默认值对齐为 `10`，并补充 QA 按 `project_id` 清理所需的索引；V2 不批量改写现有余额，也不会自动删除历史重复数据。
+- 注册继续保留友好的 username / email 预检查，同时由数据库 UNIQUE 处理并发窗口；约束冲突会转换为稳定业务错误，不向前端暴露 SQL 或索引细节。
+- README 与 ZIP 文件写入统一使用 MySQL 原子 upsert；同一项目的同一路径更新内容与文件类型，不同项目仍可拥有相同的 `README.md`。
+- 项目删除在单个事务中清理分享、面试消息、QA、分析任务、报告、面试会话、项目文件和项目本体；QA 使用物理删除，已有分享 token 随记录删除立即失效。
+- 项目存在 `PENDING` / `RUNNING` 分析任务时拒绝删除；credit ledger、AI call audit、feedback、用户及套餐记录继续保留。
+- CI 的真实 MySQL smoke test 同时覆盖 fresh `V1 SQL + V2 SQL`、legacy `V1 BASELINE + V2 SQL`、V2 schema 断言、legacy 哨兵数据保留以及通过后端 API 调用 Mapper 的 README upsert 行为。
+
+V1 已是不可变 migration。生产执行 V2 前必须先备份，并运行 [数据库迁移 preflight](docs/database-migrations.md)：重复邮箱和重复 `(project_id, file_path)` 两项查询都必须返回 0 行；只要有返回就应 **STOP**，人工审查后再制定显式修复方案，禁止自动删除或合并数据。
 
 PMAI 当前核心架构可以概括为：
 
@@ -417,7 +419,7 @@ projectmentor-ai
 1. 创建空 MySQL 数据库 `projectmentor_ai`，字符集使用 `utf8mb4`，排序规则使用 `utf8mb4_unicode_ci`。
 2. 配置环境变量，例如 `DB_HOST`、`DB_PORT`、`DB_NAME`、`DB_USERNAME`、`DB_PASSWORD`、`JWT_SECRET`。
 3. 全新数据库保持 `FLYWAY_ENABLED=true`、`FLYWAY_BASELINE_ON_MIGRATE=false`。
-4. 启动后端；Flyway 会执行 `V1__baseline_schema.sql` 创建当前业务表：
+4. 启动后端；Flyway 会依次执行 `V1__baseline_schema.sql` 与 `V2__schema_integrity_constraints.sql`：
 
 ```bash
 cd backend/projectmentor-server
@@ -458,7 +460,7 @@ docker compose up -d --build
 
 说明：上述命令保留用于本地或资源充足环境的完整 Compose 构建启动。2 核 2G 轻量服务器可以运行项目，但不适合每次在服务器上构建前端或后端；不建议在服务器执行 `docker compose build frontend`、`docker compose up -d --build`、`npm run build` 或 `mvn clean package`。前端更新推荐在本地构建 `dist`，压缩后上传服务器覆盖静态文件；后端更新推荐在本地构建 jar 后上传服务器。
 
-全新 Compose 环境的数据库启动顺序是：MySQL 创建空 `projectmentor_ai` database，backend 等待 MySQL 健康后由 Flyway 执行 V1，migration 成功后 backend 才完成启动。已有非空数据库不能直接套用 fresh 流程，必须先备份并按 [数据库迁移说明](docs/database-migrations.md) 执行一次性 legacy baseline。
+全新 Compose 环境的数据库启动顺序是：MySQL 创建空 `projectmentor_ai` database，backend 等待 MySQL 健康后由 Flyway 依次执行 V1、V2，migration 成功后 backend 才完成启动。已有 history 且已经部署 V4.9-0 的数据库保持 `FLYWAY_BASELINE_ON_MIGRATE=false`，通过 preflight 后直接执行 V2；没有 history 的 legacy 数据库必须先备份、核对 V1 等价性并完成 duplicate preflight，再一次性 baseline V1 并执行 V2。完整流程见 [数据库迁移说明](docs/database-migrations.md)。
 
 访问：
 
@@ -489,7 +491,7 @@ bash scripts/restore-mysql.sh backups/mysql/xxx.sql
 
 恢复脚本会提示风险，并要求输入 `YES` 后才继续。恢复前请先确认已经备份当前数据库。
 
-V4.9-0 baseline 后生成的完整数据库备份会自然包含 `flyway_schema_history`。这类备份恢复后保持 `FLYWAY_BASELINE_ON_MIGRATE=false`，重新启动 backend 并检查容器、Flyway 日志与 `/api/health`；Flyway 会从 history 记录的 migration version 继续验证和迁移。旧备份如果没有该表，必须保持 backend 停止，先确认恢复后的业务 schema 与 V1 等价，再按 legacy baseline 流程接入；baseline 本身不会补缺表、缺列或修复旧字段类型。
+Flyway 接入后生成的完整数据库备份会自然包含 `flyway_schema_history`。这类备份恢复后保持 `FLYWAY_BASELINE_ON_MIGRATE=false`，重新启动 backend 并检查容器、Flyway 日志与 `/api/health`；Flyway 会从 history 记录的 migration version 继续验证和迁移。旧备份如果没有该表，必须保持 backend 停止，先确认恢复后的业务 schema 与 V1 等价、执行 V2 duplicate preflight，再按 legacy baseline 流程接入；baseline 本身不会补缺表、缺列或修复旧字段类型。
 
 线上状态检查：
 
@@ -714,6 +716,8 @@ bash scripts/check-nginx-security.sh https://projectmentorai.com
 - V4.2：项目问答。V4.2-4 已完成轻量检索增强问答、问答历史、证据可信度、面试讲法、简历风险提示、面试版复制、关键词扩展、文件权重、snippet 优化和检索解释；后续 V4.2-5 或 V4.3 可评估向量检索升级或管理员后台。
 - V4.3：管理员后台 / 用户反馈。V4.5-4 已在原有看板上补充 AI 用量统计、额度发放 / 扣除和流水管理。
 - V4.4：更正式的部署和用户体系。
+- V4.9-1：数据库约束与事务化项目删除一致性（已完成）。
+- V4.9-2：credits 并发安全。
 
 详细路线见 [docs/roadmap.md](docs/roadmap.md)。
 

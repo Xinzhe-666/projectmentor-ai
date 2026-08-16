@@ -29,31 +29,14 @@ public class ProjectFileService {
     public ProjectFileDetailVO saveReadme(Long projectId, SaveReadmeRequest request) {
         checkProjectOwner(projectId);
 
-        ProjectFile existingReadme = projectFileMapper.selectOne(
-                new LambdaQueryWrapper<ProjectFile>()
-                        .eq(ProjectFile::getProjectId, projectId)
-                        .eq(ProjectFile::getFilePath, "README.md")
-                        .last("LIMIT 1")
-        );
+        ProjectFile readme = new ProjectFile();
+        readme.setProjectId(projectId);
+        readme.setFilePath("README.md");
+        readme.setFileType("README");
+        readme.setContent(request.getContent());
 
-        if (existingReadme == null) {
-            ProjectFile projectFile = new ProjectFile();
-            projectFile.setProjectId(projectId);
-            projectFile.setFilePath("README.md");
-            projectFile.setFileType("README");
-            projectFile.setContent(request.getContent());
-
-            projectFileMapper.insert(projectFile);
-
-            return toDetailVO(projectFile);
-        }
-
-        existingReadme.setContent(request.getContent());
-        existingReadme.setFileType("README");
-
-        projectFileMapper.updateById(existingReadme);
-
-        ProjectFile updatedFile = projectFileMapper.selectById(existingReadme.getId());
+        projectFileMapper.upsertProjectFile(readme);
+        ProjectFile updatedFile = projectFileMapper.selectByProjectIdAndFilePath(projectId, "README.md");
 
         return toDetailVO(updatedFile);
     }

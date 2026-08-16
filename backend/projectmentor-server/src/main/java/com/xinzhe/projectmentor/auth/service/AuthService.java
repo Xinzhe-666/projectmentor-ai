@@ -17,6 +17,7 @@ import com.xinzhe.projectmentor.credit.mapper.CreditLogMapper;
 import com.xinzhe.projectmentor.credit.mapper.UserPlanMapper;
 import com.xinzhe.projectmentor.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -68,7 +69,13 @@ public class AuthService {
         user.setRole("USER");
         user.setStatus(1);
 
-        userMapper.insert(user);
+        try {
+            userMapper.insert(user);
+        } catch (DuplicateKeyException exception) {
+            // Friendly checks above keep the common path specific; the database constraint
+            // remains the final guard when concurrent registrations race each other.
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "用户名或邮箱已被注册");
+        }
 
         UserPlan userPlan = new UserPlan();
         userPlan.setUserId(user.getId());

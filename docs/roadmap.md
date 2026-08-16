@@ -1,5 +1,18 @@
 # ProjectMentor AI Roadmap
 
+## V4.9-1 Schema Integrity & Project Deletion Consistency（已完成）
+
+- 通过 `V2__schema_integrity_constraints.sql` 增加 email 唯一约束、项目内文件路径组合唯一约束和 QA `project_id` 索引，并将新套餐记录的 credits 默认值对齐为 10；不批量修改既有余额，也不自动清理历史重复数据。
+- 注册并发命中数据库 UNIQUE 时转换为稳定业务错误；README 与 ZIP 文件写入统一使用以 `(project_id, file_path)` 为冲突键的数据库原子 upsert。
+- 项目删除增加 active analysis task 防护，并在单个事务内清理源码与报告、分享、QA、面试、分析任务等派生数据；QA 为物理删除。
+- credits ledger、AI call audit、feedback、用户及套餐记录不随项目删除，保留审计与账户边界。
+- CI 真实覆盖 fresh V1/V2、legacy baseline/V2、V2 schema 断言、legacy 哨兵数据保留和 Mapper README upsert 行为。
+- 生产 V2 上线前必须备份并执行两条 duplicate preflight；任一查询返回数据即停止，人工审查后再制定显式修复方案。
+
+后续数据库治理：
+
+- V4.9-2：Credits Concurrency Safety。
+
 ## V4.9-0 Database Migration Baseline（已完成）
 
 - 引入 Flyway，并以 `V1__baseline_schema.sql` 固化当前业务 schema；后续数据库变更通过不可变的 V2、V3 等 migration 演进。
@@ -8,10 +21,7 @@
 - CI 增加真实 MySQL migration smoke test，覆盖 fresh V1 与 legacy version 1 baseline，并增加 migration 文件命名、版本合法性和重复版本检查。
 - Flyway clean 保持禁用；本版本不修改现有业务表，不提供自动回滚、零停机迁移或完整灾难恢复能力。
 
-后续数据库治理：
-
-- V4.9-1：Schema integrity + project deletion consistency。
-- V4.9-2：Credits concurrency safety。
+该版本建立迁移基线；V4.9-1 已在新的 V2 migration 中完成关键约束治理，未回写不可变的 V1。
 
 ## V4.8-5 CI & Repository Quality Gate（已完成）
 

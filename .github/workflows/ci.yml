@@ -194,7 +194,7 @@ jobs:
           set -euo pipefail
 
           readonly database_name='projectmentor_ai'
-          readonly migration_file='src/main/resources/db/migration/V1__baseline_schema.sql'
+          readonly baseline_migration_file='src/main/resources/db/migration/V1__baseline_schema.sql'
           readonly expected_table_count='13'
           app_pid=''
           app_log=''
@@ -249,6 +249,161 @@ jobs:
               printf '%s: expected %s, got %s.\n' "$label" "$expected" "$actual" >&2
               exit 1
             fi
+          }
+
+          assert_schema_integrity() {
+            local container_id="$1"
+            local database_label="$2"
+
+            assert_query_equals \
+              "$container_id" \
+              "SELECT COUNT(*) FROM information_schema.statistics
+               WHERE table_schema = '$database_name'
+                 AND table_name = 'pm_user'
+                 AND index_name = 'uk_user_email'
+                 AND non_unique = 0
+                 AND column_name = 'email'
+                 AND seq_in_index = 1;" \
+              '1' \
+              "$database_label unique email index"
+            assert_query_equals \
+              "$container_id" \
+              "SELECT GROUP_CONCAT(column_name ORDER BY seq_in_index SEPARATOR ',')
+               FROM information_schema.statistics
+               WHERE table_schema = '$database_name'
+                 AND table_name = 'pm_project_file'
+                 AND index_name = 'uk_project_file_path'
+                 AND non_unique = 0;" \
+              'project_id,file_path' \
+              "$database_label project file unique column order"
+            assert_query_equals \
+              "$container_id" \
+              "SELECT CAST(column_default AS CHAR) FROM information_schema.columns
+               WHERE table_schema = '$database_name'
+                 AND table_name = 'pm_user_plan'
+                 AND column_name = 'remaining_credits';" \
+              '10' \
+              "$database_label remaining credits default"
+            assert_query_equals \
+              "$container_id" \
+              "SELECT GROUP_CONCAT(column_name ORDER BY seq_in_index SEPARATOR ',')
+               FROM information_schema.statistics
+               WHERE table_schema = '$database_name'
+                 AND table_name = 'pm_project_qa_record'
+                 AND index_name = 'idx_qa_project_id'
+                 AND non_unique = 1;" \
+              'project_id' \
+              "$database_label QA project index"
+          }
+
+          post_json() {
+            local url="$1"
+            local payload="$2"
+            local token="${3:-}"
+            local curl_args=(
+              --fail
+              --silent
+              --show-error
+              --request POST
+              --header 'Content-Type: application/json'
+              --data "$payload"
+            )
+            if [[ -n "$token" ]]; then
+              curl_args+=(--header "Authorization: Bearer $token")
+            fi
+            curl "${curl_args[@]}" "$url"
+          }
+
+          assert_api_success() {
+            local response="$1"
+            local label="$2"
+            if ! jq --exit-status '.code == 0' <<<"$response" >/dev/null; then
+              printf '%s returned a non-success API result.\n' "$label" >&2
+              exit 1
+            fi
+          }
+
+          verify_project_file_mapper_upsert() {
+            local container_id="$1"
+            local register_response
+            local auth_token
+            local first_project_response
+            local first_project_id
+            local second_project_response
+            local second_project_id
+            local api_response
+
+            command -v jq >/dev/null 2>&1 || {
+              printf '%s\n' 'jq is required for the Mapper upsert smoke test.' >&2
+              exit 1
+            }
+
+            register_response="$(post_json \
+              'http://127.0.0.1:8080/api/auth/register' \
+              '{"username":"ci_v491_upsert","password":"ci-test-password-491","email":"ci-v491-upsert@example.invalid"}')"
+            assert_api_success "$register_response" 'test user registration'
+            auth_token="$(jq --exit-status --raw-output \
+              '.data.token | strings | select(length > 0)' <<<"$register_response")"
+
+            first_project_response="$(post_json \
+              'http://127.0.0.1:8080/api/projects' \
+              '{"name":"CI V4.9-1 Mapper Project A"}' \
+              "$auth_token")"
+            assert_api_success "$first_project_response" 'first project creation'
+            first_project_id="$(jq --exit-status --raw-output '.data.id | numbers' \
+              <<<"$first_project_response")"
+
+            second_project_response="$(post_json \
+              'http://127.0.0.1:8080/api/projects' \
+              '{"name":"CI V4.9-1 Mapper Project B"}' \
+              "$auth_token")"
+            assert_api_success "$second_project_response" 'second project creation'
+            second_project_id="$(jq --exit-status --raw-output '.data.id | numbers' \
+              <<<"$second_project_response")"
+
+            if [[ ! "$first_project_id" =~ ^[0-9]+$ || ! "$second_project_id" =~ ^[0-9]+$ ]]; then
+              printf '%s\n' 'Project creation returned a non-numeric id.' >&2
+              exit 1
+            fi
+
+            api_response="$(post_json \
+              "http://127.0.0.1:8080/api/projects/$first_project_id/readme" \
+              '{"content":"CI README first version"}' \
+              "$auth_token")"
+            assert_api_success "$api_response" 'first README write'
+
+            query_database "$container_id" \
+              "UPDATE pm_project_file SET file_type = 'OTHER'
+               WHERE project_id = $first_project_id AND file_path = 'README.md';"
+
+            api_response="$(post_json \
+              "http://127.0.0.1:8080/api/projects/$first_project_id/readme" \
+              '{"content":"CI README second version"}' \
+              "$auth_token")"
+            assert_api_success "$api_response" 'second README write'
+
+            api_response="$(post_json \
+              "http://127.0.0.1:8080/api/projects/$second_project_id/readme" \
+              '{"content":"CI README other project"}' \
+              "$auth_token")"
+            assert_api_success "$api_response" 'other project README write'
+
+            assert_query_equals \
+              "$container_id" \
+              "SELECT COUNT(*) FROM pm_project_file
+               WHERE project_id = $first_project_id
+                 AND file_path = 'README.md'
+                 AND file_type = 'README'
+                 AND content = 'CI README second version';" \
+              '1' \
+              'Mapper same-key README upsert result'
+            assert_query_equals \
+              "$container_id" \
+              "SELECT COUNT(*) FROM pm_project_file
+               WHERE project_id IN ($first_project_id, $second_project_id)
+                 AND file_path = 'README.md';" \
+              '2' \
+              'Mapper same path across different projects'
           }
 
           start_app() {
@@ -331,9 +486,20 @@ jobs:
             'fresh V1 SQL history'
           assert_query_equals \
             "$FRESH_MYSQL_CONTAINER" \
-            'SELECT COUNT(*) FROM flyway_schema_history;' \
+            "SELECT COUNT(*) FROM flyway_schema_history
+             WHERE version = '2'
+               AND type = 'SQL'
+               AND script = 'V2__schema_integrity_constraints.sql'
+               AND success = 1;" \
             '1' \
+            'fresh V2 SQL history'
+          assert_query_equals \
+            "$FRESH_MYSQL_CONTAINER" \
+            'SELECT COUNT(*) FROM flyway_schema_history;' \
+            '2' \
             'fresh history row count'
+          assert_schema_integrity "$FRESH_MYSQL_CONTAINER" 'fresh'
+          verify_project_file_mapper_upsert "$FRESH_MYSQL_CONTAINER"
           stop_app
 
           assert_query_equals \
@@ -346,7 +512,20 @@ jobs:
             -e MYSQL_PWD="$MYSQL_ROOT_PASSWORD" \
             "$LEGACY_MYSQL_CONTAINER" \
             mysql --protocol=TCP -h 127.0.0.1 -uroot \
-            --database="$database_name" <"$migration_file"
+            --database="$database_name" <"$baseline_migration_file"
+
+          query_database \
+            "$LEGACY_MYSQL_CONTAINER" \
+            "INSERT INTO pm_user (id, username, password, email)
+               VALUES (910001, 'ci_v491_legacy_user', 'ci-fixture-not-a-real-password',
+                       'ci-v491-legacy@example.invalid');
+             INSERT INTO pm_user_plan (id, user_id, remaining_credits)
+               VALUES (910001, 910001, 4);
+             INSERT INTO pm_project (id, user_id, name)
+               VALUES (910001, 910001, 'CI V4.9-1 legacy sentinel project');
+             INSERT INTO pm_project_file (id, project_id, file_path, file_type, content)
+               VALUES (910001, 910001, 'README.md', 'README',
+                       'CI V4.9-1 legacy sentinel content');"
 
           start_app "$LEGACY_MYSQL_PORT" 'true' 'legacy-baseline-backend.log'
           assert_query_equals \
@@ -372,8 +551,36 @@ jobs:
             'legacy V1 SQL skip'
           assert_query_equals \
             "$LEGACY_MYSQL_CONTAINER" \
-            'SELECT COUNT(*) FROM flyway_schema_history;' \
+            "SELECT COUNT(*) FROM flyway_schema_history
+             WHERE version = '2'
+               AND type = 'SQL'
+               AND script = 'V2__schema_integrity_constraints.sql'
+               AND success = 1;" \
             '1' \
+            'legacy V2 SQL history'
+          assert_query_equals \
+            "$LEGACY_MYSQL_CONTAINER" \
+            'SELECT COUNT(*) FROM flyway_schema_history;' \
+            '2' \
             'legacy history row count'
+          assert_query_equals \
+            "$LEGACY_MYSQL_CONTAINER" \
+            "SELECT COUNT(*)
+             FROM pm_user AS u
+             JOIN pm_user_plan AS plan ON plan.user_id = u.id
+             JOIN pm_project AS project ON project.user_id = u.id
+             JOIN pm_project_file AS file ON file.project_id = project.id
+             WHERE u.id = 910001
+               AND u.email = 'ci-v491-legacy@example.invalid'
+               AND plan.remaining_credits = 4
+               AND project.id = 910001
+               AND file.id = 910001
+               AND file.file_path = 'README.md'
+               AND file.content = 'CI V4.9-1 legacy sentinel content';" \
+            '1' \
+            'legacy sentinel data preservation'
+          assert_schema_integrity "$LEGACY_MYSQL_CONTAINER" 'legacy'
+          stop_app
 
-          printf '%s\n' 'PASS fresh Flyway migration and legacy baseline validation'
+          printf '%s\n' \
+            'PASS fresh V1/V2, legacy baseline/V2, schema integrity, and Mapper upsert validation'

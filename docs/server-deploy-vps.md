@@ -66,7 +66,7 @@ EMAIL_VERIFICATION_SUBJECT=ProjectMentor AI 邮箱验证码
 docker compose up -d
 ```
 
-全新环境中，MySQL 只创建空 `projectmentor_ai` database；backend 等待 MySQL healthy 后由 Flyway 执行 `V1__baseline_schema.sql` 创建业务表，migration 成功后才完成启动。已有非空数据库不要直接按 fresh 流程启动，先执行本文“Flyway 数据库迁移与 legacy baseline”章节。
+全新环境中，MySQL 只创建空 `projectmentor_ai` database；backend 等待 MySQL healthy 后由 Flyway 依次执行 V1、V2，migration 成功后才完成启动。已有非空数据库不要直接按 fresh 流程启动，先执行本文“Flyway 数据库迁移与 V4.9-1 preflight”章节。
 
 ## 查看状态
 
@@ -143,7 +143,7 @@ bash scripts/restore-mysql.sh backups/mysql/xxx.sql
 
 恢复脚本会提示“恢复操作会覆盖或影响当前数据库，请确认已备份当前数据。”，并要求输入 `YES` 后才继续。恢复前请务必先备份当前数据库。
 
-baseline 后创建的完整备份会自然包含 `flyway_schema_history`，恢复后保持 `FLYWAY_BASELINE_ON_MIGRATE=false` 再启动 backend，Flyway 会从已记录版本继续验证和迁移。旧备份如果没有 history 表，必须先确认业务 schema 与 V1 等价，再执行一次性 legacy baseline；baseline 不会补缺表、缺列或修复旧字段类型。
+Flyway 接入后创建的完整备份会自然包含 `flyway_schema_history`，恢复后保持 `FLYWAY_BASELINE_ON_MIGRATE=false` 再启动 backend，Flyway 会从已记录版本继续验证和迁移。旧备份如果没有 history 表，必须先确认业务 schema 与 V1 等价、执行 V2 duplicate preflight，再建立 V1 baseline 并执行 V2；baseline 不会补缺表、缺列或修复旧字段类型。
 
 ## Nginx 敏感路径拦截
 
@@ -289,7 +289,7 @@ docker compose up -d mysql redis
 bash scripts/restore-mysql.sh backups/mysql/xxx.sql
 ```
 
-恢复后先判断备份是否包含 `flyway_schema_history`。包含 history 的当前备份保持 `FLYWAY_BASELINE_ON_MIGRATE=false`；没有 history 的旧备份必须按下一节完成 schema 核对与一次性 legacy baseline。确认后再按现有轻量部署方式继续：
+恢复后先判断备份是否包含 `flyway_schema_history`。包含 history 的当前备份保持 `FLYWAY_BASELINE_ON_MIGRATE=false`；没有 history 的旧备份必须按下一节完成 schema 核对、V2 duplicate preflight 与一次性 V1 baseline。确认后再按现有轻量部署方式继续：
 
 ```bash
 # 本地重新构建 backend jar 后上传到：
@@ -337,21 +337,43 @@ docker compose up -d backend
 docker compose down
 ```
 
-## Flyway 数据库迁移与 legacy baseline
+## Flyway 数据库迁移与 V4.9-1 preflight
 
-V4.9-0 起，`db/migration/V*.sql` 是业务 schema 的唯一真源。`V1__baseline_schema.sql` 是供全新空数据库执行的 versioned migration；对已有非空数据库执行 baseline 时，Flyway 只创建 version 1 history，不会执行 V1，也不会比较或修复真实表结构。
+V4.9-0 起，`db/migration/V*.sql` 是业务 schema 的唯一真源。V1 已不可变；V4.9-1 新增 V2，为 email 与项目内文件路径增加 UNIQUE、将新 plan 的 credits default 对齐为 10，并增加 QA project 索引。V2 不更新既有余额，也不自动清理历史重复数据。
 
-现有生产数据库首次接入必须按以下顺序人工执行：
+生产启动包含 V2 的 backend 前，先执行 `bash scripts/backup-mysql.sh` 并确认备份已另行妥善保存，再在目标数据库运行：
 
-1. 保持旧服务正常，执行 `bash scripts/backup-mysql.sh`，确认备份文件已生成并另行妥善保存。
-2. 确认数据库尚无 `flyway_schema_history`，并将现有表、列类型、null/default、索引、字符集与排序规则逐项对照 V1。
-3. 如果缺少 `pm_project_qa_record`、`pm_feedback`、`claim_evidence`，或仍存在旧字段类型等偏差，停止 baseline，先制定经过审查的显式修复方案。
-4. 仅本次在服务器 `.env` 中设置 `FLYWAY_ENABLED=true`、`FLYWAY_BASELINE_ON_MIGRATE=true`，然后使用已构建的新 backend 启动。
-5. 检查 backend 日志和健康接口，并在 MySQL 中确认 `flyway_schema_history` 存在 version 1、`type` 为 `BASELINE` 且成功。
-6. 验证登录、项目、报告、问答、反馈、额度和管理员后台等关键业务，确认原有数据仍可读取。
-7. 立即把 `FLYWAY_BASELINE_ON_MIGRATE` 恢复为 `false`，执行 `docker compose up -d --force-recreate backend` 重新创建 backend 容器，再次检查日志与健康状态。
+```sql
+SELECT email, COUNT(*) AS cnt
+FROM pm_user
+GROUP BY email
+HAVING COUNT(*) > 1;
 
-如果 history 表已经存在，不要再次 baseline。不要运行 `flyway clean`、不要修改已应用 migration、不要直接改 history 表。后续所有数据库变更从 V2 开始通过新 migration 发布。完整规范见 [数据库迁移说明](database-migrations.md)。
+SELECT project_id, file_path, COUNT(*) AS cnt
+FROM pm_project_file
+GROUP BY project_id, file_path
+HAVING COUNT(*) > 1;
+```
+
+两条查询都必须返回 0 行。只要有任何返回就应 **STOP**：不要部署 V2，不要自动 `DELETE`、合并用户或选择 `MIN(id)` / `MAX(id)`；先人工检查并制定经过审查的显式修复方案。查询不需要、也不应输出 password、文件 content、token 或 secret。
+
+生产状态 A——已经部署 V4.9-0，history 中已有成功的 version 1：
+
+1. 完成备份与上述 duplicate preflight。
+2. 保持 `FLYWAY_ENABLED=true`、`FLYWAY_BASELINE_ON_MIGRATE=false`。
+3. 启动 V4.9-1 backend，检查日志与 history，确认新增成功的 `V2 SQL`。
+4. 验证 13 张业务表、V2 索引/default、既有余额和关键业务数据，再检查 `/api/health`。
+
+生产状态 B——仍是无 `flyway_schema_history` 的 legacy database：
+
+1. 完成备份，确认实际表、列、null/default、索引、字符集与排序规则均与 V1 等价，再完成上述 duplicate preflight。
+2. 如果缺表、缺列、旧字段类型或历史重复，立即停止；baseline 不会检查或修复这些差异。
+3. 仅本次临时设置 `FLYWAY_ENABLED=true`、`FLYWAY_BASELINE_ON_MIGRATE=true`，启动已构建并验证的 V4.9-1 backend。
+4. 检查 history，预期为成功的 `V1 BASELINE` 与 `V2 SQL`；V1 被跳过，V2 实际执行。
+5. 验证原有用户、项目、文件和余额均保留，并检查登录、项目、报告、问答、反馈、额度和管理员后台。
+6. 立即恢复 `FLYWAY_BASELINE_ON_MIGRATE=false`，执行 `docker compose up -d --force-recreate backend`，再次检查日志、history 与健康状态。
+
+如果 history 已经存在，不要再次 baseline。生产不要长期保持 baseline 为 `true`；不要运行 `flyway clean`、修改已应用的 V1/V2 或直接编辑 history。完整规范见 [数据库迁移说明](database-migrations.md)。
 
 ## 重置数据库
 
@@ -361,7 +383,7 @@ docker compose down -v
 
 注意：这会删除 Docker volume 中的 MySQL 和 Redis 数据，数据库内容会被清空。
 
-再次启动全新环境时，MySQL 会重新创建空 database，Flyway 会重新执行 V1；该操作不能恢复已删除的数据。
+再次启动全新环境时，MySQL 会重新创建空 database，Flyway 会重新执行 V1、V2；该操作不能恢复已删除的数据。
 
 ## 常见问题
 
@@ -381,7 +403,7 @@ sudo lsof -i :80
 
 ### MySQL / Flyway 首次启动慢
 
-首次启动需要拉取镜像、创建空 database，并由 backend 执行 Flyway V1，可能需要几十秒。可以查看状态和 migration 日志：
+首次启动需要拉取镜像、创建空 database，并由 backend 执行 Flyway V1、V2，可能需要几十秒。可以查看状态和 migration 日志：
 
 ```bash
 docker compose ps
@@ -424,7 +446,7 @@ docker compose logs -f nginx
 
 ### 旧数据库字段、表或索引与 V1 不一致
 
-历史版本曾依靠手工 SQL 补齐字段和表。legacy baseline 不会执行 V1，也不会检测 schema drift；如果实际数据库与 V1 不一致，不要直接 baseline 或复制旧 ALTER，应先备份并制定显式修复方案，详见 [数据库迁移说明](database-migrations.md)。
+历史版本曾依靠手工 SQL 补齐字段和表。legacy baseline 不会执行 V1，也不会检测 schema drift；如果实际数据库与 V1 不一致，不要直接 baseline 或复制旧 ALTER。即使与 V1 等价，也必须先执行 V2 duplicate preflight；发现结构偏差或重复数据都应停止并制定显式修复方案，详见 [数据库迁移说明](database-migrations.md)。
 
 ### 前端刷新 404
 

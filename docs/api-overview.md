@@ -25,7 +25,9 @@
 | `POST` | `/api/projects` | 创建项目 | 是 |
 | `GET` | `/api/projects` | 获取当前用户项目列表 | 是 |
 | `GET` | `/api/projects/{id}` | 获取项目详情 | 是 |
-| `DELETE` | `/api/projects/{id}` | 删除项目 | 是 |
+| `DELETE` | `/api/projects/{id}` | 事务化删除项目及其源码、报告、分享、QA、面试和分析任务派生数据；存在 `PENDING` / `RUNNING` 分析任务时拒绝删除 | 是 |
+
+项目删除会使所属报告的既有分享 token 立即失效，并物理清理项目 QA；credits ledger 与 AI call audit 作为历史账本 / 调用审计保留，不随项目删除。
 
 ## File
 

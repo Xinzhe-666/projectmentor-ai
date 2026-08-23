@@ -1,66 +1,75 @@
 <template>
-  <div class="auth-page pm-aurora-bg">
-    <div class="pm-grid-overlay" />
-    <div class="pm-noise-overlay" />
-    <section class="auth-product-panel pm-fade-up is-visible">
-      <div class="auth-product-badge">ProjectMentor AI · {{ t('common.beta') }}</div>
-      <h1>{{ t('auth.valueTitle') }}</h1>
-      <p>{{ t('auth.valueDesc') }}</p>
-      <div class="auth-highlight-list">
-        <span v-for="item in authHighlights" :key="item">{{ item }}</span>
+  <main class="auth-page">
+    <section class="auth-product-panel" aria-labelledby="auth-value-title">
+      <BrandLogo variant="primary" tone="inverted" />
+      <div class="auth-product-copy">
+        <h1 id="auth-value-title">{{ t('auth.valueTitle') }}</h1>
+        <p>{{ t('auth.valueDesc') }}</p>
       </div>
+      <ol class="auth-highlight-list">
+        <li v-for="(item, index) in authHighlights" :key="item">
+          <span>{{ String(index + 1).padStart(2, '0') }}</span>
+          <p>{{ item }}</p>
+        </li>
+      </ol>
+      <span class="auth-release">{{ t('common.beta') }}</span>
     </section>
 
-    <section class="auth-panel pm-premium-card pm-gradient-border pm-fade-up is-visible">
+    <section class="auth-panel" aria-labelledby="auth-register-title">
       <div class="auth-topline">
         <RouterLink class="muted" to="/">{{ t('common.backHome') }}</RouterLink>
         <LanguageSwitch />
       </div>
-      <h1>{{ t('auth.registerTitle') }}</h1>
-      <p>{{ t('auth.registerSubtitle') }}</p>
+      <div class="auth-form-content">
+        <header class="auth-form-header">
+          <h2 id="auth-register-title">{{ t('auth.registerTitle') }}</h2>
+          <p>{{ t('auth.registerSubtitle') }}</p>
+        </header>
 
-      <el-form :model="form" label-position="top" @submit.prevent>
-        <el-form-item :label="t('common.username')">
-          <el-input v-model="form.username" size="large" :placeholder="t('auth.usernamePlaceholder')" />
-        </el-form-item>
-        <el-form-item :label="t('common.email')">
-          <el-input v-model="form.email" size="large" :placeholder="t('auth.emailPlaceholder')" />
-        </el-form-item>
-        <el-form-item :label="t('auth.verificationCode')">
-          <div class="email-code-row">
-            <el-input
-              v-model="form.verificationCode"
-              size="large"
-              maxlength="6"
-              inputmode="numeric"
-              autocomplete="one-time-code"
-              :placeholder="t('auth.verificationCodePlaceholder')"
-            />
-            <el-button
-              class="email-code-button"
-              type="primary"
-              plain
-              size="large"
-              :loading="sendingCode"
-              :disabled="sendingCode || codeCountdown > 0"
-              @click="handleSendEmailCode"
-            >
-              {{ codeCountdown > 0 ? t('auth.codeCountdown', { seconds: codeCountdown }) : t('auth.sendCode') }}
-            </el-button>
-          </div>
-        </el-form-item>
-        <el-form-item :label="t('common.password')">
-          <el-input v-model="form.password" size="large" type="password" show-password :placeholder="t('auth.passwordPlaceholder')" />
-        </el-form-item>
-        <el-button class="full-button" type="primary" size="large" :loading="loading" @click="handleRegister">
-          {{ t('auth.registerEnter') }}
-        </el-button>
-      </el-form>
+        <el-form :model="form" label-position="top" @submit.prevent="handleRegister">
+          <el-form-item :label="t('common.username')">
+            <el-input v-model="form.username" size="large" autocomplete="username" :placeholder="t('auth.usernamePlaceholder')" />
+          </el-form-item>
+          <el-form-item :label="t('common.email')">
+            <el-input v-model="form.email" size="large" autocomplete="email" :placeholder="t('auth.emailPlaceholder')" />
+          </el-form-item>
+          <el-form-item :label="t('auth.verificationCode')">
+            <div class="email-code-row">
+              <el-input
+                v-model="form.verificationCode"
+                size="large"
+                maxlength="6"
+                inputmode="numeric"
+                autocomplete="one-time-code"
+                :placeholder="t('auth.verificationCodePlaceholder')"
+              />
+              <el-button
+                class="email-code-button"
+                type="primary"
+                plain
+                size="large"
+                native-type="button"
+                :loading="sendingCode"
+                :disabled="sendingCode || codeCountdown > 0"
+                @click="handleSendEmailCode"
+              >
+                {{ codeCountdown > 0 ? t('auth.codeCountdown', { seconds: codeCountdown }) : t('auth.sendCode') }}
+              </el-button>
+            </div>
+          </el-form-item>
+          <el-form-item :label="t('common.password')">
+            <el-input v-model="form.password" size="large" type="password" autocomplete="new-password" show-password :placeholder="t('auth.passwordPlaceholder')" />
+          </el-form-item>
+          <el-button class="full-button" type="primary" size="large" native-type="submit" :loading="loading">
+            {{ t('auth.registerEnter') }}
+          </el-button>
+        </el-form>
 
-      <p class="auth-tip">{{ t('auth.hasAccount') }}<RouterLink to="/login">{{ t('auth.goLogin') }}</RouterLink></p>
-      <p class="auth-beta-note">{{ t('auth.betaNotice') }}</p>
+        <p class="auth-tip">{{ t('auth.hasAccount') }}<RouterLink to="/login">{{ t('auth.goLogin') }}</RouterLink></p>
+        <p class="auth-beta-note">{{ t('auth.betaNotice') }}</p>
+      </div>
     </section>
-  </div>
+  </main>
 </template>
 
 <script setup lang="ts">
@@ -70,6 +79,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 
 import { register, sendRegisterEmailCode } from '@/api/auth'
+import BrandLogo from '@/components/BrandLogo.vue'
 import LanguageSwitch from '@/components/LanguageSwitch.vue'
 import { useUserStore } from '@/stores/user'
 
@@ -160,63 +170,3 @@ onBeforeUnmount(() => {
   }
 })
 </script>
-
-<style scoped>
-.full-button {
-  width: 100%;
-}
-
-.email-code-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(118px, max-content);
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-}
-
-.email-code-row :deep(.el-input__wrapper),
-.email-code-button {
-  min-height: 40px;
-}
-
-.email-code-button {
-  min-width: 120px;
-  padding: 0 14px;
-  white-space: nowrap;
-}
-
-.auth-topline {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-
-.auth-tip {
-  margin-top: 18px;
-  text-align: center;
-}
-
-.auth-tip a {
-  margin-left: 4px;
-  color: var(--pm-primary);
-  font-weight: 700;
-}
-
-@media (max-width: 520px) {
-  .auth-topline {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .email-code-row {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-
-  .email-code-button {
-    width: 100%;
-  }
-}
-</style>

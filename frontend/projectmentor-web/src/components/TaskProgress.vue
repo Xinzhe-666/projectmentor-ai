@@ -1,36 +1,29 @@
 <template>
-  <div class="task-progress">
+  <div class="task-progress" aria-live="polite">
     <div class="task-progress-head">
       <div>
-        <p class="eyebrow">{{ t('task.eyebrow') }}</p>
-        <h3>{{ task?.status || t('task.notStarted') }}</h3>
+        <h3>{{ t('task.eyebrow') }}</h3>
+        <p>{{ task?.message || statusText }}</p>
       </div>
-      <el-tag :type="statusType" effect="light">{{ statusText }}</el-tag>
+      <div class="task-status-value">
+        <StatusLabel :status="task?.status" :label="statusText" />
+        <strong>{{ progress }}%</strong>
+      </div>
     </div>
 
     <el-progress
       :percentage="progress"
       :status="progressStatus"
-      :stroke-width="12"
-      striped
-      striped-flow
+      :stroke-width="4"
+      :show-text="false"
     />
 
-    <p v-if="task?.message" class="muted">{{ task.message }}</p>
-    <el-alert
-      v-if="task?.failReason"
-      :title="task.failReason"
-      type="error"
-      show-icon
-      :closable="false"
-    />
-    <el-alert
-      v-if="task?.reportId"
-      :title="t('task.reportGenerated', { id: task.reportId })"
-      type="success"
-      show-icon
-      :closable="false"
-    />
+    <div v-if="interrupted" class="task-message task-message--error" role="alert">
+      <span>{{ t('projects.v5.errors.polling') }}</span>
+      <el-button text @click="emit('retry')">{{ t('projects.v5.retry') }}</el-button>
+    </div>
+    <p v-else-if="task?.failReason" class="task-message task-message--error" role="alert">{{ task.failReason }}</p>
+    <p v-else-if="task?.reportId" class="task-message">{{ t('task.reportGenerated', { id: task.reportId }) }}</p>
   </div>
 </template>
 
@@ -38,10 +31,15 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import StatusLabel from '@/components/StatusLabel.vue'
 import type { AnalysisTask } from '@/types/api'
 
 const props = defineProps<{
   task?: AnalysisTask | null
+  interrupted?: boolean
+}>()
+const emit = defineEmits<{
+  (event: 'retry'): void
 }>()
 
 const { t } = useI18n()
@@ -62,22 +60,6 @@ const statusText = computed(() => {
   return statusMap[props.task?.status || ''] || t('status.waiting')
 })
 
-const statusType = computed(() => {
-  if (props.task?.status === 'SUCCESS') {
-    return 'success'
-  }
-
-  if (props.task?.status === 'FAILED') {
-    return 'danger'
-  }
-
-  if (props.task?.status === 'RUNNING') {
-    return 'primary'
-  }
-
-  return 'info'
-})
-
 const progressStatus = computed(() => {
   if (props.task?.status === 'SUCCESS') {
     return 'success'
@@ -93,13 +75,11 @@ const progressStatus = computed(() => {
 
 <style scoped>
 .task-progress {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 16px;
-  border: 1px solid var(--pm-border);
-  border-radius: 8px;
-  background: #fbfdff;
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--pm-stone);
 }
 
 .task-progress-head {
@@ -110,6 +90,53 @@ const progressStatus = computed(() => {
 }
 
 .task-progress h3 {
-  margin: 4px 0 0;
+  margin: 0;
+  color: var(--pm-ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.task-progress-head p {
+  margin: 5px 0 0;
+  color: var(--pm-muted);
+  font-size: 12px;
+}
+
+.task-status-value {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.task-status-value strong {
+  color: var(--pm-ink);
+  font-family: var(--pm-font-mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.task-progress :deep(.el-progress-bar__outer) {
+  border-radius: 0;
+  background: var(--pm-stone);
+}
+
+.task-progress :deep(.el-progress-bar__inner) {
+  border-radius: 0;
+  background: var(--pm-primary);
+}
+
+.task-message {
+  margin: 0;
+  color: var(--pm-graphite);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.task-message--error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--pm-risk);
 }
 </style>

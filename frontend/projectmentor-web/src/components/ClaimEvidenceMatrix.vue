@@ -1,818 +1,445 @@
 <template>
-  <div class="claim-matrix">
-    <section v-if="hasAiEnhancement" class="claim-ai-panel">
-      <div class="claim-ai-head">
-        <div>
-          <span class="claim-detail-label">{{ t('report.claimAiEnhancedLabel') }}</span>
-          <h4>{{ t('report.claimAiSummary') }}</h4>
-        </div>
-        <el-tag v-if="aiEnhancement?.aiEnhancedAt" effect="plain">
-          {{ aiEnhancement.aiEnhancedAt }}
-        </el-tag>
-      </div>
-      <div class="claim-ai-grid">
-        <section v-if="aiEnhancement?.aiSummary">
-          <span class="claim-detail-label">{{ t('report.claimAiSummary') }}</span>
-          <p>{{ aiEnhancement.aiSummary }}</p>
-        </section>
-        <section v-if="aiEnhancement?.aiRiskOverview">
-          <span class="claim-detail-label">{{ t('report.claimAiRiskOverview') }}</span>
-          <p>{{ aiEnhancement.aiRiskOverview }}</p>
-        </section>
-        <section v-if="aiEnhancement?.aiResumeStrategy">
-          <span class="claim-detail-label">{{ t('report.claimAiResumeStrategy') }}</span>
-          <p>{{ aiEnhancement.aiResumeStrategy }}</p>
-        </section>
-        <section v-if="aiEnhancement?.aiInterviewStrategy">
-          <span class="claim-detail-label">{{ t('report.claimAiInterviewStrategy') }}</span>
-          <p>{{ aiEnhancement.aiInterviewStrategy }}</p>
-        </section>
-      </div>
-      <pre v-if="aiEnhancement?.aiFallbackText" class="claim-ai-fallback">{{ aiEnhancement.aiFallbackText }}</pre>
-    </section>
-
-    <el-collapse v-if="claims.length" class="claim-guide no-print">
-      <el-collapse-item name="statuses">
-        <template #title>
-          <div class="claim-guide-title">
-            <strong>{{ t('report.claimGuideTitle') }}</strong>
-            <span>{{ t('report.claimGuideSummary') }}</span>
-          </div>
-        </template>
-        <div class="claim-status-guide">
-          <article v-for="item in statusExplanations" :key="item.status">
-            <el-tag :type="statusTagType(item.status)" effect="light">{{ item.status }}</el-tag>
-            <strong>{{ item.label }}</strong>
-            <p>{{ item.description }}</p>
-          </article>
-        </div>
-        <el-alert
-          :title="t('report.claimResumeWarning')"
-          type="warning"
-          show-icon
-          :closable="false"
-        />
-      </el-collapse-item>
-    </el-collapse>
-
-    <div v-if="claims.length" class="claim-toolbar no-print">
-      <el-select v-model="statusFilter" class="status-filter">
-        <el-option
-          v-for="option in statusOptions"
-          :key="option.value"
-          :label="option.label"
-          :value="option.value"
-        />
-      </el-select>
-      <span>{{ t('report.claimEvidenceCount', { count: filteredClaims.length }) }}</span>
-    </div>
-
-    <div v-if="filteredClaims.length" class="claim-list">
+  <div class="claim-review">
+    <div v-if="orderedClaims.length" class="claim-review-list">
       <article
-        v-for="(claim, index) in filteredClaims"
+        v-for="(claim, index) in orderedClaims"
         :key="claimKey(claim, index)"
-        class="claim-card"
-        :class="`claim-card--${claim.status.toLowerCase()}`"
+        class="claim-chapter"
       >
-        <div class="claim-card-head">
-          <div>
-            <div class="claim-tags">
-              <el-tag :type="statusTagType(claim.status)" effect="light">
-                {{ statusLabel(claim.status) }}
-              </el-tag>
-              <el-tag type="info" effect="plain">{{ sourceLabel(claim.sourceType) }}</el-tag>
-              <el-tag effect="plain">{{ formatCategory(claim.category) }}</el-tag>
+        <header class="claim-chapter-header">
+          <div class="claim-chapter-index">
+            <span>{{ t('reportV5.claims.finding', { number: pad(index + 1) }) }}</span>
+            <StatusLabel :status="claim.status" :label="statusLabel(claim.status)" />
+          </div>
+          <h3>{{ claim.claimText }}</h3>
+          <dl class="claim-chapter-meta">
+            <div>
+              <dt>{{ t('reportV5.claims.source') }}</dt>
+              <dd>{{ sourceLabel(claim.sourceType) }}</dd>
             </div>
-            <h4>{{ claim.claimText }}</h4>
-          </div>
-          <div class="claim-confidence">
-            <span>{{ t('report.claimConfidence') }}</span>
-            <strong>{{ claim.confidenceScore ?? 0 }}</strong>
-          </div>
-        </div>
+            <div>
+              <dt>{{ t('reportV5.claims.category') }}</dt>
+              <dd>{{ categoryLabel(claim.category) }}</dd>
+            </div>
+            <div v-if="claim.confidenceScore !== undefined">
+              <dt>{{ t('reportV5.claims.confidence') }}</dt>
+              <dd>{{ claim.confidenceScore }}</dd>
+            </div>
+          </dl>
+        </header>
 
-        <p v-if="claim.reason" class="claim-reason">{{ claim.reason }}</p>
-
-        <section v-if="aiItemForClaim(claim)" class="claim-ai-item">
-          <div class="claim-ai-item-head">
-            <span class="claim-detail-label">{{ t('report.claimAiItemTitle') }}</span>
-            <el-tag effect="plain" type="success">{{ t('report.claimAiEnhancedLabel') }}</el-tag>
-          </div>
-          <div class="claim-ai-item-grid">
-            <section v-if="aiItemForClaim(claim)?.aiExplanation">
-              <span class="claim-detail-label">{{ t('report.claimAiExplanation') }}</span>
-              <p>{{ aiItemForClaim(claim)?.aiExplanation }}</p>
-            </section>
-            <section v-if="aiItemForClaim(claim)?.saferResumeExpression">
-              <span class="claim-detail-label">{{ t('report.claimAiSaferResume') }}</span>
-              <p>{{ aiItemForClaim(claim)?.saferResumeExpression }}</p>
-            </section>
-            <section v-if="aiItemForClaim(claim)?.likelyInterviewQuestions?.length">
-              <span class="claim-detail-label">{{ t('report.claimAiLikelyQuestions') }}</span>
-              <ul>
-                <li v-for="question in aiItemForClaim(claim)?.likelyInterviewQuestions" :key="question">
-                  {{ question }}
-                </li>
-              </ul>
-            </section>
-            <section v-if="aiItemForClaim(claim)?.improvementSuggestion">
-              <span class="claim-detail-label">{{ t('report.claimAiImprovement') }}</span>
-              <p>{{ aiItemForClaim(claim)?.improvementSuggestion }}</p>
-            </section>
-          </div>
-        </section>
-
-        <div class="claim-detail-grid">
-          <section>
-            <span class="claim-detail-label">{{ t('report.resumeAdvice') }}</span>
-            <p>{{ claim.resumeAdvice || '-' }}</p>
+        <div class="claim-chapter-body">
+          <section v-if="claim.sourceSnippet" class="claim-statement">
+            <h4>{{ t('reportV5.claims.sourceStatement') }}</h4>
+            <p>{{ claim.sourceSnippet }}</p>
           </section>
-          <section>
-            <div class="claim-interview-head">
-              <span class="claim-detail-label">{{ t('report.interviewFollowUp') }}</span>
-              <el-button
-                class="no-print"
-                link
-                type="primary"
-                :icon="CopyDocument"
-                @click="copyInterviewExplanation(claim)"
+
+          <section class="claim-assessment">
+            <h4>{{ t('reportV5.claims.assessment') }}</h4>
+            <p>{{ claim.reason || '—' }}</p>
+          </section>
+
+          <section class="claim-evidence">
+            <h4>{{ t('reportV5.claims.evidence') }}</h4>
+            <div v-if="claim.evidenceFiles?.length" class="claim-evidence-list">
+              <article
+                v-for="(evidence, evidenceIndex) in claim.evidenceFiles"
+                :key="`${evidence.fileId || evidence.filePath}-${evidenceIndex}`"
+                class="evidence-document"
               >
-                {{ t('report.copyInterviewExplanation') }}
-              </el-button>
+                <header class="evidence-document-header">
+                  <div>
+                    <span>{{ t('reportV5.claims.evidenceItem', { number: pad(evidenceIndex + 1) }) }}</span>
+                    <strong>{{ fileName(evidence.filePath) }}</strong>
+                  </div>
+                  <StatusLabel
+                    :status="evidence.evidenceLevel"
+                    :label="evidenceLevelLabel(evidence.evidenceLevel)"
+                  />
+                </header>
+                <code class="evidence-path">{{ evidence.filePath }}</code>
+                <dl class="evidence-metadata">
+                  <div v-if="evidence.fileType">
+                    <dt>{{ t('reportV5.claims.fileType') }}</dt>
+                    <dd>{{ fileRole(evidence) }}</dd>
+                  </div>
+                  <div v-if="evidence.reason">
+                    <dt>{{ t('reportV5.claims.reason') }}</dt>
+                    <dd>{{ evidence.reason }}</dd>
+                  </div>
+                  <div v-if="evidence.matchedKeywords?.length">
+                    <dt>{{ t('reportV5.claims.keywords') }}</dt>
+                    <dd><code>{{ evidence.matchedKeywords.join(' · ') }}</code></dd>
+                  </div>
+                </dl>
+                <pre v-if="evidence.snippet" tabindex="0"><code>{{ evidence.snippet }}</code></pre>
+              </article>
             </div>
-            <p>{{ claim.interviewQuestion || '-' }}</p>
+            <p v-else class="claim-no-evidence">{{ t('reportV5.claims.noEvidence') }}</p>
           </section>
-        </div>
-
-        <div class="claim-evidence-section">
-          <div class="claim-evidence-title">
-            <span class="claim-detail-label">{{ t('report.evidenceFiles') }}</span>
-            <el-button
-              v-if="claim.evidenceFiles?.length > 2"
-              class="no-print"
-              link
-              type="primary"
-              @click="toggleEvidence(claimKey(claim, index))"
-            >
-              {{
-                isExpanded(claimKey(claim, index))
-                  ? t('report.collapseEvidence')
-                  : t('report.showMoreEvidence', { count: claim.evidenceFiles.length - 2 })
-              }}
-            </el-button>
-          </div>
-
-          <div v-if="claim.evidenceFiles?.length" class="claim-evidence-list">
-            <article
-              v-for="evidence in visibleEvidenceFiles(claim, claimKey(claim, index))"
-              :key="`${evidence.fileId || evidence.filePath}-${evidence.filePath}`"
-              class="claim-evidence-file"
-            >
-              <div class="claim-file-head">
-                <strong>{{ evidence.filePath }}</strong>
-                <el-tag
-                  size="small"
-                  :type="evidence.evidenceLevel === 'STRONG' ? 'success' : 'info'"
-                  effect="plain"
-                >
-                  {{ evidenceLevelLabel(evidence.evidenceLevel) }}
-                </el-tag>
-              </div>
-              <p v-if="evidence.reason">{{ evidence.reason }}</p>
-              <pre v-if="evidence.snippet">{{ evidence.snippet }}</pre>
-              <div v-if="evidence.matchedKeywords?.length" class="matched-keywords">
-                <span>{{ t('report.matchedKeywords') }}</span>
-                <code>{{ evidence.matchedKeywords.join(', ') }}</code>
-              </div>
-            </article>
-          </div>
-          <p v-else class="claim-no-evidence">{{ t('report.noEvidenceFiles') }}</p>
         </div>
       </article>
     </div>
 
-    <div v-else class="claim-empty">
-      <strong>{{ claims.length ? t('report.noClaimsForFilter') : t('report.noClaimEvidenceTitle') }}</strong>
-      <p>{{ claims.length ? t('report.noClaimsForFilterDesc') : t('report.noClaimEvidence') }}</p>
-      <el-button v-if="!claims.length" type="primary" @click="emit('empty-action')">
-        {{ t('report.backToProject') }}
+    <EmptyState
+      v-else
+      variant="compact"
+      :title="t('reportV5.claims.noClaims')"
+      :description="t('reportV5.claims.noClaimsDescription')"
+    >
+      <el-button v-if="showEmptyAction" type="primary" @click="emit('empty-action')">
+        {{ t('reportV5.claims.returnToProject') }}
       </el-button>
-    </div>
+    </EmptyState>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElMessage } from 'element-plus'
-import { CopyDocument } from '@element-plus/icons-vue'
 
-import type {
-  ClaimEvidenceAiEnhancement,
-  ClaimEvidenceAiItem,
-  ClaimEvidenceItem,
-  ClaimEvidenceStatus
-} from '@/types/api'
+import EmptyState from '@/components/EmptyState.vue'
+import StatusLabel from '@/components/StatusLabel.vue'
+import type { ClaimEvidenceFile, ClaimEvidenceItem, ClaimEvidenceStatus } from '@/types/api'
 
 const props = withDefaults(defineProps<{
   claims?: ClaimEvidenceItem[]
-  aiEnhancement?: ClaimEvidenceAiEnhancement
+  showEmptyAction?: boolean
 }>(), {
   claims: () => [],
-  aiEnhancement: undefined
+  showEmptyAction: false
 })
+
 const emit = defineEmits<{
   (event: 'empty-action'): void
 }>()
 
 const { t } = useI18n()
-const statusFilter = ref<'ALL' | ClaimEvidenceStatus>('ALL')
-const expandedClaims = ref<Set<string>>(new Set())
-
-const claims = computed(() => props.claims || [])
-const aiEnhancement = computed(() => props.aiEnhancement)
-const hasAiEnhancement = computed(() => Boolean(
-  aiEnhancement.value?.aiEnhanced
-    || aiEnhancement.value?.aiSummary
-    || aiEnhancement.value?.aiRiskOverview
-    || aiEnhancement.value?.aiResumeStrategy
-    || aiEnhancement.value?.aiInterviewStrategy
-    || aiEnhancement.value?.aiFallbackText
-    || aiEnhancement.value?.aiEnhancedItems?.length
-))
-const aiItemsByClaim = computed(() => {
-  const map = new Map<string, ClaimEvidenceAiItem>()
-  for (const item of aiEnhancement.value?.aiEnhancedItems || []) {
-    if (item.claimText) {
-      map.set(normalizeClaimText(item.claimText), item)
-    }
-  }
-  return map
-})
 
 const statusPriority: Record<ClaimEvidenceStatus, number> = {
   RISKY: 0,
   NO_EVIDENCE: 1,
-  DOC_ONLY: 2,
-  PARTIAL: 3,
+  PARTIAL: 2,
+  DOC_ONLY: 3,
   SUPPORTED: 4
 }
 
-const filteredClaims = computed(() => claims.value
-  .filter((claim) => statusFilter.value === 'ALL' || claim.status === statusFilter.value)
-  .slice()
+const orderedClaims = computed(() => (props.claims || [])
+  .map((claim, index) => ({ claim, index }))
   .sort((left, right) => {
-    const priorityDiff = statusPriority[left.status] - statusPriority[right.status]
-    if (priorityDiff !== 0) {
-      return priorityDiff
-    }
+    const priority = statusPriority[left.claim.status] - statusPriority[right.claim.status]
+    return priority || left.index - right.index
+  })
+  .map(({ claim }) => claim))
 
-    return (left.confidenceScore ?? 0) - (right.confidenceScore ?? 0)
-  }))
-
-const statusOptions = computed(() => [
-  { value: 'ALL', label: t('report.allClaimStatuses') },
-  { value: 'RISKY', label: statusLabel('RISKY') },
-  { value: 'NO_EVIDENCE', label: statusLabel('NO_EVIDENCE') },
-  { value: 'DOC_ONLY', label: statusLabel('DOC_ONLY') },
-  { value: 'PARTIAL', label: statusLabel('PARTIAL') },
-  { value: 'SUPPORTED', label: statusLabel('SUPPORTED') }
-])
-
-const statusExplanations = computed<Array<{
-  status: ClaimEvidenceStatus
-  label: string
-  description: string
-}>>(() => [
-  {
-    status: 'SUPPORTED',
-    label: t('report.claimStatus.supported'),
-    description: t('report.claimStatusDesc.supported')
-  },
-  {
-    status: 'PARTIAL',
-    label: t('report.claimStatus.partial'),
-    description: t('report.claimStatusDesc.partial')
-  },
-  {
-    status: 'DOC_ONLY',
-    label: t('report.claimStatus.docOnly'),
-    description: t('report.claimStatusDesc.docOnly')
-  },
-  {
-    status: 'NO_EVIDENCE',
-    label: t('report.claimStatus.noEvidence'),
-    description: t('report.claimStatusDesc.noEvidence')
-  },
-  {
-    status: 'RISKY',
-    label: t('report.claimStatus.risky'),
-    description: t('report.claimStatusDesc.risky')
-  }
-])
+function pad(value: number) {
+  return String(value).padStart(2, '0')
+}
 
 function claimKey(claim: ClaimEvidenceItem, index: number) {
   return `${claim.sourceType}-${claim.claimText}-${index}`
 }
 
-function normalizeClaimText(text: string) {
-  return text.trim().replace(/\s+/g, ' ').toLowerCase()
-}
-
-function aiItemForClaim(claim: ClaimEvidenceItem) {
-  return aiItemsByClaim.value.get(normalizeClaimText(claim.claimText))
-}
-
 function statusLabel(status: ClaimEvidenceStatus) {
-  const keys: Record<ClaimEvidenceStatus, string> = {
-    SUPPORTED: 'report.claimStatus.supported',
-    PARTIAL: 'report.claimStatus.partial',
-    DOC_ONLY: 'report.claimStatus.docOnly',
-    NO_EVIDENCE: 'report.claimStatus.noEvidence',
-    RISKY: 'report.claimStatus.risky'
-  }
-  return t(keys[status])
-}
-
-function statusTagType(status: ClaimEvidenceStatus) {
-  if (status === 'SUPPORTED') {
-    return 'success'
-  }
-  if (status === 'PARTIAL') {
-    return 'warning'
-  }
-  if (status === 'DOC_ONLY') {
-    return 'info'
-  }
-  return 'danger'
+  return t(`projects.v5.claimStatus.${status}`)
 }
 
 function sourceLabel(sourceType: string) {
-  const keys: Record<string, string> = {
-    PROJECT_DESCRIPTION: 'report.claimSource.projectDescription',
-    TECH_STACK: 'report.claimSource.techStack',
-    README: 'report.claimSource.readme'
+  const knownSources = ['PROJECT_DESCRIPTION', 'TECH_STACK', 'README']
+  return knownSources.includes(sourceType)
+    ? t(`projects.v5.claimSource.${sourceType}`)
+    : sourceType.replace(/_/g, ' ')
+}
+
+function categoryLabel(category: string) {
+  const normalized = category.toUpperCase()
+  const knownCategories = [
+    'AUTH', 'DATABASE', 'CACHE', 'AI', 'RAG_OR_QA', 'FILE_UPLOAD', 'REPORT', 'INTERVIEW',
+    'ADMIN', 'CREDIT', 'DEPLOYMENT', 'FRONTEND', 'SECURITY', 'PERFORMANCE',
+    'BUSINESS_OR_PRODUCT', 'GENERAL'
+  ]
+  return knownCategories.includes(normalized)
+    ? t(`reportV5.enums.claimCategory.${normalized}`)
+    : normalized.replace(/_/g, ' ')
+}
+
+function fileName(path: string) {
+  return path.split(/[\\/]/).filter(Boolean).pop() || path
+}
+
+function fileRole(file: Pick<ClaimEvidenceFile, 'filePath' | 'fileType'>) {
+  const type = file.fileType?.toUpperCase() || ''
+  const path = file.filePath.toLowerCase()
+  let role = 'OTHER'
+
+  if (type === 'README' || path.endsWith('.md')) {
+    role = 'DOC'
+  } else if (
+    ['CONFIG', 'POM', 'PACKAGE', 'DOCKER', 'DOCKER_COMPOSE', 'SQL', 'GITIGNORE'].includes(type)
+    || ['.xml', '.yml', '.yaml', '.properties', '.sql', '.json'].some((extension) => path.endsWith(extension))
+    || path.endsWith('dockerfile')
+  ) {
+    role = 'CONFIG'
+  } else if (
+    ['CODE', 'CONTROLLER', 'SERVICE', 'MAPPER', 'ENTITY', 'UTIL'].includes(type)
+    || ['.java', '.kt', '.js', '.jsx', '.ts', '.tsx', '.vue', '.css', '.scss', '.html', '.py', '.go', '.rs', '.c', '.cpp', '.cs', '.sh'].some((extension) => path.endsWith(extension))
+  ) {
+    role = 'CODE'
   }
-  return keys[sourceType] ? t(keys[sourceType]) : sourceType
+
+  return t(`projects.v5.evidence.fileTypes.${role}`)
 }
 
 function evidenceLevelLabel(level: string) {
-  return level === 'STRONG'
-    ? t('report.strongEvidence')
-    : t('report.weakEvidence')
-}
-
-function formatCategory(category: string) {
-  return category.replace(/_/g, ' ')
-}
-
-function toggleEvidence(key: string) {
-  const next = new Set(expandedClaims.value)
-  if (next.has(key)) {
-    next.delete(key)
-  } else {
-    next.add(key)
-  }
-  expandedClaims.value = next
-}
-
-function isExpanded(key: string) {
-  return expandedClaims.value.has(key)
-}
-
-function visibleEvidenceFiles(claim: ClaimEvidenceItem, key: string) {
-  const files = claim.evidenceFiles || []
-  return isExpanded(key) ? files : files.slice(0, 2)
-}
-
-async function copyInterviewExplanation(claim: ClaimEvidenceItem) {
-  const evidencePaths = (claim.evidenceFiles || [])
-    .map((item) => item.filePath)
-    .slice(0, 5)
-    .join('\n')
-  const content = [
-    claim.claimText,
-    `${t('report.claimStatusLabel')}: ${statusLabel(claim.status)}`,
-    `${t('report.claimReason')}: ${claim.reason || '-'}`,
-    `${t('report.interviewFollowUp')}: ${claim.interviewQuestion || '-'}`,
-    `${t('report.evidenceFiles')}:`,
-    evidencePaths || t('report.noEvidenceFiles')
-  ].join('\n')
-
-  const copied = await copyText(content)
-  ElMessage[copied ? 'success' : 'error'](
-    copied ? t('report.interviewExplanationCopied') : t('report.resumeCopyFailed')
-  )
-}
-
-async function copyText(text: string) {
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text)
-      return true
-    }
-  } catch {
-    // Continue with the textarea fallback for non-secure origins.
-  }
-
-  const textarea = document.createElement('textarea')
-  textarea.value = text
-  textarea.setAttribute('readonly', '')
-  textarea.style.position = 'fixed'
-  textarea.style.top = '-9999px'
-  document.body.appendChild(textarea)
-  textarea.select()
-
-  let copied = false
-  try {
-    copied = document.execCommand('copy')
-  } finally {
-    document.body.removeChild(textarea)
-  }
-  return copied
+  const normalized = level.toUpperCase()
+  return ['STRONG', 'MEDIUM', 'WEAK', 'NONE'].includes(normalized)
+    ? t(`reportV5.enums.evidenceLevel.${normalized}`)
+    : normalized.replace(/_/g, ' ')
 }
 </script>
 
 <style scoped>
-.claim-matrix {
+.claim-review-list {
   display: grid;
-  gap: 14px;
+  gap: 0;
 }
 
-.claim-toolbar {
+.claim-chapter {
+  min-width: 0;
+  padding: 34px 0 40px;
+  border-top: 1px solid var(--pm-stone-strong);
+}
+
+.claim-chapter:first-child {
+  border-top-color: var(--pm-ink);
+}
+
+.claim-chapter-header,
+.claim-chapter-body {
+  min-width: 0;
+}
+
+.claim-chapter-index,
+.evidence-document-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--pm-space-4);
 }
 
-.claim-guide {
-  border: 1px solid var(--pm-border);
-  border-radius: 8px;
-  background: #fbfdff;
+.claim-chapter-index > span,
+.evidence-document-header > div > span {
+  color: var(--pm-muted);
+  font-family: var(--pm-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
 }
 
-.claim-guide :deep(.el-collapse-item__header) {
-  min-height: 58px;
-  padding: 0 16px;
-  border-bottom: 0;
-  background: transparent;
-}
-
-.claim-guide :deep(.el-collapse-item__wrap) {
-  border-bottom: 0;
-  background: transparent;
-}
-
-.claim-guide :deep(.el-collapse-item__content) {
-  padding: 0 16px 16px;
-}
-
-.claim-guide-title {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.claim-guide-title strong {
+.claim-chapter h3 {
+  max-width: 34ch;
+  margin: 14px 0 18px;
   color: var(--pm-ink);
-}
-
-.claim-guide-title span {
-  color: var(--pm-muted);
-  font-size: 12px;
-}
-
-.claim-status-guide {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.claim-status-guide article {
-  min-width: 0;
-  padding: 12px;
-  border: 1px solid #eaecf0;
-  border-radius: 8px;
-  background: #ffffff;
-}
-
-.claim-status-guide strong {
-  display: block;
-  margin-top: 8px;
-  color: #344054;
-  font-size: 13px;
-}
-
-.claim-status-guide p {
-  margin: 6px 0 0;
-  color: var(--pm-muted);
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.claim-toolbar span {
-  color: var(--pm-muted);
-  font-size: 13px;
-}
-
-.status-filter {
-  width: 220px;
-}
-
-.claim-list {
-  display: grid;
-  gap: 14px;
-}
-
-.claim-ai-panel {
-  display: grid;
-  gap: 14px;
-  padding: 18px;
-  border: 1px solid var(--pm-border);
-  border-left: 4px solid #1f6feb;
-  border-radius: 8px;
-  background: #ffffff;
-}
-
-.claim-ai-head,
-.claim-ai-item-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.claim-ai-head h4 {
-  margin: 6px 0 0;
-  color: var(--pm-ink);
-  font-size: 17px;
-}
-
-.claim-ai-grid,
-.claim-ai-item-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.claim-ai-grid section,
-.claim-ai-item-grid section {
-  min-width: 0;
-  padding: 12px;
-  border: 1px solid #eaecf0;
-  border-radius: 7px;
-  background: #fbfdff;
-}
-
-.claim-ai-grid p,
-.claim-ai-item-grid p,
-.claim-ai-item-grid ul {
-  margin: 8px 0 0;
-  color: #475467;
-  line-height: 1.7;
-}
-
-.claim-ai-item-grid ul {
-  padding-left: 18px;
-}
-
-.claim-ai-fallback {
-  max-width: 100%;
-  margin: 0;
-  padding: 10px;
-  overflow-x: auto;
-  border-radius: 6px;
-  background: #101828;
-  color: #f2f4f7;
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 12px;
-  line-height: 1.6;
-  white-space: pre-wrap;
+  font-size: clamp(21px, 2.8vw, 28px);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.28;
   overflow-wrap: anywhere;
 }
 
-.claim-ai-item {
-  margin-top: 14px;
-  padding: 14px;
-  border: 1px solid rgba(31, 111, 235, 0.18);
-  border-radius: 8px;
-  background: #f8fbff;
-}
-
-.claim-card {
-  padding: 18px;
-  border: 1px solid var(--pm-border);
-  border-left: 4px solid #98a2b3;
-  border-radius: 8px;
-  background: #ffffff;
-}
-
-.claim-card--supported {
-  border-left-color: #12b76a;
-}
-
-.claim-card--partial {
-  border-left-color: #f79009;
-}
-
-.claim-card--doc_only {
-  border-left-color: #667085;
-}
-
-.claim-card--no_evidence,
-.claim-card--risky {
-  border-left-color: #f04438;
-}
-
-.claim-card-head,
-.claim-file-head,
-.claim-interview-head,
-.claim-evidence-title {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.claim-tags {
+.claim-chapter-meta,
+.evidence-metadata {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px 28px;
+  margin: 0;
 }
 
-.claim-card h4 {
-  margin: 12px 0 0;
-  color: var(--pm-ink);
-  font-size: 17px;
-  line-height: 1.65;
-}
-
-.claim-confidence {
-  min-width: 58px;
-  text-align: right;
-}
-
-.claim-confidence span,
-.claim-detail-label {
-  color: var(--pm-muted);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.claim-confidence strong {
-  display: block;
-  margin-top: 4px;
-  color: var(--pm-ink);
-  font-size: 22px;
-}
-
-.claim-reason {
-  margin: 14px 0 0;
-  padding: 10px 12px;
-  border-radius: 6px;
-  background: #f8fafc;
-  color: #475467;
-  line-height: 1.7;
-}
-
-.claim-detail-grid {
+.claim-chapter-meta div,
+.evidence-metadata div {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 14px;
+  min-width: 0;
+  gap: 3px;
 }
 
-.claim-detail-grid section {
-  padding: 12px;
-  border: 1px solid #eaecf0;
-  border-radius: 7px;
-  background: #fbfdff;
+.claim-chapter-meta dt,
+.evidence-metadata dt,
+.claim-chapter-body h4 {
+  color: var(--pm-muted);
+  font-family: var(--pm-font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
-.claim-detail-grid p,
-.claim-evidence-file p {
-  margin: 8px 0 0;
-  color: #475467;
-  line-height: 1.7;
+.claim-chapter-meta dd,
+.evidence-metadata dd {
+  margin: 0;
+  color: var(--pm-graphite);
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
 }
 
-.claim-evidence-section {
-  margin-top: 16px;
+.claim-chapter-body {
+  display: grid;
+  max-width: 75ch;
+  gap: 24px;
+  margin-top: 28px;
+}
+
+.claim-chapter-body h4 {
+  margin: 0 0 8px;
+}
+
+.claim-chapter-body p {
+  margin: 0;
+  color: var(--pm-graphite);
+  font-size: 15px;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+
+.claim-statement {
+  padding: 16px 18px;
+  border: 1px solid var(--pm-stone);
+  background: var(--pm-paper);
 }
 
 .claim-evidence-list {
   display: grid;
-  gap: 10px;
-  margin-top: 10px;
+  gap: 18px;
 }
 
-.claim-evidence-file {
-  padding: 12px;
-  border: 1px solid #eaecf0;
-  border-radius: 7px;
-  background: #fbfdff;
-}
-
-.claim-file-head strong {
+.evidence-document {
   min-width: 0;
-  color: #344054;
-  overflow-wrap: anywhere;
+  padding-top: 16px;
+  border-top: 1px solid var(--pm-stone);
 }
 
-.claim-evidence-file pre {
-  max-width: 100%;
-  margin: 10px 0 0;
-  padding: 10px;
-  overflow-x: auto;
-  border-radius: 6px;
-  background: #101828;
-  color: #f2f4f7;
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 12px;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+.evidence-document-header {
+  align-items: flex-start;
 }
 
-.matched-keywords {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 9px;
-  color: var(--pm-muted);
-  font-size: 12px;
-}
-
-.matched-keywords code {
-  color: #344054;
-}
-
-.claim-no-evidence,
-.claim-empty {
-  color: var(--pm-muted);
-}
-
-.claim-empty {
+.evidence-document-header > div {
   display: grid;
-  justify-items: center;
-  padding: 28px 18px;
-  border: 1px dashed var(--pm-border);
-  border-radius: 8px;
-  background: #fbfdff;
-  text-align: center;
-  line-height: 1.7;
+  min-width: 0;
+  gap: 4px;
 }
 
-.claim-empty strong {
+.evidence-document-header strong {
   color: var(--pm-ink);
-  font-size: 16px;
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
-.claim-empty p {
-  max-width: 620px;
-  margin: 6px 0 16px;
+.evidence-path {
+  display: block;
+  margin-top: 9px;
+  color: var(--pm-primary-deep);
+  font-family: var(--pm-font-mono);
+  font-size: 11px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
 }
 
-@media (max-width: 760px) {
-  .claim-toolbar,
-  .claim-card-head,
-  .claim-detail-grid,
-  .claim-ai-grid,
-  .claim-ai-item-grid {
+.evidence-metadata {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.evidence-metadata div {
+  grid-template-columns: minmax(86px, 0.22fr) minmax(0, 1fr);
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--pm-stone);
+}
+
+.evidence-metadata code {
+  font-family: var(--pm-font-mono);
+  font-size: 11px;
+}
+
+.evidence-document pre {
+  max-width: 100%;
+  margin: 16px 0 0;
+  padding: 18px;
+  overflow: auto;
+  border: 1px solid var(--pm-inspection-rule);
+  border-radius: var(--pm-radius-sm);
+  background: var(--pm-inspection);
+  color: var(--pm-inspection-text);
+  font-family: var(--pm-font-mono);
+  font-size: 11px;
+  line-height: 1.7;
+  tab-size: 2;
+  white-space: pre;
+}
+
+.claim-no-evidence {
+  padding: 14px 0;
+  border-top: 1px solid var(--pm-stone);
+  border-bottom: 1px solid var(--pm-stone);
+  color: var(--pm-muted) !important;
+}
+
+@media (max-width: 620px) {
+  .claim-chapter {
+    padding: 28px 0 32px;
+  }
+
+  .claim-chapter-index,
+  .evidence-document-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .claim-chapter-meta {
     display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .evidence-metadata div {
     grid-template-columns: 1fr;
-  }
-
-  .claim-status-guide {
-    grid-template-columns: 1fr;
-  }
-
-  .status-filter {
-    width: 100%;
-  }
-
-  .claim-confidence {
-    text-align: left;
+    gap: 4px;
   }
 }
 
 @media print {
-  .claim-card,
-  .claim-evidence-file,
-  .claim-detail-grid section {
-    break-inside: avoid;
-    page-break-inside: avoid;
-    border-color: #d0d5dd;
-    background: #ffffff;
+  .claim-chapter {
+    padding: 8mm 0;
+    break-inside: auto;
+    page-break-inside: auto;
   }
 
-  .claim-evidence-file pre {
-    border: 1px solid #d0d5dd;
-    background: #ffffff;
-    color: #111827;
+  .claim-chapter-header,
+  .claim-statement,
+  .claim-assessment,
+  .evidence-document-header {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .claim-chapter h3 {
+    font-size: 18pt;
+  }
+
+  .evidence-document {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  .evidence-document pre {
+    overflow: visible;
+    border-color: #8b919a;
+    background: #ffffff !important;
+    color: #111111 !important;
+    font-size: 8pt;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
 }
 </style>

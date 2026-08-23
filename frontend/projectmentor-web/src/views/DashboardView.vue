@@ -1,190 +1,249 @@
 <template>
-  <div class="page-stack">
-    <section class="panel dashboard-hero-panel pm-command-panel pm-gradient-border">
-      <div class="panel-body dashboard-hero">
-        <div class="dashboard-hero-copy">
-          <p class="eyebrow">{{ t('dashboard.eyebrow') }}</p>
-          <h2>{{ t('dashboard.greeting', { name: userStore.userInfo?.username || t('common.classmate') }) }}</h2>
-          <p class="muted">
-            {{ t('dashboard.subtitle') }}
-          </p>
-          <div class="pm-chip-row dashboard-hero-chips">
-            <span v-for="chip in heroChips" :key="chip" class="pm-chip">{{ chip }}</span>
-          </div>
-        </div>
-        <div class="dashboard-hero-card">
-          <div>
-            <span class="pm-status-chip">{{ t('dashboard.workspaceTitle') }}</span>
-            <strong>{{ aiStatusLabel }}</strong>
-            <p>{{ t('dashboard.workspaceDesc') }}</p>
-          </div>
-          <el-button type="primary" :icon="Plus" @click="router.push('/projects/create')">{{ t('common.createProject') }}</el-button>
-        </div>
+  <div class="dashboard-workspace" :aria-busy="loading">
+    <section v-if="loadError" class="workspace-error" role="alert">
+      <div>
+        <StatusLabel status="FAILED" :label="t('dashboard.v5.loadErrorStatus')" />
+        <strong>{{ t('dashboard.v5.loadErrorTitle') }}</strong>
+        <p>{{ t(summary ? 'dashboard.v5.refreshErrorDescription' : 'dashboard.v5.loadErrorDescription') }}</p>
       </div>
+      <el-button :loading="loading" @click="loadDashboard">{{ t('dashboard.v5.retry') }}</el-button>
     </section>
 
-    <el-alert
-      class="pm-premium-alert"
-      :title="t('dashboard.trialTitle')"
-      type="warning"
-      show-icon
-      :closable="false"
-      :description="t('dashboard.trialDesc')"
-    />
-
-    <section v-if="showOnboarding" class="panel onboarding-panel">
-      <div class="panel-title">
+    <section class="workspace-summary" :aria-labelledby="summaryHeadingId">
+      <div class="workspace-section-heading">
         <div>
-          <p class="eyebrow">{{ t('dashboard.onboarding.eyebrow') }}</p>
-          <h3>{{ t('dashboard.onboarding.title') }}</h3>
-          <p class="muted">{{ t('dashboard.onboarding.description') }}</p>
+          <h2 :id="summaryHeadingId">{{ t('dashboard.v5.summaryTitle') }}</h2>
+          <p>{{ t('dashboard.v5.summaryDescription') }}</p>
         </div>
-        <span class="pm-status-chip">{{ t('dashboard.onboarding.badge') }}</span>
-      </div>
-      <div class="panel-body">
-        <ol class="onboarding-steps">
-          <li v-for="(step, index) in onboardingSteps" :key="step.title">
-            <span>{{ index + 1 }}</span>
-            <div>
-              <strong>{{ step.title }}</strong>
-              <p>{{ step.description }}</p>
-            </div>
-          </li>
-        </ol>
-        <div class="onboarding-actions">
-          <el-button type="primary" :icon="Plus" @click="router.push('/projects/create')">
-            {{ t('dashboard.onboarding.create') }}
-          </el-button>
-          <el-button :icon="Coin" @click="router.push('/credits')">
-            {{ t('dashboard.onboarding.credits') }}
-          </el-button>
-          <el-button @click="scrollToDemo">{{ t('dashboard.onboarding.demo') }}</el-button>
+        <div class="ai-service-state">
+          <span>{{ t('dashboard.v5.aiService') }}</span>
+          <StatusLabel :status="aiServiceState.status" :label="aiServiceState.label" />
         </div>
       </div>
+
+      <div class="metric-ledger">
+        <RouterLink v-for="metric in metrics" :key="metric.path" class="metric-ledger-item" :to="metric.path">
+          <span>{{ metric.label }}</span>
+          <span v-if="loading && !summary" class="metric-skeleton" aria-hidden="true" />
+          <strong v-else>{{ metric.value }}</strong>
+        </RouterLink>
+      </div>
+
+      <nav class="workspace-actions" :aria-label="t('dashboard.v5.quickActions')">
+        <span>{{ t('dashboard.v5.quickActions') }}</span>
+        <RouterLink to="/hallucination">
+          <el-icon><Warning /></el-icon>
+          {{ t('dashboard.v5.checkClaims') }}
+        </RouterLink>
+        <RouterLink to="/interview">
+          <el-icon><ChatDotRound /></el-icon>
+          {{ t('dashboard.v5.startInterview') }}
+        </RouterLink>
+        <RouterLink to="/credits">
+          <el-icon><Coin /></el-icon>
+          {{ t('dashboard.v5.reviewCredits') }}
+        </RouterLink>
+      </nav>
     </section>
 
-    <section class="metric-grid dashboard-metric-grid" v-loading="loading">
-      <button
-        v-for="metric in metrics"
-        :key="metric.label"
-        class="metric-card dashboard-metric pm-premium-card pm-hover-lift"
-        :class="{ clickable: metric.path }"
-        type="button"
-        @click="handleMetricClick(metric.path)"
-      >
-        <i :class="['dashboard-metric-accent', metric.tone]" />
-        <span>{{ metric.label }}</span>
-        <strong :class="{ 'small-value': String(metric.value).length > 8 }">{{ metric.value }}</strong>
-      </button>
+    <section class="workspace-boundary" role="note">
+      <el-icon><Lock /></el-icon>
+      <div>
+        <strong>{{ t('dashboard.v5.privacyTitle') }}</strong>
+        <p>{{ t('dashboard.v5.privacyDescription') }}</p>
+      </div>
     </section>
 
-    <section class="quick-grid">
-      <button v-for="entry in quickEntries" :key="entry.title" class="quick-entry pm-premium-card pm-hover-lift" @click="router.push(entry.path)">
-        <el-icon :size="22">
-          <component :is="entry.icon" />
-        </el-icon>
-        <span>
-          <strong>{{ entry.title }}</strong>
-          <small>{{ entry.description }}</small>
-        </span>
-      </button>
-    </section>
-
-    <section class="panel" v-loading="loading">
-      <div class="panel-title">
+    <section class="recent-ledger" :aria-labelledby="recentHeadingId">
+      <div class="workspace-section-heading recent-ledger-heading">
         <div>
-          <h3>{{ t('dashboard.recentTitle') }}</h3>
-          <p class="muted">{{ t('dashboard.recentDesc') }}</p>
+          <h2 :id="recentHeadingId">{{ t('dashboard.v5.recentTitle') }}</h2>
+          <p>{{ t('dashboard.v5.recentDescription') }}</p>
         </div>
       </div>
-      <div class="panel-body">
-        <el-tabs>
-          <el-tab-pane :label="t('dashboard.recent.projects')" name="projects">
-            <el-table v-if="recentProjects.length" :data="recentProjects" stripe>
-              <el-table-column prop="name" :label="t('common.projectName')" min-width="160" />
-              <el-table-column prop="techStack" :label="t('common.techStack')" min-width="180" show-overflow-tooltip />
-              <el-table-column prop="status" :label="t('common.status')" width="130">
-                <template #default="{ row }">
-                  <el-tag :type="statusTagType(row.status)" effect="light">{{ row.status || 'PENDING' }}</el-tag>
-                </template>
+
+      <el-tabs v-model="activeTab" class="evidence-tabs">
+        <el-tab-pane name="projects">
+          <template #label>
+            <span class="tab-label">
+              {{ t('dashboard.v5.tabs.projects') }}
+              <span>{{ summary?.projectCount ?? '—' }}</span>
+            </span>
+          </template>
+
+          <div v-if="loading && !summary" class="record-skeleton" aria-hidden="true">
+            <i v-for="index in 4" :key="index" />
+          </div>
+          <p v-else-if="loadError && !summary" class="records-unavailable">{{ t('dashboard.v5.recordsUnavailable') }}</p>
+          <template v-else-if="recentProjects.length">
+            <el-table class="desktop-record-table" :data="recentProjects">
+              <el-table-column prop="name" :label="t('common.projectName')" min-width="190" show-overflow-tooltip />
+              <el-table-column prop="techStack" :label="t('common.techStack')" min-width="190" show-overflow-tooltip>
+                <template #default="{ row }">{{ row.techStack || '—' }}</template>
               </el-table-column>
-              <el-table-column prop="createTime" :label="t('common.createTime')" min-width="180" />
-              <el-table-column :label="t('common.operation')" width="120" fixed="right">
+              <el-table-column prop="status" :label="t('common.status')" width="144">
+                <template #default="{ row }"><StatusLabel :status="row.status" /></template>
+              </el-table-column>
+              <el-table-column :label="t('common.createTime')" min-width="150">
+                <template #default="{ row }">{{ formatDate(row.createTime) }}</template>
+              </el-table-column>
+              <el-table-column :label="t('common.operation')" width="86" align="right">
                 <template #default="{ row }">
-                  <el-button text type="primary" @click="router.push(`/projects/${row.id}`)">{{ t('common.view') }}</el-button>
+                  <RouterLink class="table-action" :to="`/projects/${row.id}`">{{ t('common.view') }}</RouterLink>
                 </template>
               </el-table-column>
             </el-table>
 
-            <EmptyState
-              v-else
-              :title="t('dashboard.emptyTitle')"
-              :description="t('dashboard.emptyDesc')"
-            >
-              <el-button type="primary" :icon="Plus" @click="router.push('/projects/create')">{{ t('common.createProject') }}</el-button>
-            </EmptyState>
-          </el-tab-pane>
+            <ul class="mobile-record-list">
+              <li v-for="project in recentProjects" :key="project.id">
+                <RouterLink :to="`/projects/${project.id}`">
+                  <span class="mobile-record-main">
+                    <strong>{{ project.name }}</strong>
+                    <small>{{ project.techStack || '—' }}</small>
+                  </span>
+                  <span class="mobile-record-meta">
+                    <StatusLabel :status="project.status" />
+                    <time>{{ formatDate(project.createTime) }}</time>
+                  </span>
+                </RouterLink>
+              </li>
+            </ul>
+          </template>
+          <EmptyState
+            v-else
+            variant="compact"
+            :title="t('dashboard.v5.emptyProjectsTitle')"
+            :description="t('dashboard.v5.emptyProjectsDescription')"
+          >
+            <el-button type="primary" :icon="Plus" @click="router.push('/projects/create')">
+              {{ t('shellV5.createProject') }}
+            </el-button>
+          </EmptyState>
+        </el-tab-pane>
 
-          <el-tab-pane :label="t('dashboard.recent.reports')" name="reports">
-            <el-table v-if="recentReports.length" :data="recentReports" stripe>
-              <el-table-column prop="projectName" :label="t('common.projectName')" min-width="170" show-overflow-tooltip />
-              <el-table-column :label="t('common.score')" width="130">
-                <template #default="{ row }">{{ formatScore(row.healthScore) }}</template>
+        <el-tab-pane name="reports">
+          <template #label>
+            <span class="tab-label">
+              {{ t('dashboard.v5.tabs.reports') }}
+              <span>{{ summary?.reportCount ?? '—' }}</span>
+            </span>
+          </template>
+
+          <div v-if="loading && !summary" class="record-skeleton" aria-hidden="true">
+            <i v-for="index in 4" :key="index" />
+          </div>
+          <p v-else-if="loadError && !summary" class="records-unavailable">{{ t('dashboard.v5.recordsUnavailable') }}</p>
+          <template v-else-if="recentReports.length">
+            <el-table class="desktop-record-table" :data="recentReports">
+              <el-table-column prop="projectName" :label="t('common.projectName')" min-width="220" show-overflow-tooltip>
+                <template #default="{ row }">{{ row.projectName || t('common.unnamedProject') }}</template>
               </el-table-column>
-              <el-table-column prop="status" :label="t('common.status')" width="130">
-                <template #default="{ row }">
-                  <el-tag :type="statusTagType(row.status)" effect="light">{{ row.status || 'FINISHED' }}</el-tag>
-                </template>
+              <el-table-column :label="t('common.score')" width="120">
+                <template #default="{ row }"><span class="numeric-data">{{ formatScore(row.healthScore) }}</span></template>
               </el-table-column>
-              <el-table-column prop="createTime" :label="t('common.createTime')" min-width="180" />
-              <el-table-column :label="t('common.operation')" width="120" fixed="right">
+              <el-table-column prop="status" :label="t('common.status')" width="144">
+                <template #default="{ row }"><StatusLabel :status="row.status || 'FINISHED'" /></template>
+              </el-table-column>
+              <el-table-column :label="t('common.createTime')" min-width="150">
+                <template #default="{ row }">{{ formatDate(row.createTime) }}</template>
+              </el-table-column>
+              <el-table-column :label="t('common.operation')" width="86" align="right">
                 <template #default="{ row }">
-                  <el-button text type="primary" @click="router.push(`/reports/${row.reportId}`)">{{ t('common.view') }}</el-button>
+                  <RouterLink class="table-action" :to="`/reports/${row.reportId}`">{{ t('common.view') }}</RouterLink>
                 </template>
               </el-table-column>
             </el-table>
-            <EmptyState v-else :title="t('dashboard.noReportsTitle')" :description="t('dashboard.noReportsDesc')">
-              <el-button type="primary" :icon="Plus" @click="router.push('/projects/create')">
-                {{ t('dashboard.noReportsAction') }}
-              </el-button>
-            </EmptyState>
-          </el-tab-pane>
 
-          <el-tab-pane :label="t('dashboard.recent.interviews')" name="interviews">
-            <el-table v-if="recentInterviews.length" :data="recentInterviews" stripe>
-              <el-table-column prop="projectName" :label="t('common.projectName')" min-width="170" show-overflow-tooltip />
-              <el-table-column :label="t('dashboard.interviewScore')" width="130">
-                <template #default="{ row }">{{ formatScore(row.totalScore) }}</template>
+            <ul class="mobile-record-list">
+              <li v-for="report in recentReports" :key="report.reportId">
+                <RouterLink :to="`/reports/${report.reportId}`">
+                  <span class="mobile-record-main">
+                    <strong>{{ report.projectName || t('common.unnamedProject') }}</strong>
+                    <small>{{ t('common.score') }} · {{ formatScore(report.healthScore) }}</small>
+                  </span>
+                  <span class="mobile-record-meta">
+                    <StatusLabel :status="report.status || 'FINISHED'" />
+                    <time>{{ formatDate(report.createTime) }}</time>
+                  </span>
+                </RouterLink>
+              </li>
+            </ul>
+          </template>
+          <EmptyState
+            v-else
+            variant="compact"
+            :title="t('dashboard.v5.emptyReportsTitle')"
+            :description="t('dashboard.v5.emptyReportsDescription')"
+          >
+            <el-button type="primary" :icon="Plus" @click="router.push('/projects/create')">
+              {{ t('dashboard.v5.prepareEvidence') }}
+            </el-button>
+          </EmptyState>
+        </el-tab-pane>
+
+        <el-tab-pane name="interviews">
+          <template #label>
+            <span class="tab-label">
+              {{ t('dashboard.v5.tabs.interviews') }}
+              <span>{{ summary?.interviewSessionCount ?? '—' }}</span>
+            </span>
+          </template>
+
+          <div v-if="loading && !summary" class="record-skeleton" aria-hidden="true">
+            <i v-for="index in 4" :key="index" />
+          </div>
+          <p v-else-if="loadError && !summary" class="records-unavailable">{{ t('dashboard.v5.recordsUnavailable') }}</p>
+          <template v-else-if="recentInterviews.length">
+            <el-table class="desktop-record-table" :data="recentInterviews">
+              <el-table-column prop="projectName" :label="t('common.projectName')" min-width="200" show-overflow-tooltip>
+                <template #default="{ row }">{{ row.projectName || t('common.unnamedProject') }}</template>
               </el-table-column>
-              <el-table-column :label="t('dashboard.interviewQuestions')" min-width="150">
-                <template #default="{ row }">{{ row.answeredCount }} / {{ row.questionCount }}</template>
-              </el-table-column>
-              <el-table-column prop="status" :label="t('common.status')" width="130">
+              <el-table-column :label="t('dashboard.v5.interviewProgress')" width="128">
                 <template #default="{ row }">
-                  <el-tag :type="statusTagType(row.status)" effect="light">{{ row.status || 'RUNNING' }}</el-tag>
+                  <span class="numeric-data">{{ row.answeredCount }} / {{ row.questionCount }}</span>
                 </template>
               </el-table-column>
-              <el-table-column prop="createTime" :label="t('common.createTime')" min-width="180" />
-              <el-table-column :label="t('common.operation')" width="120" fixed="right">
+              <el-table-column :label="t('common.score')" width="100">
+                <template #default="{ row }"><span class="numeric-data">{{ formatScore(row.totalScore) }}</span></template>
+              </el-table-column>
+              <el-table-column prop="status" :label="t('common.status')" width="144">
+                <template #default="{ row }"><StatusLabel :status="row.status || 'RUNNING'" /></template>
+              </el-table-column>
+              <el-table-column :label="t('common.createTime')" min-width="150">
+                <template #default="{ row }">{{ formatDate(row.createTime) }}</template>
+              </el-table-column>
+              <el-table-column :label="t('common.operation')" width="86" align="right">
                 <template #default="{ row }">
-                  <el-button text type="primary" @click="router.push(`/interview?sessionId=${row.sessionId}`)">{{ t('common.view') }}</el-button>
+                  <RouterLink class="table-action" :to="`/interview?sessionId=${row.sessionId}`">{{ t('common.view') }}</RouterLink>
                 </template>
               </el-table-column>
             </el-table>
-            <EmptyState v-else :title="t('dashboard.noInterviewsTitle')" :description="t('dashboard.noInterviewsDesc')">
-              <el-button type="primary" @click="router.push('/interview')">
-                {{ t('dashboard.noInterviewsAction') }}
-              </el-button>
-            </EmptyState>
-          </el-tab-pane>
-        </el-tabs>
-      </div>
-    </section>
 
-    <section id="dashboard-demo-flow" class="panel">
-      <div class="panel-body">
-        <DemoWorkflow compact />
-      </div>
+            <ul class="mobile-record-list">
+              <li v-for="interview in recentInterviews" :key="interview.sessionId">
+                <RouterLink :to="`/interview?sessionId=${interview.sessionId}`">
+                  <span class="mobile-record-main">
+                    <strong>{{ interview.projectName || t('common.unnamedProject') }}</strong>
+                    <small>{{ t('dashboard.v5.interviewProgress') }} · {{ interview.answeredCount }} / {{ interview.questionCount }}</small>
+                  </span>
+                  <span class="mobile-record-meta">
+                    <StatusLabel :status="interview.status || 'RUNNING'" />
+                    <time>{{ formatDate(interview.createTime) }}</time>
+                  </span>
+                </RouterLink>
+              </li>
+            </ul>
+          </template>
+          <EmptyState
+            v-else
+            variant="compact"
+            :title="t('dashboard.v5.emptyInterviewsTitle')"
+            :description="t('dashboard.v5.emptyInterviewsDescription')"
+          >
+            <el-button type="primary" @click="router.push('/interview')">{{ t('dashboard.v5.startInterview') }}</el-button>
+          </EmptyState>
+        </el-tab-pane>
+      </el-tabs>
     </section>
   </div>
 </template>
@@ -193,415 +252,470 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { ChatDotRound, Coin, MagicStick, Plus } from '@element-plus/icons-vue'
+import { ChatDotRound, Coin, Lock, Plus, Warning } from '@element-plus/icons-vue'
 
 import { getAiStatus } from '@/api/ai'
 import { getDashboardSummary } from '@/api/dashboard'
-import DemoWorkflow from '@/components/DemoWorkflow.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import StatusLabel from '@/components/StatusLabel.vue'
 import { useUserStore } from '@/stores/user'
 import type { AiStatus, DashboardSummary, InterviewSessionListItem, Project, ReportListItem } from '@/types/api'
 
 const router = useRouter()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const userStore = useUserStore()
 
+const summaryHeadingId = 'dashboard-workspace-summary'
+const recentHeadingId = 'dashboard-recent-work'
 const loading = ref(false)
+const loadError = ref(false)
 const summary = ref<DashboardSummary>()
 const aiStatus = ref<AiStatus | null>(null)
-
-const aiStatusLabel = computed(() =>
-  aiStatus.value?.enabled && aiStatus.value?.configured ? t('dashboard.aiConfigured') : t('dashboard.aiFallback')
-)
-
-const heroChips = computed(() => [
-  t('dashboard.heroChips.evidence'),
-  t('dashboard.heroChips.qa'),
-  t('dashboard.heroChips.beta')
-])
+const aiStatusResolved = ref(false)
+const activeTab = ref('projects')
 
 const metrics = computed(() => [
-  { label: t('dashboard.metrics.projectCount'), value: summary.value?.projectCount ?? 0, tone: 'blue', path: '/projects' },
-  { label: t('dashboard.metrics.reports'), value: summary.value?.reportCount ?? 0, tone: 'amber', path: '/reports' },
-  { label: t('dashboard.metrics.interviews'), value: summary.value?.interviewSessionCount ?? 0, tone: 'blue', path: '/interviews' },
-  { label: t('dashboard.metrics.credits'), value: summary.value?.creditBalance ?? userStore.remainingCredits, tone: 'teal', path: '/credits' },
-  { label: t('dashboard.metrics.aiStatus'), value: aiStatusLabel.value, tone: 'green' }
+  { label: t('dashboard.v5.metrics.projects'), value: summary.value ? summary.value.projectCount : '—', path: '/projects' },
+  { label: t('dashboard.v5.metrics.reports'), value: summary.value ? summary.value.reportCount : '—', path: '/reports' },
+  { label: t('dashboard.v5.metrics.interviews'), value: summary.value ? summary.value.interviewSessionCount : '—', path: '/interviews' },
+  { label: t('dashboard.v5.metrics.credits'), value: summary.value?.creditBalance ?? userStore.remainingCredits, path: '/credits' }
 ])
+
+const aiServiceState = computed(() => {
+  if (!aiStatusResolved.value) {
+    return { status: 'PENDING', label: t('dashboard.v5.aiChecking') }
+  }
+
+  if (!aiStatus.value) {
+    return { status: 'UNKNOWN', label: t('dashboard.v5.aiUnavailable') }
+  }
+
+  if (aiStatus.value.enabled && aiStatus.value.configured) {
+    return { status: 'AVAILABLE', label: t('dashboard.v5.aiAvailable') }
+  }
+
+  return { status: 'RULES_ONLY', label: t('dashboard.v5.aiRulesOnly') }
+})
 
 const recentProjects = computed<Project[]>(() => summary.value?.recentProjects || [])
-
 const recentReports = computed<ReportListItem[]>(() => summary.value?.recentReports || [])
-
 const recentInterviews = computed<InterviewSessionListItem[]>(() => summary.value?.recentInterviews || [])
-const showOnboarding = computed(() => !loading.value && (summary.value?.projectCount ?? 0) === 0)
-
-const onboardingSteps = computed(() => [
-  {
-    title: t('dashboard.onboarding.steps.create.title'),
-    description: t('dashboard.onboarding.steps.create.description')
-  },
-  {
-    title: t('dashboard.onboarding.steps.upload.title'),
-    description: t('dashboard.onboarding.steps.upload.description')
-  },
-  {
-    title: t('dashboard.onboarding.steps.scan.title'),
-    description: t('dashboard.onboarding.steps.scan.description')
-  },
-  {
-    title: t('dashboard.onboarding.steps.ai.title'),
-    description: t('dashboard.onboarding.steps.ai.description')
-  }
-])
-
-const quickEntries = computed(() => [
-  {
-    title: t('dashboard.quick.create.title'),
-    description: t('dashboard.quick.create.description'),
-    path: '/projects/create',
-    icon: Plus
-  },
-  {
-    title: t('dashboard.quick.hallucination.title'),
-    description: t('dashboard.quick.hallucination.description'),
-    path: '/hallucination',
-    icon: MagicStick
-  },
-  {
-    title: t('dashboard.quick.interview.title'),
-    description: t('dashboard.quick.interview.description'),
-    path: '/interview',
-    icon: ChatDotRound
-  },
-  {
-    title: t('dashboard.quick.credits.title'),
-    description: t('dashboard.quick.credits.description'),
-    path: '/credits',
-    icon: Coin
-  }
-])
-
-function statusTagType(status?: string) {
-  const statusMap: Record<string, 'info' | 'primary' | 'success' | 'danger' | 'warning'> = {
-    PENDING: 'info',
-    ANALYZING: 'primary',
-    RUNNING: 'primary',
-    FINISHED: 'success',
-    SUCCESS: 'success',
-    FAILED: 'danger'
-  }
-
-  return statusMap[status || 'PENDING'] || 'info'
-}
 
 function formatScore(score?: number) {
-  return Number.isFinite(score) ? Math.round(Number(score)) : '-'
+  return Number.isFinite(score) ? Math.round(Number(score)) : '—'
 }
 
-function handleMetricClick(path?: string) {
-  if (path) {
-    router.push(path)
+function formatDate(value?: string) {
+  if (!value) {
+    return '—'
   }
-}
 
-function scrollToDemo() {
-  document.querySelector('#dashboard-demo-flow')?.scrollIntoView({
-    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
-    block: 'start'
-  })
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+
+  return new Intl.DateTimeFormat(locale.value, {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit'
+  }).format(date)
 }
 
 async function loadDashboard() {
   loading.value = true
-  try {
-    const [dashboardSummary, status] = await Promise.all([
-      getDashboardSummary(),
-      getAiStatus().catch(() => null)
-    ])
-    summary.value = dashboardSummary
-    aiStatus.value = status
-    userStore.updateCredits(dashboardSummary.creditBalance || 0)
-  } finally {
-    loading.value = false
+  loadError.value = false
+  aiStatusResolved.value = false
+
+  const [summaryResult, aiResult] = await Promise.allSettled([getDashboardSummary(), getAiStatus()])
+
+  if (summaryResult.status === 'fulfilled') {
+    summary.value = summaryResult.value
+    userStore.updateCredits(summaryResult.value.creditBalance)
+  } else {
+    loadError.value = true
   }
+
+  aiStatus.value = aiResult.status === 'fulfilled' ? aiResult.value : null
+  aiStatusResolved.value = true
+  loading.value = false
 }
 
 onMounted(loadDashboard)
 </script>
 
 <style scoped>
-.dashboard-hero-panel {
-  overflow: hidden;
+.dashboard-workspace {
+  display: grid;
+  gap: var(--pm-space-10);
 }
 
-.dashboard-hero {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+.workspace-error {
+  display: flex;
   align-items: center;
-  gap: 24px;
-  overflow: hidden;
-  border-radius: 8px;
-  background:
-    radial-gradient(circle at 8% 0%, rgba(20, 184, 166, 0.18), transparent 34%),
-    radial-gradient(circle at 82% 4%, rgba(31, 111, 235, 0.18), transparent 36%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(248, 251, 255, 0.7)),
-    rgba(255, 255, 255, 0.86);
+  justify-content: space-between;
+  gap: var(--pm-space-5);
+  padding: var(--pm-space-4) var(--pm-space-5);
+  border: 1px solid var(--pm-risk-border);
+  border-radius: var(--pm-radius-sm);
+  background: var(--pm-risk-bg);
 }
 
-.dashboard-hero::after {
-  position: absolute;
-  right: -12%;
-  bottom: -70%;
-  width: 48%;
-  height: 180%;
-  background: linear-gradient(135deg, transparent, rgba(31, 111, 235, 0.08), transparent);
-  content: "";
-  transform: rotate(18deg);
+.workspace-error strong,
+.workspace-error p {
+  display: block;
 }
 
-.dashboard-hero > * {
-  position: relative;
-  z-index: 1;
+.workspace-error strong {
+  margin-top: 8px;
+  color: var(--pm-ink);
+  font-size: 15px;
 }
 
-.dashboard-hero h2 {
-  margin: 8px 0;
-  color: #111827;
-  font-size: clamp(30px, 4vw, 42px);
-  line-height: 1.08;
+.workspace-error p {
+  margin: 4px 0 0;
+  color: var(--pm-graphite);
+  font-size: 14px;
+  line-height: 1.5;
 }
 
-.dashboard-hero p:last-child {
-  max-width: 620px;
+.workspace-summary,
+.recent-ledger {
+  min-width: 0;
 }
 
-.dashboard-hero-chips {
-  margin-top: 18px;
+.workspace-section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--pm-space-6);
+  margin-bottom: var(--pm-space-4);
 }
 
-.dashboard-hero-card {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  gap: 18px;
-  padding: 18px;
-  border: 1px solid rgba(214, 224, 236, 0.82);
-  border-radius: 8px;
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.82), rgba(248, 251, 255, 0.64)),
-    rgba(255, 255, 255, 0.72);
-  box-shadow: 0 22px 56px rgba(31, 111, 235, 0.1);
-  backdrop-filter: blur(16px);
+.workspace-section-heading h2 {
+  margin: 0;
+  color: var(--pm-ink);
+  font-size: var(--pm-type-section-title);
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  line-height: 1.3;
 }
 
-.dashboard-hero-card span {
+.workspace-section-heading p {
+  max-width: 68ch;
+  margin: 5px 0 0;
+  color: var(--pm-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.ai-service-state {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--pm-space-3);
+  padding-bottom: 2px;
+}
+
+.ai-service-state > span {
+  color: var(--pm-muted);
+  font-family: var(--pm-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.075em;
   text-transform: uppercase;
 }
 
-.dashboard-hero-card strong {
-  display: block;
-  margin-top: 8px;
-  color: #111827;
-  font-size: 24px;
-  line-height: 1.2;
-}
-
-.dashboard-hero-card p {
-  margin: 8px 0 0;
-  color: var(--pm-muted);
-  line-height: 1.7;
-}
-
-.dashboard-metric-grid {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-}
-
-.onboarding-panel {
-  overflow: hidden;
-}
-
-.onboarding-steps {
+.metric-ledger {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  border-top: 1px solid var(--pm-stone-strong);
+  border-bottom: 1px solid var(--pm-stone-strong);
+  background: var(--pm-surface);
+}
+
+.metric-ledger-item {
+  display: flex;
+  min-width: 0;
+  min-height: 104px;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--pm-space-3);
+  padding: var(--pm-space-5);
+  border-right: 1px solid var(--pm-stone);
+  transition: background-color var(--pm-motion-base) var(--pm-ease-standard);
+}
+
+.metric-ledger-item:last-child {
+  border-right: 0;
+}
+
+.metric-ledger-item:hover {
+  background: var(--pm-paper);
+}
+
+.metric-ledger-item > span:first-child {
+  color: var(--pm-muted);
+  font-size: 13px;
+}
+
+.metric-ledger-item strong {
+  color: var(--pm-ink);
+  font-size: 30px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.025em;
+  line-height: 1;
+}
+
+.metric-skeleton {
+  display: block;
+  width: 46%;
+  height: 28px;
+  background: var(--pm-soft);
+}
+
+.workspace-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--pm-space-5);
+  min-height: 50px;
+  border-bottom: 1px solid var(--pm-stone);
+  overflow-x: auto;
+}
+
+.workspace-actions > span {
+  flex: 0 0 auto;
+  color: var(--pm-muted);
+  font-family: var(--pm-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+.workspace-actions a {
+  display: inline-flex;
+  min-height: 44px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  color: var(--pm-graphite);
+  font-size: 13px;
+  font-weight: 600;
+  text-underline-offset: 4px;
+  transition: color var(--pm-motion-fast) ease;
+}
+
+.workspace-actions a:hover {
+  color: var(--pm-primary);
+  text-decoration: underline;
+}
+
+.workspace-boundary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--pm-space-3);
+  padding: var(--pm-space-4);
+  border: 1px solid var(--pm-stone);
+  border-radius: var(--pm-radius-sm);
+  background: var(--pm-surface);
+}
+
+.workspace-boundary :deep(.el-icon) {
+  margin-top: 2px;
+  color: var(--pm-amber);
+  font-size: 16px;
+}
+
+.workspace-boundary strong {
+  display: block;
+  color: var(--pm-ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.workspace-boundary p {
+  max-width: 75ch;
+  margin: 3px 0 0;
+  color: var(--pm-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.recent-ledger-heading {
+  margin-bottom: 0;
+}
+
+.tab-label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.tab-label > span {
+  color: var(--pm-muted);
+  font-family: var(--pm-font-mono);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.table-action {
+  color: var(--pm-primary);
+  font-size: 13px;
+  font-weight: 600;
+  text-underline-offset: 4px;
+}
+
+.table-action:hover {
+  text-decoration: underline;
+}
+
+.numeric-data {
+  font-variant-numeric: tabular-nums;
+}
+
+.record-skeleton {
+  display: grid;
+  gap: 1px;
+  padding: 1px 0;
+  background: var(--pm-stone);
+}
+
+.record-skeleton i {
+  display: block;
+  height: 52px;
+  background: var(--pm-surface);
+  border-bottom: 12px solid var(--pm-paper);
+}
+
+.records-unavailable {
+  margin: 0;
+  padding: var(--pm-space-6) 0;
+  border-top: 1px solid var(--pm-stone);
+  border-bottom: 1px solid var(--pm-stone);
+  color: var(--pm-muted);
+  font-size: 14px;
+}
+
+.mobile-record-list {
+  display: none;
   margin: 0;
   padding: 0;
+  border-top: 1px solid var(--pm-stone-strong);
   list-style: none;
 }
 
-.onboarding-steps li {
+.mobile-record-list li {
+  border-bottom: 1px solid var(--pm-stone);
+}
+
+.mobile-record-list a {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 12px;
-  padding: 15px;
-  border: 1px solid rgba(223, 230, 240, 0.9);
-  border-radius: 8px;
-  background: #fbfdff;
+  gap: var(--pm-space-3);
+  min-height: 76px;
+  padding: var(--pm-space-4) 0;
 }
 
-.onboarding-steps li > span {
-  display: grid;
-  width: 30px;
-  height: 30px;
-  place-items: center;
-  border-radius: 8px;
-  background: linear-gradient(135deg, var(--pm-primary), var(--pm-teal));
-  color: #ffffff;
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.onboarding-steps strong {
-  color: var(--pm-ink);
-}
-
-.onboarding-steps p {
-  margin: 6px 0 0;
-  color: var(--pm-muted);
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.onboarding-actions {
+.mobile-record-main,
+.mobile-record-meta {
   display: flex;
-  gap: 10px;
-  margin-top: 18px;
-  flex-wrap: wrap;
+  min-width: 0;
+  justify-content: space-between;
+  gap: var(--pm-space-3);
 }
 
-.dashboard-metric {
-  position: relative;
+.mobile-record-main strong {
+  min-width: 0;
   overflow: hidden;
-  min-height: 150px;
-  width: 100%;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: default;
+  color: var(--pm-ink);
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-button.dashboard-metric {
-  appearance: none;
-}
-
-.dashboard-metric.clickable {
-  cursor: pointer;
-}
-
-.dashboard-metric.clickable:focus-visible {
-  outline: 3px solid rgba(31, 111, 235, 0.24);
-  outline-offset: 3px;
-}
-
-.dashboard-metric::after {
-  position: absolute;
-  inset: auto 14px 12px auto;
-  width: 46px;
-  height: 46px;
-  border-radius: 999px;
-  background: rgba(31, 111, 235, 0.08);
-  content: "";
-}
-
-.dashboard-metric-accent {
-  display: block;
-  width: 28px;
-  height: 3px;
-  margin-bottom: 14px;
-  border-radius: 999px;
-  background: var(--pm-primary);
-}
-
-.dashboard-metric-accent.teal {
-  background: var(--pm-teal);
-}
-
-.dashboard-metric-accent.green {
-  background: var(--pm-green);
-}
-
-.dashboard-metric-accent.amber {
-  background: var(--pm-amber);
-}
-
-.quick-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.quick-entry {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 86px;
-  padding: 16px;
-  border: 1px solid rgba(223, 230, 240, 0.92);
-  border-radius: 8px;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition:
-    border-color 180ms ease,
-    box-shadow 180ms ease,
-    transform 180ms ease;
-}
-
-.quick-entry :deep(.el-icon) {
-  display: grid;
-  width: 40px;
-  height: 40px;
+.mobile-record-main small,
+.mobile-record-meta time {
   flex: 0 0 auto;
-  place-items: center;
-  border-radius: 8px;
-  background: linear-gradient(135deg, rgba(31, 111, 235, 0.12), rgba(20, 184, 166, 0.1));
-  color: var(--pm-primary);
-}
-
-.quick-entry span {
-  position: relative;
-  z-index: 1;
-}
-
-.quick-entry strong,
-.quick-entry small {
-  display: block;
-}
-
-.quick-entry small {
-  margin-top: 4px;
   color: var(--pm-muted);
+  font-size: 12px;
 }
 
-@media (max-width: 920px) {
-  .dashboard-hero,
-  .dashboard-metric-grid {
+.mobile-record-meta {
+  align-items: center;
+}
+
+@media (max-width: 900px) {
+  .metric-ledger {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .quick-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .metric-ledger-item:nth-child(2) {
+    border-right: 0;
   }
 
-  .onboarding-steps {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .metric-ledger-item:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--pm-stone);
   }
 }
 
-@media (max-width: 620px) {
-  .dashboard-hero,
-  .dashboard-metric-grid,
-  .quick-grid {
-    grid-template-columns: 1fr;
+@media (max-width: 820px) {
+  .desktop-record-table {
+    display: none;
   }
 
-  .onboarding-steps {
-    grid-template-columns: 1fr;
+  .mobile-record-list {
+    display: block;
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboard-workspace {
+    gap: var(--pm-space-8);
   }
 
-  .dashboard-hero-card {
+  .workspace-error,
+  .workspace-section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .workspace-error {
+    padding: var(--pm-space-4);
+  }
+
+  .ai-service-state {
     width: 100%;
+    justify-content: space-between;
+    padding-top: var(--pm-space-2);
+    border-top: 1px solid var(--pm-stone);
+  }
+
+  .metric-ledger-item {
+    min-height: 92px;
+    padding: var(--pm-space-4);
+  }
+
+  .metric-ledger-item strong {
+    font-size: 26px;
+  }
+
+  .workspace-actions {
+    gap: var(--pm-space-4);
+    padding: var(--pm-space-1) 0 var(--pm-space-2);
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+
+  .mobile-record-main {
+    display: grid;
+    justify-content: normal;
+    gap: 3px;
+  }
+
+  .mobile-record-main small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 </style>

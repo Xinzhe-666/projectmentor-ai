@@ -1,753 +1,352 @@
 <template>
-  <div class="page-stack">
-    <section class="panel" v-loading="loading">
-      <div class="panel-title">
-        <div>
-          <h2>{{ project?.name || t('projects.detailTitle') }}</h2>
-          <p class="muted">{{ project?.description || t('projects.noDescription') }}</p>
-        </div>
-        <el-tag :type="statusTagType(project?.status)" effect="light">{{ project?.status || 'PENDING' }}</el-tag>
+  <div class="project-evidence-page">
+    <header class="project-header" aria-labelledby="project-title">
+      <div v-if="loading" class="project-header-loading" aria-live="polite">
+        <el-skeleton :rows="3" animated />
       </div>
-      <div class="panel-body detail-grid">
+      <div v-else-if="projectError" class="project-header-error" role="alert">
         <div>
-          <span class="muted">{{ t('common.projectName') }}</span>
-          <p>{{ project?.name || '-' }}</p>
+          <strong>{{ t('projects.v5.errors.project') }}</strong>
+          <p>{{ t('projects.v5.workspaceDescription') }}</p>
         </div>
-        <div>
-          <span class="muted">{{ t('common.github') }}</span>
-          <p class="link-text">{{ project?.githubUrl || '-' }}</p>
-        </div>
-        <div>
-          <span class="muted">{{ t('common.description') }}</span>
-          <p>{{ project?.description || '-' }}</p>
-        </div>
-        <div>
-          <span class="muted">{{ t('common.techStack') }}</span>
-          <p>{{ project?.techStack || '-' }}</p>
-        </div>
-        <div>
-          <span class="muted">{{ t('common.projectType') }}</span>
-          <p>{{ project?.projectType || '-' }}</p>
-        </div>
-        <div>
-          <span class="muted">{{ t('common.createTime') }}</span>
-          <p>{{ project?.createTime || '-' }}</p>
-        </div>
+        <el-button @click="loadProject">{{ t('projects.v5.retry') }}</el-button>
       </div>
-    </section>
-
-    <section class="panel" v-loading="artifactLoading">
-      <div class="panel-title">
-        <div>
-          <h3>{{ t('projects.artifactsTitle') }}</h3>
-          <p class="muted">{{ t('projects.artifactsDesc') }}</p>
-        </div>
-        <div class="artifact-actions">
-          <el-button :icon="MagicStick" @click="router.push(`/hallucination?projectId=${projectId}`)">
-            {{ t('projects.checkHallucination') }}
-          </el-button>
-          <el-button :icon="DocumentChecked" @click="router.push(`/reports?projectId=${projectId}`)">
-            {{ t('projects.viewProjectReports') }}
-          </el-button>
-          <el-button :icon="Tickets" @click="router.push(`/interviews?projectId=${projectId}`)">
-            {{ t('projects.viewProjectInterviews') }}
-          </el-button>
-          <el-button :icon="ChatDotRound" @click="scrollToQaHistory">
-            {{ t('projects.viewProjectQa') }}
-          </el-button>
-        </div>
-      </div>
-      <div class="panel-body project-history-grid">
-        <div class="history-column">
-          <div class="history-column-title">
-            <h4>{{ t('projects.recentReports') }}</h4>
-            <el-button text type="primary" @click="router.push(`/reports?projectId=${projectId}`)">{{ t('common.viewAll') }}</el-button>
+      <template v-else>
+        <div class="project-title-row">
+          <div class="project-title-copy">
+            <div class="project-title-line">
+              <h2 id="project-title">{{ project?.name || t('common.unnamedProject') }}</h2>
+              <StatusLabel v-if="project?.status" :status="project.status" :label="projectStatusLabel(project.status)" />
+            </div>
+            <p>{{ project?.description || t('projects.noDescription') }}</p>
           </div>
-          <el-table v-if="recentReports.length" :data="recentReports" stripe>
-            <el-table-column :label="t('common.score')" width="110">
-              <template #default="{ row }">{{ formatScore(row.healthScore) }}</template>
-            </el-table-column>
-            <el-table-column prop="status" :label="t('common.status')" width="120">
-              <template #default="{ row }">
-                <el-tag :type="statusTagType(row.status)" effect="light">{{ row.status || 'FINISHED' }}</el-tag>
+          <div class="project-primary-actions">
+            <el-button v-if="showDefenseEntry" class="defense-entry" @click="openDefense">
+              {{ t('defense.entry') }}
+            </el-button>
+            <div class="audit-action">
+              <el-button type="primary" :loading="analyzing" :disabled="activeTask" @click="handleStartAnalyze">
+                {{ t('projects.v5.runAudit') }}
+              </el-button>
+              <span>{{ t('projects.v5.auditCost', { count: AI_CREDIT_COSTS.AUDIT_REPORT }) }}</span>
+            </div>
+            <el-dropdown trigger="click" @command="handleProjectCommand">
+              <el-button :icon="MoreFilled" :aria-label="t('projects.v5.moreActions')" />
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="reports">{{ t('projects.v5.viewReports') }}</el-dropdown-item>
+                  <el-dropdown-item command="claim-check">{{ t('projects.v5.checkClaims') }}</el-dropdown-item>
+                  <el-dropdown-item v-if="project?.githubUrl" command="github">{{ t('projects.v5.openGithub') }}</el-dropdown-item>
+                  <el-dropdown-item divided command="delete" :disabled="activeTask">{{ t('projects.v5.deleteProject') }}</el-dropdown-item>
+                </el-dropdown-menu>
               </template>
-            </el-table-column>
-            <el-table-column prop="createTime" :label="t('common.createTime')" min-width="160" />
-            <el-table-column :label="t('common.operation')" width="100" fixed="right">
-              <template #default="{ row }">
-                <el-button text type="primary" @click="router.push(`/reports/${row.reportId}`)">{{ t('common.view') }}</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-          <p v-else class="muted history-empty">{{ t('projects.noRecentReports') }}</p>
-        </div>
-
-        <div class="history-column">
-          <div class="history-column-title">
-            <h4>{{ t('projects.recentInterviews') }}</h4>
-            <el-button text type="primary" @click="router.push(`/interviews?projectId=${projectId}`)">{{ t('common.viewAll') }}</el-button>
+            </el-dropdown>
           </div>
-          <el-table v-if="recentInterviews.length" :data="recentInterviews" stripe>
-            <el-table-column :label="t('interviews.totalScore')" width="110">
-              <template #default="{ row }">{{ formatScore(row.totalScore) }}</template>
-            </el-table-column>
-            <el-table-column :label="t('interviews.questionStats')" min-width="140">
-              <template #default="{ row }">{{ row.answeredCount }} / {{ row.questionCount }}</template>
-            </el-table-column>
-            <el-table-column prop="status" :label="t('common.status')" width="120">
-              <template #default="{ row }">
-                <el-tag :type="statusTagType(row.status)" effect="light">{{ row.status || 'RUNNING' }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="createTime" :label="t('common.createTime')" min-width="160" />
-            <el-table-column :label="t('common.operation')" width="100" fixed="right">
-              <template #default="{ row }">
-                <el-button text type="primary" @click="router.push(`/interview?sessionId=${row.sessionId}`)">{{ t('common.view') }}</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-          <p v-else class="muted history-empty">{{ t('projects.noRecentInterviews') }}</p>
         </div>
-      </div>
-    </section>
+        <div class="project-metadata" :aria-label="t('projects.v5.metadataLabel')">
+          <span v-if="project?.projectType">{{ project.projectType }}</span>
+          <span v-if="project?.techStack">{{ project.techStack }}</span>
+          <span>{{ t('projects.v5.updated', { time: formatDate(project?.updateTime || project?.createTime) }) }}</span>
+          <span>{{ t('projects.v5.filesCount', { count: files.length }) }}</span>
+          <span>{{ t('projects.v5.reportsCount', { count: reportTotal }) }}</span>
+        </div>
+      </template>
+      <TaskProgress v-if="task" :task="task" :interrupted="pollingInterrupted" @retry="resumePolling" />
+    </header>
 
-    <section class="panel">
-      <div class="panel-title">
-        <div>
-          <h3>{{ t('projects.readmeTitle') }}</h3>
-          <p class="muted">{{ t('projects.readmeDesc') }}</p>
-        </div>
-        <el-button type="primary" :loading="savingReadme" @click="handleSaveReadme">{{ t('projects.saveReadme') }}</el-button>
-      </div>
-      <div class="panel-body readme-editor">
-        <el-input
-          v-model="readmeContent"
-          type="textarea"
-          :rows="10"
-          :placeholder="t('projects.readmePlaceholder')"
-        />
-      </div>
-    </section>
+    <nav class="project-navigation" :aria-label="t('projects.v5.navigationLabel')">
+      <button
+        v-for="item in navigationItems"
+        :key="item.value"
+        type="button"
+        :class="{ 'is-active': activeSection === item.value }"
+        :aria-current="activeSection === item.value ? 'page' : undefined"
+        @click="activeSection = item.value"
+      >
+        {{ item.label }}
+      </button>
+    </nav>
 
-    <section class="panel">
-      <div class="panel-title">
-        <div>
-          <h3>{{ t('projects.zipTitle') }}</h3>
-          <p class="muted">{{ t('projects.zipDesc') }}</p>
-        </div>
-        <div class="zip-upload-actions">
-          <el-upload accept=".zip" :show-file-list="false" :before-upload="beforeZipUpload">
-            <el-button :icon="Upload" :loading="uploading">{{ t('projects.uploadZip') }}</el-button>
-          </el-upload>
-          <p class="muted upload-tip">{{ t('projects.zipTip') }}</p>
-        </div>
-      </div>
-      <div class="panel-body">
-        <div v-if="uploadResult" class="upload-result">
-          <div class="score-grid">
-            <div class="metric-card">
-              <span>{{ t('projects.savedFiles') }}</span>
-              <strong>{{ uploadResult.savedFileCount }}</strong>
-            </div>
-            <div class="metric-card">
-              <span>{{ t('projects.skippedFiles') }}</span>
-              <strong>{{ uploadResult.skippedFileCount }}</strong>
-            </div>
+    <main class="project-workspace-content">
+      <ProjectEvidenceWorkspace
+        v-if="activeSection === 'evidence'"
+        :files="files"
+        :claims="latestReport?.claimEvidenceList || []"
+        :loading="reportLoading"
+        :error="reportError"
+        :files-loading="fileLoading"
+        :files-error="fileError"
+        :report-id="latestReport?.id"
+        :report-created-at="latestReport?.createTime"
+        @retry="loadReportHistory"
+        @retry-files="loadFiles"
+        @run-audit="handleStartAnalyze"
+        @open-sources="activeSection = 'files'"
+        @view-report="openReport"
+      />
+
+      <section v-else-if="activeSection === 'overview'" class="overview-surface" aria-labelledby="project-overview-title">
+        <header class="section-heading">
+          <div>
+            <h2 id="project-overview-title">{{ t('projects.v5.overview.title') }}</h2>
+            <p>{{ t('projects.v5.overview.description') }}</p>
           </div>
-
-          <div v-if="skipReasonEntries.length" class="skip-reason-list">
-            <el-tag
-              v-for="item in skipReasonEntries"
-              :key="item.reason"
-              effect="light"
-              type="info"
-            >
-              {{ item.label }}：{{ item.count }}
-            </el-tag>
-          </div>
-
-          <div v-if="uploadResult.warnings?.length" class="warning-list">
-            <el-alert
-              v-for="warning in uploadResult.warnings"
-              :key="warning"
-              :title="warning"
-              type="warning"
-              show-icon
-              :closable="false"
-            />
-          </div>
-
-          <div class="file-list-section">
-            <div class="file-list-header">
-              <div>
-                <h4>{{ t('projects.savedFiles') }}</h4>
-                <p class="muted">{{ filePageSummary(filteredUploadSavedFiles.length, uploadSavedFilePage, uploadSavedFilePageSize) }}</p>
+        </header>
+        <div class="overview-grid">
+          <section class="overview-section project-brief">
+            <h3>{{ t('projects.v5.overview.brief') }}</h3>
+            <p>{{ project?.description || t('projects.noDescription') }}</p>
+            <dl>
+              <div v-if="project?.projectType"><dt>{{ t('common.projectType') }}</dt><dd>{{ project.projectType }}</dd></div>
+              <div v-if="project?.techStack"><dt>{{ t('common.techStack') }}</dt><dd>{{ project.techStack }}</dd></div>
+              <div v-if="project?.githubUrl">
+                <dt>{{ t('common.github') }}</dt>
+                <dd><a :href="project.githubUrl" target="_blank" rel="noreferrer">{{ project.githubUrl }}</a></dd>
               </div>
-              <div class="file-list-filters">
-                <el-input
-                  v-model="uploadSavedFileKeyword"
-                  clearable
-                  :placeholder="t('projects.fileSearchPlaceholder')"
-                />
-                <el-select v-model="uploadSavedFileType" :placeholder="t('projects.fileTypeFilter')">
-                  <el-option :label="t('projects.fileTypeAll')" value="" />
-                  <el-option v-for="option in fileTypeGroupOptions" :key="option.value" :label="option.label" :value="option.value" />
-                </el-select>
-              </div>
+            </dl>
+          </section>
+          <section class="overview-section latest-audit">
+            <div class="overview-section-heading">
+              <h3>{{ t('projects.v5.overview.latestAudit') }}</h3>
+              <el-button v-if="latestReport" text @click="openReport(latestReport.id)">{{ t('projects.v5.overview.viewAudit') }}</el-button>
             </div>
-            <el-table :data="paginatedUploadSavedFiles" stripe max-height="420">
-              <el-table-column prop="filePath" :label="t('projects.filePath')" min-width="260" show-overflow-tooltip />
-              <el-table-column :label="t('projects.fileTypeGroup')" width="130">
-                <template #default="{ row }">{{ fileTypeGroupLabel(fileTypeGroup(row)) }}</template>
-              </el-table-column>
-              <el-table-column prop="fileType" :label="t('projects.fileType')" width="150" />
-              <el-table-column prop="contentLength" :label="t('projects.contentLength')" width="120" />
-            </el-table>
-            <div class="file-list-pagination">
-              <el-pagination
-                v-if="filteredUploadSavedFiles.length > 0"
-                v-model:current-page="uploadSavedFilePage"
-                v-model:page-size="uploadSavedFilePageSize"
-                background
-                layout="total, sizes, prev, pager, next"
-                :page-sizes="FILE_PAGE_SIZES"
-                :total="filteredUploadSavedFiles.length"
-              />
+            <div v-if="reportLoading" class="overview-loading"><el-skeleton :rows="4" animated /></div>
+            <div v-else-if="reportError" class="inline-error" role="alert">
+              <span>{{ t('projects.v5.errors.reports') }}</span>
+              <el-button text @click="loadReportHistory">{{ t('projects.v5.retry') }}</el-button>
             </div>
-          </div>
-
-          <div class="file-list-section">
-            <div class="file-list-header">
-              <div>
-                <h4>{{ t('projects.skippedFiles') }}</h4>
-                <p class="muted">{{ filePageSummary(filteredUploadSkippedFiles.length, uploadSkippedFilePage, uploadSkippedFilePageSize) }}</p>
-              </div>
-              <div class="file-list-filters">
-                <el-input
-                  v-model="uploadSkippedFileKeyword"
-                  clearable
-                  :placeholder="t('projects.fileSearchPlaceholder')"
-                />
-                <el-select v-model="uploadSkippedFileType" :placeholder="t('projects.fileTypeFilter')">
-                  <el-option :label="t('projects.fileTypeAll')" value="" />
-                  <el-option v-for="option in fileTypeGroupOptions" :key="option.value" :label="option.label" :value="option.value" />
-                </el-select>
-              </div>
-            </div>
-            <el-table :data="paginatedUploadSkippedFiles" stripe max-height="420" :empty-text="t('projects.noMatchedFiles')">
-              <el-table-column prop="filePath" :label="t('projects.filePath')" min-width="260" show-overflow-tooltip />
-              <el-table-column :label="t('projects.fileTypeGroup')" width="130">
-                <template #default="{ row }">{{ fileTypeGroupLabel(fileTypeGroup(row)) }}</template>
-              </el-table-column>
-              <el-table-column :label="t('projects.skipReasonTitle')" width="170">
-                <template #default="{ row }">{{ skipReasonLabel(row.reason) }}</template>
-              </el-table-column>
-            </el-table>
-            <div class="file-list-pagination">
-              <el-pagination
-                v-if="filteredUploadSkippedFiles.length > 0"
-                v-model:current-page="uploadSkippedFilePage"
-                v-model:page-size="uploadSkippedFilePageSize"
-                background
-                layout="total, sizes, prev, pager, next"
-                :page-sizes="FILE_PAGE_SIZES"
-                :total="filteredUploadSkippedFiles.length"
-              />
-            </div>
-          </div>
+            <template v-else-if="latestReport">
+              <dl class="audit-ledger">
+                <div v-if="latestReport.totalScore !== undefined"><dt>{{ t('projects.v5.overview.totalScore') }}</dt><dd>{{ formatScore(latestReport.totalScore) }}</dd></div>
+                <div><dt>{{ t('projects.v5.overview.claims') }}</dt><dd>{{ claimSummary.total }}</dd></div>
+                <div><dt>{{ t('projects.v5.overview.supported') }}</dt><dd>{{ claimSummary.supported }}</dd></div>
+                <div><dt>{{ t('projects.v5.overview.attention') }}</dt><dd>{{ claimSummary.attention }}</dd></div>
+              </dl>
+              <p v-if="latestReport.summary" class="latest-audit-summary">{{ latestReport.summary }}</p>
+            </template>
+            <EmptyState v-else variant="compact" :title="t('projects.v5.overview.noAudit')" :description="t('projects.v5.overview.noAuditDescription')">
+              <el-button type="primary" @click="handleStartAnalyze">{{ t('projects.v5.runAudit') }}</el-button>
+            </EmptyState>
+          </section>
         </div>
-        <EmptyState v-else :title="t('projects.uploadEmptyTitle')" :description="t('projects.uploadEmptyDesc')" />
-      </div>
-    </section>
 
-    <section class="panel">
-      <div class="panel-title">
-        <div>
-          <h3>{{ t('projects.projectFiles') }}</h3>
-          <p class="muted">{{ t('projects.projectFilesDesc') }}</p>
-        </div>
-        <el-button :icon="Refresh" :loading="fileLoading" @click="loadFiles">{{ t('common.refresh') }}</el-button>
-      </div>
-      <div class="panel-body">
-        <div v-if="files.length || fileLoading" class="file-list-section">
-          <div class="file-list-header">
+        <section class="rule-scan-section" aria-labelledby="rule-scan-title">
+          <div class="rule-scan-heading">
             <div>
-              <h4>{{ t('projects.projectFiles') }}</h4>
-              <p class="muted">{{ filePageSummary(filteredProjectFiles.length, projectFilePage, projectFilePageSize) }}</p>
+              <h3 id="rule-scan-title">{{ t('projects.v5.overview.freeScan') }}</h3>
+              <p>{{ t('projects.v5.overview.freeScanDescription') }}</p>
             </div>
-            <div class="file-list-filters">
-              <el-input
-                v-model="projectFileKeyword"
-                clearable
-                :placeholder="t('projects.fileSearchPlaceholder')"
-              />
-              <el-select v-model="projectFileType" :placeholder="t('projects.fileTypeFilter')">
-                <el-option :label="t('projects.fileTypeAll')" value="" />
-                <el-option v-for="option in fileTypeGroupOptions" :key="option.value" :label="option.label" :value="option.value" />
-              </el-select>
+            <el-button :loading="scanning" @click="handleScan">{{ t('projects.v5.overview.runFreeScan') }}</el-button>
+          </div>
+          <template v-if="scanResult">
+            <dl class="scan-ledger">
+              <div><dt>{{ t('projects.v5.overview.riskTotal') }}</dt><dd>{{ scanResult.totalRiskCount }}</dd></div>
+              <div><dt>{{ t('projects.v5.overview.highRisk') }}</dt><dd>{{ scanResult.highRiskCount }}</dd></div>
+              <div><dt>{{ t('projects.v5.overview.mediumRisk') }}</dt><dd>{{ scanResult.mediumRiskCount }}</dd></div>
+              <div><dt>{{ t('projects.v5.overview.lowRisk') }}</dt><dd>{{ scanResult.lowRiskCount }}</dd></div>
+            </dl>
+            <div class="scan-results-grid">
+              <section>
+                <h4>{{ t('projects.v5.overview.riskFindings') }}</h4>
+                <ul v-if="scanResult.risks.length" class="scan-list">
+                  <li v-for="(risk, index) in scanResult.risks" :key="`${risk.riskType}-${index}`">
+                    <StatusLabel :status="risk.riskLevel" :label="risk.riskLevel" />
+                    <strong>{{ risk.message }}</strong>
+                    <code v-if="risk.sourceFile">{{ risk.sourceFile }}</code>
+                    <p v-if="risk.suggestion">{{ risk.suggestion }}</p>
+                  </li>
+                </ul>
+                <p v-else class="muted">{{ t('projects.v5.overview.noRisks') }}</p>
+              </section>
+              <section>
+                <h4>{{ t('projects.v5.overview.ruleEvidence') }}</h4>
+                <ul class="scan-list">
+                  <li v-for="(evidence, index) in scanResult.evidences" :key="`${evidence.conclusion}-${index}`">
+                    <strong>{{ evidence.conclusion }}</strong>
+                    <code v-if="evidence.sourceFile">{{ evidence.sourceFile }}</code>
+                    <p v-if="evidence.detail || evidence.evidence">{{ evidence.detail || evidence.evidence }}</p>
+                  </li>
+                </ul>
+              </section>
             </div>
-          </div>
-          <el-table v-loading="fileLoading" :data="paginatedProjectFiles" stripe max-height="460" :empty-text="t('projects.noMatchedFiles')">
-            <el-table-column prop="filePath" :label="t('projects.filePath')" min-width="280" show-overflow-tooltip />
-            <el-table-column :label="t('projects.fileTypeGroup')" width="130">
-              <template #default="{ row }">{{ fileTypeGroupLabel(fileTypeGroup(row)) }}</template>
-            </el-table-column>
-            <el-table-column prop="fileType" :label="t('projects.fileType')" width="150" />
-            <el-table-column prop="contentLength" :label="t('projects.contentLength')" width="120" />
-            <el-table-column prop="updateTime" :label="t('common.updateTime')" min-width="180" />
-          </el-table>
-          <div class="file-list-pagination">
-            <el-pagination
-              v-if="filteredProjectFiles.length > 0"
-              v-model:current-page="projectFilePage"
-              v-model:page-size="projectFilePageSize"
-              background
-              layout="total, sizes, prev, pager, next"
-              :page-sizes="FILE_PAGE_SIZES"
-              :total="filteredProjectFiles.length"
-            />
-          </div>
-        </div>
-        <EmptyState v-else :title="t('projects.noFilesTitle')" :description="t('projects.noFilesDesc')" />
-      </div>
-    </section>
+            <details v-if="scanResult.suggestions.length" class="scan-suggestions">
+              <summary>{{ t('projects.v5.overview.suggestions') }}</summary>
+              <ul><li v-for="suggestion in scanResult.suggestions" :key="suggestion">{{ suggestion }}</li></ul>
+            </details>
+          </template>
+        </section>
+      </section>
 
-    <section class="panel">
-      <div class="panel-title">
-        <div>
-          <h3>{{ t('projects.ruleScanTitle') }}</h3>
-          <p class="muted">{{ t('projects.ruleScanDesc') }}</p>
+      <ProjectSourceManager
+        v-else-if="activeSection === 'files'"
+        :project-id="projectId"
+        :files="files"
+        :loading="fileLoading"
+        :error="fileError"
+        @refresh="loadFiles"
+      />
+
+      <section v-else-if="activeSection === 'qa'" class="qa-surface" aria-labelledby="evidence-qa-title">
+        <header class="section-heading">
+          <div><h2 id="evidence-qa-title">{{ t('projects.v5.qa.title') }}</h2><p>{{ t('projects.v5.qa.description') }}</p></div>
+        </header>
+        <ProjectQaPanel
+          :project-id="projectId"
+          :project-name="project?.name || t('common.unnamedProject')"
+          :has-project-files="files.length > 0"
+          :project-files="files"
+          :claims="latestReport?.claimEvidenceList || []"
+          @open-sources="activeSection = 'files'"
+        />
+      </section>
+
+      <section v-else class="interview-surface" aria-labelledby="interview-preparation-title">
+        <header class="section-heading interview-heading">
+          <div><h2 id="interview-preparation-title">{{ t('projects.v5.interview.title') }}</h2><p>{{ t('projects.v5.interview.description') }}</p></div>
+          <el-button type="primary" @click="router.push(`/interview?projectId=${projectId}`)">{{ t('projects.v5.interview.start') }}</el-button>
+        </header>
+        <div v-if="interviewLoading" class="interview-loading"><el-skeleton :rows="5" animated /></div>
+        <div v-else-if="interviewError" class="inline-error" role="alert">
+          <span>{{ t('projects.v5.errors.interviews') }}</span>
+          <el-button text @click="loadInterviews">{{ t('projects.v5.retry') }}</el-button>
         </div>
-        <div class="credit-action">
-          <el-button :icon="Search" :loading="scanning" @click="handleScan">{{ t('projects.ruleScan') }}</el-button>
-          <span>{{ t('projects.ruleScanFree') }}</span>
-        </div>
-      </div>
-      <div class="panel-body">
-        <div v-if="scanResult" class="scan-result">
-          <div class="score-grid">
-            <div class="metric-card">
-              <span>{{ t('projects.riskTotal') }}</span>
-              <strong>{{ scanResult.totalRiskCount }}</strong>
+        <div v-else-if="recentInterviews.length" class="interview-list">
+          <article v-for="session in recentInterviews" :key="session.sessionId">
+            <div>
+              <StatusLabel :status="session.status" :label="interviewStatusLabel(session.status)" />
+              <strong>{{ t('projects.v5.interview.questions', { answered: session.answeredCount, total: session.questionCount }) }}</strong>
+              <span>{{ formatDate(session.updateTime || session.createTime) }}</span>
             </div>
-            <div class="metric-card">
-              <span>{{ t('projects.highRisk') }}</span>
-              <strong>{{ scanResult.highRiskCount }}</strong>
-            </div>
-            <div class="metric-card">
-              <span>{{ t('projects.mediumRisk') }}</span>
-              <strong>{{ scanResult.mediumRiskCount }}</strong>
-            </div>
-            <div class="metric-card">
-              <span>{{ t('projects.lowRisk') }}</span>
-              <strong>{{ scanResult.lowRiskCount }}</strong>
-            </div>
-          </div>
-
-          <div class="subsection">
-            <h4>{{ t('common.risks') }}</h4>
-            <RiskList :risks="scanResult.risks" />
-          </div>
-
-          <div class="subsection">
-            <h4>{{ t('common.evidence') }}</h4>
-            <EvidenceList :evidences="scanResult.evidences" />
-          </div>
-
-          <div class="subsection">
-            <h4>{{ t('common.suggestions') }}</h4>
-            <el-tag v-for="suggestion in scanResult.suggestions" :key="suggestion" class="suggestion-tag" effect="light">
-              {{ suggestion }}
-            </el-tag>
-          </div>
+            <span v-if="session.totalScore !== undefined" class="interview-score">{{ formatScore(session.totalScore) }}</span>
+            <el-button text @click="router.push(`/interview?sessionId=${session.sessionId}`)">{{ t('projects.v5.interview.view') }}</el-button>
+          </article>
         </div>
-        <EmptyState v-else :title="t('projects.notScannedTitle')" :description="t('projects.notScannedDesc')" />
-      </div>
-    </section>
-
-    <section class="panel">
-      <div class="panel-title">
-        <div>
-          <h3>{{ t('projects.asyncTitle') }}</h3>
-          <p class="muted">{{ t('projects.asyncDesc') }}</p>
-        </div>
-        <div class="credit-action">
-          <el-button type="primary" :icon="Cpu" :loading="analyzing" @click="handleStartAnalyze">{{ t('projects.startAnalyze') }}</el-button>
-          <span>{{ t('credits.estimatedCost', { count: AI_CREDIT_COSTS.AUDIT_REPORT }) }}</span>
-        </div>
-      </div>
-      <div class="panel-body async-panel">
-        <TaskProgress v-if="task" :task="task" />
-        <EmptyState v-else :title="t('projects.noTaskTitle')" :description="t('projects.noTaskDesc')" />
-        <div v-if="task?.status === 'SUCCESS' && task.reportId" class="toolbar">
-          <el-button type="primary" @click="router.push(`/reports/${task.reportId}`)">{{ t('projects.viewReport') }}</el-button>
-        </div>
-      </div>
-    </section>
-
-    <div id="project-qa-history">
-      <ProjectQaPanel :project-id="projectId" :has-project-files="files.length > 0" />
-    </div>
+        <EmptyState v-else variant="compact" :title="t('projects.v5.interview.noSessions')" />
+      </section>
+    </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { ChatDotRound, Cpu, DocumentChecked, MagicStick, Refresh, Search, Tickets, Upload } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox, type UploadProps } from 'element-plus'
+import { MoreFilled } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
-import { getTask, listMyReports, scanProject, startAnalyze } from '@/api/analysis'
+import { getReportDetail, getTask, listMyReports, scanProject, startAnalyze } from '@/api/analysis'
 import { getMyCredits } from '@/api/credit'
 import { listInterviewSessions } from '@/api/interview'
-import { getProjectDetail, listProjectFiles, saveReadme, uploadZip } from '@/api/project'
+import { deleteProject, getProjectDetail, listProjectFiles } from '@/api/project'
 import EmptyState from '@/components/EmptyState.vue'
-import EvidenceList from '@/components/EvidenceList.vue'
+import ProjectEvidenceWorkspace from '@/components/ProjectEvidenceWorkspace.vue'
 import ProjectQaPanel from '@/components/ProjectQaPanel.vue'
-import RiskList from '@/components/RiskList.vue'
+import ProjectSourceManager from '@/components/ProjectSourceManager.vue'
+import StatusLabel from '@/components/StatusLabel.vue'
 import TaskProgress from '@/components/TaskProgress.vue'
 import { AI_CREDIT_COSTS } from '@/constants/creditCosts'
 import { useUserStore } from '@/stores/user'
-import type {
-  AnalysisTask,
-  InterviewSessionListItem,
-  ParsedProjectFile,
-  Project,
-  ProjectFile,
-  ReportListItem,
-  RuleScanResult,
-  SkippedProjectFile,
-  UploadZipResult
-} from '@/types/api'
+import { useExperienceStore } from '@/stores/experience'
+import type { AnalysisReport, AnalysisTask, InterviewSessionListItem, Project, ProjectFile, ReportListItem, RuleScanResult } from '@/types/api'
+
+type ProjectSection = 'overview' | 'evidence' | 'files' | 'qa' | 'interview'
+type ProjectCommand = 'reports' | 'claim-check' | 'github' | 'delete'
 
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
 const userStore = useUserStore()
+const experienceStore = useExperienceStore()
 const projectId = Number(route.params.id)
 
+const activeSection = ref<ProjectSection>('evidence')
 const loading = ref(false)
+const projectError = ref(false)
 const fileLoading = ref(false)
-const artifactLoading = ref(false)
-const savingReadme = ref(false)
-const uploading = ref(false)
+const fileError = ref(false)
+const reportLoading = ref(false)
+const reportError = ref(false)
+const interviewLoading = ref(false)
+const interviewError = ref(false)
 const scanning = ref(false)
 const analyzing = ref(false)
-const readmeContent = ref('')
+const pollingInterrupted = ref(false)
 const project = ref<Project>()
 const files = ref<ProjectFile[]>([])
 const recentReports = ref<ReportListItem[]>([])
+const reportTotal = ref(0)
 const recentInterviews = ref<InterviewSessionListItem[]>([])
-const uploadResult = ref<UploadZipResult>()
+const latestReport = ref<AnalysisReport>()
 const scanResult = ref<RuleScanResult>()
 const task = ref<AnalysisTask>()
 let pollTimer: number | undefined
 
-const MAX_ZIP_SIZE_BYTES = 800 * 1024 * 1024
-const FILE_PAGE_SIZES = [20, 50, 100]
-
-type FileTypeGroup = '' | 'CODE' | 'CONFIG' | 'DOC' | 'OTHER'
-type FileListRow = {
-  filePath: string
-  fileType?: string
-  contentLength?: number
-}
-
-const uploadSavedFileKeyword = ref('')
-const uploadSavedFileType = ref<FileTypeGroup>('')
-const uploadSavedFilePage = ref(1)
-const uploadSavedFilePageSize = ref(20)
-const uploadSkippedFileKeyword = ref('')
-const uploadSkippedFileType = ref<FileTypeGroup>('')
-const uploadSkippedFilePage = ref(1)
-const uploadSkippedFilePageSize = ref(20)
-const projectFileKeyword = ref('')
-const projectFileType = ref<FileTypeGroup>('')
-const projectFilePage = ref(1)
-const projectFilePageSize = ref(20)
-
-const fileTypeGroupOptions = computed<Array<{ label: string; value: FileTypeGroup }>>(() => [
-  { label: t('projects.fileTypeGroups.CODE'), value: 'CODE' },
-  { label: t('projects.fileTypeGroups.CONFIG'), value: 'CONFIG' },
-  { label: t('projects.fileTypeGroups.DOC'), value: 'DOC' },
-  { label: t('projects.fileTypeGroups.OTHER'), value: 'OTHER' }
+const navigationItems = computed<Array<{ value: ProjectSection; label: string }>>(() => [
+  { value: 'overview', label: t('projects.v5.nav.overview') },
+  { value: 'evidence', label: t('projects.v5.nav.evidence') },
+  { value: 'files', label: t('projects.v5.nav.files') },
+  { value: 'qa', label: t('projects.v5.nav.qa') },
+  { value: 'interview', label: t('projects.v5.nav.interview') }
 ])
 
-const skipReasonLabels = computed<Record<string, string>>(() => ({
-  ignored_directory: t('projects.skipReason.ignored_directory'),
-  unsupported_type: t('projects.skipReason.unsupported_type'),
-  file_too_large: t('projects.skipReason.file_too_large'),
-  unsafe_path: t('projects.skipReason.unsafe_path'),
-  max_file_count_exceeded: t('projects.skipReason.max_file_count_exceeded'),
-  max_total_size_exceeded: t('projects.skipReason.max_total_size_exceeded'),
-  empty_file: t('projects.skipReason.empty_file'),
-  binary_file: t('projects.skipReason.binary_file')
-}))
-
-const skipReasonEntries = computed(() => {
-  const skippedByReason = uploadResult.value?.skippedByReason || {}
-
-  return Object.entries(skippedByReason)
-    .filter(([, count]) => count > 0)
-    .map(([reason, count]) => ({
-      reason,
-      label: skipReasonLabels.value[reason] || reason,
-      count
-    }))
+const activeTask = computed(() => ['PENDING', 'RUNNING'].includes(task.value?.status || ''))
+const showDefenseEntry = computed(() => experienceStore.activeExperienceMode === 'workbench')
+const claimSummary = computed(() => {
+  const claims = latestReport.value?.claimEvidenceList || []
+  const supported = claims.filter((claim) => claim.status === 'SUPPORTED').length
+  return { total: claims.length, supported, attention: claims.length - supported }
 })
-
-const filteredUploadSavedFiles = computed(() =>
-  filterFileRows(uploadResult.value?.files || [], uploadSavedFileKeyword.value, uploadSavedFileType.value)
-)
-
-const paginatedUploadSavedFiles = computed(() =>
-  paginateRows(filteredUploadSavedFiles.value, uploadSavedFilePage.value, uploadSavedFilePageSize.value)
-)
-
-const uploadSkippedFiles = computed(() => uploadResult.value?.skippedFiles || [])
-
-const filteredUploadSkippedFiles = computed(() =>
-  filterSkippedRows(uploadSkippedFiles.value, uploadSkippedFileKeyword.value, uploadSkippedFileType.value)
-)
-
-const paginatedUploadSkippedFiles = computed(() =>
-  paginateRows(filteredUploadSkippedFiles.value, uploadSkippedFilePage.value, uploadSkippedFilePageSize.value)
-)
-
-const filteredProjectFiles = computed(() =>
-  filterFileRows(files.value, projectFileKeyword.value, projectFileType.value)
-)
-
-const paginatedProjectFiles = computed(() =>
-  paginateRows(filteredProjectFiles.value, projectFilePage.value, projectFilePageSize.value)
-)
-
-watch([uploadSavedFileKeyword, uploadSavedFileType, uploadSavedFilePageSize], () => {
-  uploadSavedFilePage.value = 1
-})
-
-watch([uploadSkippedFileKeyword, uploadSkippedFileType, uploadSkippedFilePageSize], () => {
-  uploadSkippedFilePage.value = 1
-})
-
-watch([projectFileKeyword, projectFileType, projectFilePageSize], () => {
-  projectFilePage.value = 1
-})
-
-function filterFileRows<T extends FileListRow>(rows: T[], keyword: string, group: FileTypeGroup) {
-  const normalizedKeyword = keyword.trim().toLowerCase()
-
-  return rows.filter((row) => {
-    const pathMatched = !normalizedKeyword || row.filePath.toLowerCase().includes(normalizedKeyword)
-    const typeMatched = !group || fileTypeGroup(row) === group
-    return pathMatched && typeMatched
-  })
-}
-
-function filterSkippedRows(rows: SkippedProjectFile[], keyword: string, group: FileTypeGroup) {
-  const normalizedKeyword = keyword.trim().toLowerCase()
-
-  return rows.filter((row) => {
-    const pathMatched = !normalizedKeyword || row.filePath.toLowerCase().includes(normalizedKeyword)
-    const typeMatched = !group || fileTypeGroup(row) === group
-    return pathMatched && typeMatched
-  })
-}
-
-function paginateRows<T>(rows: T[], page: number, pageSize: number) {
-  const start = (Math.max(1, page) - 1) * pageSize
-  return rows.slice(start, start + pageSize)
-}
-
-function filePageSummary(total: number, page: number, pageSize: number) {
-  const pages = Math.max(1, Math.ceil(total / pageSize))
-  return t('projects.filePageSummary', {
-    page: Math.min(page, pages),
-    pages,
-    total
-  })
-}
-
-function fileTypeGroup(row: { filePath: string; fileType?: string }): Exclude<FileTypeGroup, ''> {
-  const type = row.fileType?.toUpperCase() || ''
-  const path = row.filePath.toLowerCase()
-
-  if (
-    ['CODE', 'CONTROLLER', 'SERVICE', 'MAPPER', 'ENTITY', 'UTIL'].includes(type) ||
-    ['.java', '.kt', '.js', '.jsx', '.ts', '.tsx', '.vue', '.css', '.scss', '.less', '.html', '.py', '.go', '.rs', '.c', '.cpp', '.h', '.hpp', '.cs', '.sh'].some((extension) => path.endsWith(extension))
-  ) {
-    return 'CODE'
-  }
-
-  if (
-    ['CONFIG', 'POM', 'PACKAGE', 'DOCKER', 'DOCKER_COMPOSE', 'SQL', 'GITIGNORE'].includes(type) ||
-    path.endsWith('.xml') ||
-    path.endsWith('.yml') ||
-    path.endsWith('.yaml') ||
-    path.endsWith('.properties') ||
-    path.endsWith('.sql') ||
-    path.endsWith('.json') ||
-    path.endsWith('dockerfile')
-  ) {
-    return 'CONFIG'
-  }
-
-  if (type === 'README' || path.endsWith('.md')) {
-    return 'DOC'
-  }
-
-  return 'OTHER'
-}
-
-function fileTypeGroupLabel(group: FileTypeGroup) {
-  if (!group) {
-    return t('projects.fileTypeAll')
-  }
-
-  return t(`projects.fileTypeGroups.${group}`)
-}
-
-function skipReasonLabel(reason?: string) {
-  if (!reason) {
-    return '-'
-  }
-
-  return skipReasonLabels.value[reason] || reason
-}
-
-function statusTagType(status?: string) {
-  const statusMap: Record<string, 'info' | 'primary' | 'success' | 'danger' | 'warning'> = {
-    PENDING: 'info',
-    ANALYZING: 'primary',
-    RUNNING: 'primary',
-    FINISHED: 'success',
-    SUCCESS: 'success',
-    FAILED: 'danger'
-  }
-
-  return statusMap[status || 'PENDING'] || 'info'
-}
-
-function formatScore(score?: number) {
-  return Number.isFinite(score) ? Math.round(Number(score)) : '-'
-}
 
 async function loadProject() {
   loading.value = true
-  try {
-    project.value = await getProjectDetail(projectId)
-  } finally {
-    loading.value = false
-  }
+  projectError.value = false
+  try { project.value = await getProjectDetail(projectId) } catch { projectError.value = true } finally { loading.value = false }
 }
 
 async function loadFiles() {
   fileLoading.value = true
-  try {
-    files.value = await listProjectFiles(projectId)
-    const readme = files.value.find((file) => /readme/i.test(file.filePath))
-    if (readme?.content && !readmeContent.value.trim()) {
-      readmeContent.value = readme.content
-    }
-  } finally {
-    fileLoading.value = false
-  }
+  fileError.value = false
+  try { files.value = await listProjectFiles(projectId) } catch { fileError.value = true } finally { fileLoading.value = false }
 }
 
-async function loadProjectArtifacts() {
-  artifactLoading.value = true
+async function loadReportHistory() {
+  reportLoading.value = true
+  reportError.value = false
   try {
-    const [reportPage, interviewPage] = await Promise.all([
-      listMyReports({ projectId, page: 1, size: 5 }),
-      listInterviewSessions({ projectId, page: 1, size: 5 })
-    ])
-    recentReports.value = reportPage.records
-    recentInterviews.value = interviewPage.records
-  } finally {
-    artifactLoading.value = false
-  }
+    const page = await listMyReports({ projectId, page: 1, size: 5 })
+    recentReports.value = page.records
+    reportTotal.value = page.total
+    latestReport.value = page.records[0] ? await getReportDetail(page.records[0].reportId) : undefined
+  } catch { reportError.value = true } finally { reportLoading.value = false }
 }
 
-function scrollToQaHistory() {
-  document.getElementById('project-qa-history')?.scrollIntoView({
-    behavior: 'smooth',
-    block: 'start'
-  })
-}
-
-async function handleSaveReadme() {
-  if (!readmeContent.value.trim()) {
-    ElMessage.warning(t('projects.readmeRequired'))
-    return
-  }
-
-  savingReadme.value = true
-  try {
-    await saveReadme(projectId, readmeContent.value)
-    ElMessage.success(t('projects.readmeSaved'))
-    loadFiles()
-  } finally {
-    savingReadme.value = false
-  }
-}
-
-const beforeZipUpload: UploadProps['beforeUpload'] = async (rawFile) => {
-  if (!rawFile.name.toLowerCase().endsWith('.zip')) {
-    ElMessage.warning(t('projects.onlyZip'))
-    return false
-  }
-
-  if (rawFile.size > MAX_ZIP_SIZE_BYTES) {
-    ElMessage.error(t('projects.zipTooLarge'))
-    return false
-  }
-
-  uploading.value = true
-  try {
-    uploadResult.value = await uploadZip(projectId, rawFile)
-    ElMessage.success(t('projects.savedFileMessage', { count: uploadResult.value.savedFileCount }))
-    loadFiles()
-  } finally {
-    uploading.value = false
-  }
-
-  return false
+async function loadInterviews() {
+  interviewLoading.value = true
+  interviewError.value = false
+  try { recentInterviews.value = (await listInterviewSessions({ projectId, page: 1, size: 5 })).records }
+  catch { interviewError.value = true } finally { interviewLoading.value = false }
 }
 
 async function handleScan() {
   scanning.value = true
-  try {
-    scanResult.value = await scanProject(projectId)
-    ElMessage.success(t('projects.scanDone'))
-  } finally {
-    scanning.value = false
-  }
+  try { scanResult.value = await scanProject(projectId); ElMessage.success(t('projects.scanDone')) } finally { scanning.value = false }
 }
 
 async function handleStartAnalyze() {
+  if (activeTask.value) return
   try {
-    await ElMessageBox.confirm(
-      t('credits.confirmAiUse', { count: AI_CREDIT_COSTS.AUDIT_REPORT }),
-      t('report.claimAiConfirmTitle'),
-      {
-        confirmButtonText: t('common.confirm'),
-        cancelButtonText: t('common.cancel'),
-        type: 'warning'
-      }
-    )
-  } catch {
-    return
-  }
-
+    await ElMessageBox.confirm(t('credits.confirmAiUse', { count: AI_CREDIT_COSTS.AUDIT_REPORT }), t('report.claimAiConfirmTitle'), {
+      confirmButtonText: t('common.confirm'), cancelButtonText: t('common.cancel'), type: 'warning'
+    })
+  } catch { return }
   analyzing.value = true
   try {
     task.value = await startAnalyze(projectId)
+    pollingInterrupted.value = false
+    activeSection.value = 'evidence'
     ElMessage.success(t('projects.taskStarted'))
     startPolling(task.value.taskId)
-  } finally {
-    analyzing.value = false
-  }
+  } finally { analyzing.value = false }
 }
 
 function startPolling(taskId: number) {
@@ -756,248 +355,163 @@ function startPolling(taskId: number) {
     try {
       const latestTask = await getTask(taskId)
       task.value = latestTask
-
+      pollingInterrupted.value = false
       if (latestTask.status === 'SUCCESS') {
         clearPolling()
-        await syncCredits()
+        await Promise.allSettled([syncCredits(), loadProject(), loadReportHistory()])
         ElMessage.success(t('projects.reportDone'))
-      }
-
-      if (latestTask.status === 'FAILED') {
+      } else if (latestTask.status === 'FAILED') {
         clearPolling()
         await syncCredits()
-        ElMessage.error(latestTask.failReason || '分析任务失败')
+        ElMessage.error(latestTask.failReason || t('status.failed'))
       }
-    } catch {
-      clearPolling()
-    }
+    } catch { clearPolling(); pollingInterrupted.value = true }
   }, 1500)
 }
 
+function resumePolling() {
+  if (task.value?.taskId) { pollingInterrupted.value = false; startPolling(task.value.taskId) }
+}
+
 async function syncCredits() {
-  try {
-    const credits = await getMyCredits()
-    userStore.updateCredits(credits.remainingCredits)
-  } catch {
-    // Header balance will refresh on the next normal credit fetch.
-  }
+  try { userStore.updateCredits((await getMyCredits()).remainingCredits) } catch { /* Refresh on next normal fetch. */ }
 }
 
 function clearPolling() {
-  if (pollTimer) {
-    window.clearInterval(pollTimer)
-    pollTimer = undefined
-  }
+  if (pollTimer) { window.clearInterval(pollTimer); pollTimer = undefined }
 }
 
-onMounted(() => {
-  loadProject()
-  loadFiles()
-  loadProjectArtifacts()
-})
+function handleProjectCommand(command: ProjectCommand) {
+  if (command === 'reports') return void router.push(`/reports?projectId=${projectId}`)
+  if (command === 'claim-check') return void router.push(`/hallucination?projectId=${projectId}`)
+  if (command === 'github' && project.value?.githubUrl) return void window.open(project.value.githubUrl, '_blank', 'noopener,noreferrer')
+  if (command === 'delete') handleDeleteProject()
+}
 
+async function handleDeleteProject() {
+  if (activeTask.value) { ElMessage.warning(t('projects.v5.deleteBlocked')); return }
+  try {
+    await ElMessageBox.confirm(t('projects.deleteConfirm'), t('projects.deleteTitle'), {
+      type: 'warning', confirmButtonText: t('common.delete'), cancelButtonText: t('common.cancel')
+    })
+  } catch { return }
+  await deleteProject(projectId)
+  ElMessage.success(t('projects.deleted'))
+  router.push('/projects')
+}
+
+function openReport(reportId: number) { router.push(`/reports/${reportId}`) }
+function openDefense() { router.push(`/projects/${projectId}/defense`) }
+function formatDate(value?: string) { return value ? String(value).replace('T', ' ').slice(0, 19) : '—' }
+function formatScore(value?: number) { return Number.isFinite(value) ? Math.round(Number(value)) : '—' }
+
+function projectStatusLabel(status: string) {
+  const keyMap: Record<string, string> = { PENDING: 'status.pending', ANALYZING: 'status.analyzing', FINISHED: 'status.finished', FAILED: 'status.failed' }
+  return keyMap[status] ? t(keyMap[status]) : status.replace(/_/g, ' ')
+}
+
+function interviewStatusLabel(status?: string) {
+  if (!status) return t('status.waiting')
+  const keyMap: Record<string, string> = { RUNNING: 'status.running', FINISHED: 'status.finished', FAILED: 'status.failed' }
+  return keyMap[status] ? t(keyMap[status]) : status.replace(/_/g, ' ')
+}
+
+onMounted(() => { loadProject(); loadFiles(); loadReportHistory(); loadInterviews() })
 onUnmounted(clearPolling)
 </script>
 
 <style scoped>
-.detail-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
+.project-evidence-page { min-width: 0; }
+.project-evidence-page :deep(.el-button) { min-height: 44px; }
+.project-header { padding: 4px 0 22px; border-bottom: 1px solid var(--pm-stone-strong); }
+.project-header-loading, .project-header-error { min-height: 126px; }
+.project-header-error, .inline-error { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+.project-header-error strong, .inline-error { color: var(--pm-risk); }
+.project-header-error p { margin: 6px 0 0; color: var(--pm-muted); line-height: 1.6; }
+.project-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 32px; }
+.project-title-copy { min-width: 0; }
+.project-title-line { display: flex; min-width: 0; align-items: center; gap: 14px; }
+.project-title-line h2 { min-width: 0; margin: 0; overflow-wrap: anywhere; color: var(--pm-ink); font-size: var(--pm-type-project-title); font-weight: 600; letter-spacing: -0.03em; line-height: 1.08; }
+.project-title-copy > p { max-width: 72ch; margin: 10px 0 0; color: var(--pm-graphite); font-size: 15px; line-height: 1.65; }
+.project-primary-actions { display: flex; flex: 0 0 auto; align-items: flex-start; gap: 8px; }
+.project-primary-actions :deep(.el-button) { min-height: 44px; }
+.audit-action { display: grid; justify-items: end; gap: 6px; }
+.audit-action span { color: var(--pm-muted); font-family: var(--pm-font-mono); font-size: 9px; line-height: 1.4; }
+.project-metadata { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 18px; color: var(--pm-muted); font-family: var(--pm-font-mono); font-size: 10px; line-height: 1.5; }
+.project-navigation { position: sticky; z-index: 10; top: 76px; display: flex; overflow-x: auto; border-bottom: 1px solid var(--pm-stone); background: var(--pm-paper); scrollbar-width: none; }
+.project-navigation::-webkit-scrollbar { display: none; }
+.project-navigation button { position: relative; min-width: max-content; min-height: 50px; padding: 0 18px; border: 0; background: transparent; color: var(--pm-muted); cursor: pointer; font: 600 12px var(--pm-font-sans); transition: color var(--pm-motion-fast) ease; }
+.project-navigation button:first-child { padding-left: 0; }
+.project-navigation button::after { position: absolute; inset: auto 18px -1px; height: 1px; background: transparent; content: ''; }
+.project-navigation button:first-child::after { left: 0; }
+.project-navigation button:hover, .project-navigation button.is-active { color: var(--pm-ink); }
+.project-navigation button.is-active::after { background: var(--pm-ink); }
+.project-workspace-content { padding-top: 28px; }
+.section-heading, .interview-heading, .rule-scan-heading, .overview-section-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
+.section-heading { margin-bottom: 22px; }
+.section-heading h2, .overview-surface h3, .rule-scan-section h3, .scan-results-grid h4 { margin: 0; color: var(--pm-ink); }
+.section-heading h2 { font-size: var(--pm-type-section-title); letter-spacing: -0.02em; }
+.section-heading p, .rule-scan-heading p { max-width: 68ch; margin: 7px 0 0; color: var(--pm-muted); font-size: 14px; line-height: 1.6; }
+.overview-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(330px, 0.9fr); border-top: 1px solid var(--pm-stone-strong); border-bottom: 1px solid var(--pm-stone-strong); background: var(--pm-surface); }
+.overview-section { min-width: 0; padding: 24px; }
+.project-brief { border-right: 1px solid var(--pm-stone); }
+.overview-section h3, .rule-scan-section h3 { font-size: 16px; }
+.project-brief > p, .latest-audit-summary { margin: 16px 0 0; color: var(--pm-graphite); line-height: 1.75; }
+.project-brief dl, .audit-ledger, .scan-ledger { display: grid; margin: 20px 0 0; border-top: 1px solid var(--pm-stone); }
+.project-brief dl div, .audit-ledger div, .scan-ledger div { display: flex; min-width: 0; align-items: baseline; justify-content: space-between; gap: 18px; padding: 12px 0; border-bottom: 1px solid var(--pm-stone); }
+.project-brief dt, .audit-ledger dt, .scan-ledger dt { color: var(--pm-muted); font-size: 12px; }
+.project-brief dd, .audit-ledger dd, .scan-ledger dd { min-width: 0; margin: 0; color: var(--pm-ink); text-align: right; }
+.project-brief dd { overflow-wrap: anywhere; font-size: 13px; }
+.project-brief a { color: var(--pm-primary-dark); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.audit-ledger { grid-template-columns: repeat(2, minmax(0, 1fr)); border-left: 1px solid var(--pm-stone); }
+.audit-ledger div { display: grid; justify-content: stretch; gap: 5px; padding: 14px; border-right: 1px solid var(--pm-stone); }
+.audit-ledger dd, .scan-ledger dd { font-family: var(--pm-font-mono); font-size: 20px; font-variant-numeric: tabular-nums; text-align: left; }
+.overview-loading, .interview-loading { margin-top: 18px; }
+.inline-error { margin-top: 16px; padding: 18px 0; border-top: 1px solid var(--pm-stone); border-bottom: 1px solid var(--pm-stone); }
+.rule-scan-section { margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--pm-stone-strong); }
+.scan-ledger { grid-template-columns: repeat(4, minmax(0, 1fr)); border-left: 1px solid var(--pm-stone); }
+.scan-ledger div { display: grid; justify-content: stretch; padding: 14px; border-right: 1px solid var(--pm-stone); }
+.scan-results-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 22px; border-top: 1px solid var(--pm-stone-strong); border-bottom: 1px solid var(--pm-stone-strong); }
+.scan-results-grid > section { min-width: 0; padding: 20px; }
+.scan-results-grid > section:first-child { border-right: 1px solid var(--pm-stone); }
+.scan-results-grid h4 { font-size: 14px; }
+.scan-list { margin: 14px 0 0; padding: 0; list-style: none; }
+.scan-list li { display: grid; gap: 7px; padding: 13px 0; border-top: 1px solid var(--pm-stone); }
+.scan-list strong { color: var(--pm-ink); font-size: 13px; line-height: 1.55; }
+.scan-list code { color: var(--pm-muted); font-family: var(--pm-font-mono); font-size: 10px; overflow-wrap: anywhere; }
+.scan-list p { margin: 0; color: var(--pm-graphite); font-size: 12px; line-height: 1.65; }
+.scan-suggestions { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--pm-stone); }
+.scan-suggestions summary { min-height: 36px; color: var(--pm-primary-dark); cursor: pointer; font-weight: 600; }
+.scan-suggestions ul { color: var(--pm-graphite); line-height: 1.7; }
+.interview-list { border-top: 1px solid var(--pm-stone-strong); }
+.interview-list article { display: grid; min-height: 76px; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 24px; padding: 12px 0; border-bottom: 1px solid var(--pm-stone); }
+.interview-list article > div { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: 9px 16px; }
+.interview-list strong { color: var(--pm-ink); font-size: 14px; }
+.interview-list article > div > span:last-child { color: var(--pm-muted); font-family: var(--pm-font-mono); font-size: 10px; }
+.interview-score { color: var(--pm-ink); font-family: var(--pm-font-mono); font-size: 20px; font-variant-numeric: tabular-nums; }
+@media (max-width: 900px) {
+  .overview-grid, .scan-results-grid { grid-template-columns: 1fr; }
+  .project-title-row { display: grid; }
+  .project-primary-actions { justify-content: flex-start; }
+  .audit-action { justify-items: start; }
+  .project-brief, .scan-results-grid > section:first-child { border-right: 0; border-bottom: 1px solid var(--pm-stone); }
 }
-
-.detail-grid p {
-  margin: 8px 0 0;
-  line-height: 1.7;
+@media (max-width: 700px) {
+  .project-title-line, .section-heading, .interview-heading, .rule-scan-heading, .project-header-error { align-items: flex-start; flex-direction: column; }
+  .project-navigation { top: 72px; margin-right: -22px; margin-left: -22px; padding-right: 22px; padding-left: 22px; }
+  .project-workspace-content { padding-top: 24px; }
+  .overview-section { padding: 20px 0; }
+  .overview-grid { background: transparent; }
+  .audit-ledger, .scan-ledger { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .interview-list article { grid-template-columns: 1fr auto; }
+  .interview-list article .el-button { grid-column: 1 / -1; justify-self: start; }
 }
-
-.link-text {
-  overflow-wrap: anywhere;
-  color: var(--pm-primary);
+@media (max-width: 520px) {
+  .project-navigation { top: 60px; margin-right: -16px; margin-left: -16px; padding-right: 16px; padding-left: 16px; }
+  .project-title-line h2 { font-size: 28px; }
+  .project-primary-actions, .audit-action, .audit-action .el-button { width: 100%; }
+  .project-primary-actions .defense-entry { flex: 1 1 100%; }
+  .project-primary-actions > .el-dropdown { flex: 0 0 auto; }
 }
-
-.artifact-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-.credit-action {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-}
-
-.credit-action span {
-  color: var(--pm-muted);
-  font-size: 12px;
-}
-
-.project-history-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.history-column {
-  min-width: 0;
-}
-
-.history-column-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
-}
-
-.history-column-title h4 {
-  margin: 0;
-  color: var(--pm-ink);
-}
-
-.history-empty {
-  margin: 0;
-  padding: 14px;
-  border: 1px dashed var(--pm-border);
-  border-radius: 8px;
-  background: #fbfdff;
-}
-
-.readme-editor,
-.upload-result,
-.scan-result,
-.async-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.zip-upload-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
-  max-width: 360px;
-}
-
-.upload-tip {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.5;
-  text-align: right;
-}
-
-.warning-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.skip-reason-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.skip-reason-list .el-tag {
-  height: auto;
-  padding: 6px 10px;
-  line-height: 1.5;
-  white-space: normal;
-}
-
-.file-list-section {
-  display: grid;
-  gap: 12px;
-  min-width: 0;
-  padding: 14px;
-  border: 1px solid rgba(223, 230, 240, 0.9);
-  border-radius: 8px;
-  background: #fbfdff;
-}
-
-.file-list-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
-}
-
-.file-list-header h4 {
-  margin: 0 0 6px;
-  color: var(--pm-ink);
-}
-
-.file-list-header p {
-  margin: 0;
-  font-size: 13px;
-}
-
-.file-list-filters {
-  display: grid;
-  grid-template-columns: minmax(220px, 320px) 150px;
-  gap: 10px;
-  min-width: min(100%, 480px);
-}
-
-.file-list-pagination {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.file-list-section :deep(.el-table__cell) {
-  padding: 8px 0;
-}
-
-.subsection h4 {
-  margin: 0 0 12px;
-}
-
-.suggestion-tag {
-  margin: 0 8px 8px 0;
-  max-width: 100%;
-  white-space: normal;
-  height: auto;
-  padding: 6px 10px;
-  line-height: 1.5;
-}
-
-@media (max-width: 860px) {
-  .detail-grid,
-  .project-history-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-@media (max-width: 620px) {
-  .detail-grid,
-  .project-history-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .file-list-header,
-  .zip-upload-actions,
-  .artifact-actions {
-    align-items: flex-start;
-    max-width: none;
-  }
-
-  .file-list-header,
-  .artifact-actions {
-    flex-direction: column;
-  }
-
-  .file-list-filters {
-    width: 100%;
-    grid-template-columns: 1fr;
-    min-width: 0;
-  }
-
-  .upload-tip {
-    text-align: left;
-  }
-}
+@media (prefers-reduced-motion: reduce) { .project-navigation button { transition: none; } }
 </style>

@@ -1,14 +1,13 @@
 <template>
   <footer class="app-footer">
     <div class="footer-inner">
-      <div class="footer-heading">
-        <span class="preview-badge">{{ t('footer.preview') }}</span>
-        <strong>{{ t('common.appName') }}</strong>
+      <div class="footer-brand">
+        <BrandLogo variant="full" />
+        <p>{{ t('footer.summary') }}</p>
       </div>
 
-      <p class="footer-summary">{{ t('footer.summary') }}</p>
-
       <div class="footer-facts">
+        <span>{{ t('footer.preview') }}</span>
         <span>{{ t('footer.creditNotice') }}</span>
         <span>{{ t('footer.noExaggeration') }}</span>
         <span>{{ t('footer.audience') }}</span>
@@ -24,19 +23,13 @@
         </div>
       </details>
 
-      <div class="footer-links">
-        <a
-          href="https://github.com/Xinzhe-666/projectmentor-ai#readme"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          README
-        </a>
-        <span aria-hidden="true">·</span>
-        <span>{{ t('footer.evidenceReport') }}</span>
+      <div class="footer-base">
+        <div class="footer-links">
+          <a href="https://github.com/Xinzhe-666/projectmentor-ai#readme" target="_blank" rel="noopener noreferrer">README</a>
+          <span>{{ t('footer.evidenceReport') }}</span>
+        </div>
+        <p>{{ t('common.copyright') }}</p>
       </div>
-
-      <p class="footer-copyright">{{ t('common.copyright') }}</p>
     </div>
   </footer>
 </template>
@@ -44,119 +37,117 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 
+import BrandLogo from '@/components/BrandLogo.vue'
+
 const { t } = useI18n()
 </script>
 
 <style scoped>
 .app-footer {
-  position: relative;
-  z-index: 1;
-  padding: 22px 24px 28px;
-  color: #667085;
+  padding: 0 max(24px, calc((100vw - 1320px) / 2));
+  background: var(--pm-paper);
+  color: var(--pm-muted);
   font-size: 12px;
   line-height: 1.6;
 }
 
 .footer-inner {
-  width: min(1120px, 100%);
-  margin: 0 auto;
-  padding: 18px 20px;
-  border: 1px solid rgba(223, 230, 240, 0.86);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.72);
-  box-shadow: 0 14px 34px rgba(28, 43, 68, 0.05);
-  text-align: center;
+  display: grid;
+  padding: 54px 0 34px;
+  grid-template-columns: minmax(240px, 0.9fr) minmax(300px, 1fr) minmax(260px, 0.8fr);
+  gap: clamp(36px, 7vw, 96px);
+  border-top: 1px solid var(--pm-stone-strong);
 }
 
-.footer-heading,
-.footer-facts,
-.footer-links {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px 14px;
-  flex-wrap: wrap;
-}
-
-.footer-heading strong {
-  color: #344054;
-  font-size: 14px;
-}
-
-.preview-badge {
-  padding: 3px 9px;
-  border: 1px solid rgba(31, 111, 235, 0.22);
-  border-radius: 999px;
-  background: #eef6ff;
-  color: #245089;
-  font-weight: 800;
-}
-
-.footer-summary {
-  max-width: 860px;
-  margin: 10px auto 0;
-  color: #475467;
+.footer-brand p {
+  max-width: 40ch;
+  margin: 18px 0 0;
 }
 
 .footer-facts {
-  margin-top: 12px;
+  border-top: 1px solid var(--pm-stone-strong);
 }
 
 .footer-facts span {
-  padding: 5px 10px;
-  border-radius: 999px;
-  background: rgba(248, 250, 252, 0.92);
-  color: #475467;
+  display: block;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--pm-stone);
 }
 
 .footer-disclaimer {
-  max-width: 900px;
-  margin: 14px auto 0;
-  border-top: 1px solid rgba(223, 230, 240, 0.86);
-  border-bottom: 1px solid rgba(223, 230, 240, 0.86);
+  border-top: 1px solid var(--pm-stone-strong);
 }
 
 .footer-disclaimer summary {
-  padding: 10px 0;
-  color: #344054;
-  font-weight: 800;
+  min-height: 44px;
+  color: var(--pm-graphite);
   cursor: pointer;
+  font-weight: 600;
+  line-height: 44px;
 }
 
 .footer-disclaimer-body {
-  padding: 0 12px 10px;
-  text-align: left;
+  padding-bottom: 8px;
 }
 
 .footer-disclaimer-body p {
-  margin: 5px 0;
+  margin: 6px 0;
+}
+
+.footer-base {
+  display: flex;
+  padding-top: 20px;
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  border-top: 1px solid var(--pm-stone);
+}
+
+.footer-base p {
+  margin: 0;
 }
 
 .footer-links {
-  margin-top: 12px;
+  display: flex;
+  gap: 20px;
 }
 
 .footer-links a {
-  color: var(--pm-primary, #1f6feb);
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.footer-links a:hover {
+  color: var(--pm-primary-dark);
+  font-weight: 600;
   text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
 }
 
-.footer-copyright {
-  margin: 10px 0 0;
+@media (max-width: 900px) {
+  .footer-inner {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .footer-brand {
+    grid-column: 1 / -1;
+  }
 }
 
-@media (max-width: 620px) {
+@media (max-width: 560px) {
   .app-footer {
-    padding: 18px 16px 22px;
+    padding: 0 16px;
   }
 
   .footer-inner {
-    padding: 16px;
+    grid-template-columns: 1fr;
+    gap: 30px;
+  }
+
+  .footer-brand {
+    grid-column: auto;
+  }
+
+  .footer-base {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 </style>

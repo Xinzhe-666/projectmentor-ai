@@ -458,117 +458,6 @@
   font-weight: 800;
 }
 
-.auth-panel {
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.97), rgba(248, 251, 255, 0.9)),
-    rgba(255, 255, 255, 0.94);
-}
-
-.auth-page.pm-premium-bg {
-  display: grid;
-  grid-template-columns: minmax(0, 0.95fr) minmax(380px, 420px);
-  align-items: center;
-  gap: clamp(28px, 6vw, 76px);
-  place-items: initial;
-  padding: clamp(24px, 5vw, 72px);
-}
-
-.auth-page.pm-aurora-bg {
-  display: grid;
-  grid-template-columns: minmax(0, 0.95fr) minmax(380px, 420px);
-  align-items: center;
-  gap: clamp(28px, 6vw, 76px);
-  min-height: 100vh;
-  place-items: initial;
-  padding: clamp(24px, 5vw, 72px);
-}
-
-.auth-panel {
-  justify-self: center;
-}
-
-.auth-product-panel {
-  align-self: center;
-  max-width: 620px;
-}
-
-.auth-product-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 34px;
-  padding: 7px 12px;
-  border: 1px solid rgba(31, 111, 235, 0.18);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.68);
-  color: #245089;
-  font-size: 12px;
-  font-weight: 900;
-  backdrop-filter: blur(12px);
-}
-
-.auth-product-panel h1 {
-  max-width: 560px;
-  margin: 18px 0 14px;
-  color: #111827;
-  font-size: clamp(36px, 5vw, 64px);
-  line-height: 1.02;
-  letter-spacing: 0;
-}
-
-.auth-product-panel p {
-  max-width: 580px;
-  margin: 0;
-  color: #475467;
-  font-size: 18px;
-  line-height: 1.75;
-}
-
-.auth-highlight-list {
-  display: grid;
-  gap: 10px;
-  max-width: 520px;
-  margin-top: 24px;
-}
-
-.auth-highlight-list span {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  padding: 12px 14px;
-  border: 1px solid rgba(214, 224, 236, 0.78);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.64);
-  color: #344054;
-  font-weight: 700;
-  box-shadow: 0 12px 30px rgba(28, 43, 68, 0.05);
-  backdrop-filter: blur(14px);
-}
-
-.auth-highlight-list span::before {
-  display: block;
-  flex: 0 0 auto;
-  width: 20px;
-  height: 20px;
-  border-radius: 999px;
-  background: rgba(20, 184, 166, 0.13);
-  box-shadow: inset 0 0 0 6px rgba(20, 184, 166, 0.26);
-  content: "";
-}
-
-.auth-beta-note {
-  margin-top: 16px !important;
-  margin-bottom: 0 !important;
-  padding: 12px 14px;
-  border: 1px solid rgba(245, 158, 11, 0.22);
-  border-radius: 8px;
-  background: rgba(255, 251, 235, 0.72);
-  color: #7a4b00 !important;
-  font-size: 13px;
-  line-height: 1.65;
-}
-
 .app-header {
   box-shadow: 0 12px 30px rgba(28, 43, 68, 0.05);
 }
@@ -596,19 +485,6 @@
     grid-column: span 2;
   }
 
-  .auth-page.pm-premium-bg,
-  .auth-page.pm-aurora-bg {
-    grid-template-columns: 1fr;
-  }
-
-  .auth-product-panel {
-    justify-self: center;
-    text-align: center;
-  }
-
-  .auth-highlight-list span {
-    text-align: left;
-  }
 }
 
 @media (max-width: 620px) {
@@ -622,11 +498,6 @@
 
   .pm-bento-card-large {
     grid-column: span 1;
-  }
-
-  .auth-page.pm-premium-bg,
-  .auth-page.pm-aurora-bg {
-    padding: 20px;
   }
 
   .pm-grid-overlay {

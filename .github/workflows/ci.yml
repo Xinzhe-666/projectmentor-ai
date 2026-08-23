@@ -195,7 +195,7 @@ jobs:
 
           readonly database_name='projectmentor_ai'
           readonly baseline_migration_file='src/main/resources/db/migration/V1__baseline_schema.sql'
-          readonly expected_table_count='13'
+          readonly expected_table_count='16'
           app_pid=''
           app_log=''
 
@@ -458,7 +458,10 @@ jobs:
             'pm_interview_session',
             'pm_interview_message',
             'pm_analysis_task',
-            'pm_ai_call_log'
+            'pm_ai_call_log',
+            'pm_defense_session',
+            'pm_defense_question',
+            'pm_defense_answer'
           "
 
           assert_query_equals \
@@ -495,8 +498,17 @@ jobs:
             'fresh V2 SQL history'
           assert_query_equals \
             "$FRESH_MYSQL_CONTAINER" \
+            "SELECT COUNT(*) FROM flyway_schema_history
+             WHERE version = '3'
+               AND type = 'SQL'
+               AND script = 'V3__defense_domain.sql'
+               AND success = 1;" \
+            '1' \
+            'fresh V3 SQL history'
+          assert_query_equals \
+            "$FRESH_MYSQL_CONTAINER" \
             'SELECT COUNT(*) FROM flyway_schema_history;' \
-            '2' \
+            '3' \
             'fresh history row count'
           assert_schema_integrity "$FRESH_MYSQL_CONTAINER" 'fresh'
           verify_project_file_mapper_upsert "$FRESH_MYSQL_CONTAINER"
@@ -560,8 +572,17 @@ jobs:
             'legacy V2 SQL history'
           assert_query_equals \
             "$LEGACY_MYSQL_CONTAINER" \
+            "SELECT COUNT(*) FROM flyway_schema_history
+             WHERE version = '3'
+               AND type = 'SQL'
+               AND script = 'V3__defense_domain.sql'
+               AND success = 1;" \
+            '1' \
+            'legacy V3 SQL history'
+          assert_query_equals \
+            "$LEGACY_MYSQL_CONTAINER" \
             'SELECT COUNT(*) FROM flyway_schema_history;' \
-            '2' \
+            '3' \
             'legacy history row count'
           assert_query_equals \
             "$LEGACY_MYSQL_CONTAINER" \

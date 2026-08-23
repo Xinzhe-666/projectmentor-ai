@@ -12,6 +12,7 @@ import router from './router'
 import './style.css'
 import './styles/product-theme.css'
 import './styles/animations.css'
+import './styles/workbench-shell.css'
 
 const app = createApp(App)
 

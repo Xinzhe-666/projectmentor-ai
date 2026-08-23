@@ -57,7 +57,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
       KNIFE4J_ENABLED: ${KNIFE4J_ENABLED:-false}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://projectmentorai.com,https://www.projectmentorai.com,http://projectmentorai.com,http://www.projectmentorai.com,http://8.218.121.30,http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://projectmentorai.com,https://www.projectmentorai.com}
       EMAIL_VERIFICATION_ENABLED: ${EMAIL_VERIFICATION_ENABLED:-false}
       MAIL_HOST: ${MAIL_HOST:-}
       MAIL_PORT: ${MAIL_PORT:-587}
@@ -72,7 +72,7 @@ services:
       EMAIL_VERIFICATION_EMAIL_HOURLY_LIMIT: ${EMAIL_VERIFICATION_EMAIL_HOURLY_LIMIT:-5}
       EMAIL_VERIFICATION_IP_HOURLY_LIMIT: ${EMAIL_VERIFICATION_IP_HOURLY_LIMIT:-20}
       EMAIL_VERIFICATION_MAX_VERIFY_ATTEMPTS: ${EMAIL_VERIFICATION_MAX_VERIFY_ATTEMPTS:-5}
-      AI_ENABLED: ${AI_ENABLED:-true}
+      AI_ENABLED: ${AI_ENABLED:-false}
       AI_BASE_URL: ${AI_BASE_URL:-https://api.deepseek.com}
       AI_API_KEY: ${AI_API_KEY:-}
       AI_MODEL: ${AI_MODEL:-deepseek-chat}
@@ -90,6 +90,8 @@ services:
   frontend:
     build:
       context: ./frontend/projectmentor-web
+      args:
+        VITE_WORKBENCH_EXPERIENCE_ENABLED: "${VITE_WORKBENCH_EXPERIENCE_ENABLED:-true}"
     image: projectmentor-ai-frontend:latest
     container_name: projectmentor-frontend-assets
     restart: unless-stopped

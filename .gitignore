@@ -27,12 +27,19 @@ backups/
 
 # Local config and secrets
 .env
+.env.*
+!.env.example
 *.env.local
 .env.*.local
 **/.env
+**/.env.*
+!**/.env.example
 **/.env.local
 **/.env.*.local
 *.env
+# These two tracked files contain public Vite build settings only.
+!frontend/projectmentor-web/.env.development
+!frontend/projectmentor-web/.env.production
 **/application-dev.yml
 **/application-prod.yml
 **/application-local.yml
@@ -44,6 +51,22 @@ backups/
 **/.vite/
 frontend/projectmentor-web/public/donate/wechat.png
 frontend/projectmentor-web/public/donate/alipay.png
+
+# Generated QA / design-review artifacts
+.impeccable/
+**/.impeccable/
+.qa/
+**/.qa/
+qa-artifacts/
+**/qa-artifacts/
+test-results/
+**/test-results/
+playwright-report/
+**/playwright-report/
+coverage/
+**/coverage/
+*.har
+*.trace.zip
 
 # OS
 .DS_Store

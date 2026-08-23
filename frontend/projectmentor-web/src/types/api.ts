@@ -248,6 +248,65 @@ export interface ReportListItem {
   summary?: string
 }
 
+export type DefenseSessionStatus = 'CREATING' | 'ACTIVE' | 'INSUFFICIENT_DATA' | 'COMPLETED'
+
+export type DefenseEvidenceAlignment = 'SUPPORTED' | 'PARTIAL' | 'INSUFFICIENT'
+
+export interface DefenseEvidenceReference {
+  fileId?: number
+  filePath?: string
+  evidenceLevel?: string
+  snippet?: string
+  reason?: string
+}
+
+export interface DefenseReviewResult {
+  evidenceAlignment: DefenseEvidenceAlignment
+  summary: string
+  relatedClaims: string[]
+  matchedEvidence: DefenseEvidenceReference[]
+}
+
+export interface DefenseAnswerResponse {
+  id: number
+  questionId: number
+  answerText: string
+  evaluationStatus: DefenseEvidenceAlignment
+  reviewResult: DefenseReviewResult
+  createdAt: string
+}
+
+export interface DefenseQuestionResponse {
+  id: number
+  sessionId: number
+  question: string
+  category: string
+  relatedClaims: string[]
+  relatedEvidence: DefenseEvidenceReference[]
+  sortOrder: number
+  answer?: DefenseAnswerResponse
+}
+
+export interface DefenseSessionResponse {
+  id: number
+  projectId: number
+  reportId: number
+  mode: string
+  status: DefenseSessionStatus
+  questionCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface DefenseSessionReviewResponse {
+  session: DefenseSessionResponse
+  questions: DefenseQuestionResponse[]
+  answeredCount: number
+  supportedCount: number
+  partialCount: number
+  insufficientCount: number
+}
+
 export interface ReportShare {
   reportId: number
   shareToken?: string

@@ -51,10 +51,11 @@ export function listMyReports(params: ReportListParams = {}) {
   })
 }
 
-export function getReportDetail(reportId: number) {
+export function getReportDetail(reportId: number, silentError = false) {
   return request<AnalysisReport>({
     url: `/api/reports/${reportId}`,
-    method: 'get'
+    method: 'get',
+    silentError
   })
 }
 

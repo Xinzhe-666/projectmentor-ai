@@ -1,42 +1,40 @@
 <template>
-  <div class="risk-list">
+  <div class="risk-findings">
     <template v-if="items.length">
-      <article v-for="(risk, index) in items" :key="`${risk.riskType || 'risk'}-${index}`" class="risk-card">
-        <div class="risk-card-head">
-          <span :class="['risk-level-badge', riskLevelClass(risk.riskLevel)]">
-            {{ normalizedRiskLevel(risk.riskLevel) }}
-          </span>
-          <div class="risk-title">
-            <span>{{ t('components.risk.riskType') }}</span>
-            <strong>{{ risk.riskType || t('components.risk.defaultRisk') }}</strong>
+      <article v-for="(risk, index) in items" :key="`${risk.riskType || 'risk'}-${index}`" class="risk-finding">
+        <header>
+          <span>{{ t('reportV5.risk.finding', { number: pad(index + 1) }) }}</span>
+          <StatusLabel :status="normalizedRiskLevel(risk.riskLevel)" :label="riskLevelLabel(risk.riskLevel)" />
+        </header>
+        <h3>{{ risk.riskType || t('components.risk.defaultRisk') }}</h3>
+        <p v-if="risk.message" class="risk-observation">{{ risk.message }}</p>
+        <dl>
+          <div v-if="risk.keyword">
+            <dt>{{ t('reportV5.risk.keyword') }}</dt>
+            <dd><code>{{ risk.keyword }}</code></dd>
           </div>
-          <span v-if="risk.keyword" class="risk-keyword">{{ risk.keyword }}</span>
-        </div>
-        <p v-if="risk.message" class="risk-message">{{ risk.message }}</p>
-        <dl class="risk-fields">
           <div v-if="risk.sourceFile">
-            <dt>{{ t('components.risk.sourceFile') }}</dt>
-            <dd class="source-file">{{ risk.sourceFile }}</dd>
+            <dt>{{ t('reportV5.risk.source') }}</dt>
+            <dd><code class="source-file">{{ risk.sourceFile }}</code></dd>
           </div>
-          <template v-if="risk.evidence">
-            <div>
-              <dt>{{ t('common.evidence') }}</dt>
-              <dd>{{ risk.evidence }}</dd>
-            </div>
-          </template>
-          <template v-if="risk.suggestion">
-            <div>
-              <dt>{{ t('common.suggestions') }}</dt>
-              <dd>{{ risk.suggestion }}</dd>
-            </div>
-          </template>
+          <div v-if="risk.evidence">
+            <dt>{{ t('reportV5.risk.evidence') }}</dt>
+            <dd>{{ risk.evidence }}</dd>
+          </div>
+          <div v-if="risk.suggestion">
+            <dt>{{ t('reportV5.risk.recommendation') }}</dt>
+            <dd>{{ risk.suggestion }}</dd>
+          </div>
         </dl>
       </article>
     </template>
 
-    <pre v-else-if="rawFallback" class="text-block">{{ rawFallback }}</pre>
+    <section v-else-if="rawFallback" class="legacy-narrative">
+      <h3>{{ t('reportV5.risk.legacy') }}</h3>
+      <pre>{{ rawFallback }}</pre>
+    </section>
 
-    <EmptyState v-else :title="t('components.risk.emptyTitle')" :description="t('components.risk.emptyDesc')" />
+    <p v-else class="section-empty">{{ t('reportV5.risk.empty') }}</p>
   </div>
 </template>
 
@@ -44,189 +42,173 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import EmptyState from '@/components/EmptyState.vue'
+import StatusLabel from '@/components/StatusLabel.vue'
 import type { RuleScanRisk } from '@/types/api'
 
 type RiskInput = string | RuleScanRisk[] | Record<string, unknown>[] | null | undefined
 
-const props = defineProps<{
-  risks: RiskInput
-}>()
-
+const props = defineProps<{ risks: RiskInput }>()
 const { t } = useI18n()
 const parsed = computed(() => parseRiskInput(props.risks))
 const items = computed(() => parsed.value.items)
 const rawFallback = computed(() => parsed.value.raw)
 
 function parseRiskInput(value: RiskInput): { items: RuleScanRisk[]; raw: string } {
-  if (!value) {
-    return { items: [], raw: '' }
-  }
-
-  if (Array.isArray(value)) {
-    return { items: value as RuleScanRisk[], raw: '' }
-  }
-
-  if (typeof value !== 'string') {
-    return { items: [], raw: JSON.stringify(value, null, 2) }
-  }
+  if (!value) return { items: [], raw: '' }
+  if (Array.isArray(value)) return { items: value as RuleScanRisk[], raw: '' }
+  if (typeof value !== 'string') return { items: [], raw: '' }
 
   try {
     const parsedValue = JSON.parse(value) as unknown
-    if (Array.isArray(parsedValue)) {
-      return { items: parsedValue as RuleScanRisk[], raw: '' }
-    }
-
-    return { items: [], raw: JSON.stringify(parsedValue, null, 2) }
+    return Array.isArray(parsedValue)
+      ? { items: parsedValue as RuleScanRisk[], raw: '' }
+      : { items: [], raw: '' }
   } catch {
-    return { items: [], raw: value }
-  }
-}
-
-function riskLevelClass(level?: string) {
-  const normalized = normalizedRiskLevel(level)
-  return {
-    'risk-high': normalized === 'HIGH',
-    'risk-medium': normalized === 'MEDIUM',
-    'risk-low': normalized === 'LOW',
-    'risk-info': normalized === 'INFO'
+    return { items: [], raw: value.trim() }
   }
 }
 
 function normalizedRiskLevel(level?: string) {
   return (level || 'INFO').toUpperCase()
 }
+
+function riskLevelLabel(level?: string) {
+  const normalized = normalizedRiskLevel(level)
+  return ['HIGH', 'MEDIUM', 'LOW', 'INFO'].includes(normalized)
+    ? t(`reportV5.enums.riskLevel.${normalized}`)
+    : normalized.replace(/_/g, ' ')
+}
+
+function pad(value: number) {
+  return String(value).padStart(2, '0')
+}
 </script>
 
 <style scoped>
-.risk-list {
+.risk-findings {
+  display: grid;
+}
+
+.risk-finding {
+  padding: 28px 0 30px;
+  border-top: 1px solid var(--pm-stone-strong);
+}
+
+.risk-finding:first-child {
+  border-top-color: var(--pm-ink);
+}
+
+.risk-finding header {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
 }
 
-.risk-card {
-  padding: 18px;
-  border: 1px solid var(--pm-border);
-  border-radius: 8px;
-  background: #fbfdff;
-  box-shadow: 0 8px 22px rgba(28, 43, 68, 0.04);
-}
-
-.risk-card-head {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.risk-level-badge {
-  min-width: 78px;
-  padding: 5px 10px;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 1;
-  text-align: center;
-}
-
-.risk-title {
-  min-width: 0;
-}
-
-.risk-title span {
-  display: block;
+.risk-finding header > span {
   color: var(--pm-muted);
-  font-size: 12px;
-  font-weight: 700;
+  font-family: var(--pm-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
 }
 
-.risk-title strong {
-  display: block;
-  margin-top: 4px;
+.risk-finding h3,
+.legacy-narrative h3 {
+  margin: 12px 0 0;
   color: var(--pm-ink);
-  font-size: 16px;
+  font-size: 19px;
+  font-weight: 600;
   line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
-.risk-message {
-  margin: 14px 0 12px;
-  color: #344054;
+.risk-observation {
+  max-width: 72ch;
+  margin: 14px 0 0;
+  color: var(--pm-graphite);
+  font-size: 15px;
   line-height: 1.75;
 }
 
-.risk-keyword {
-  margin-top: 2px;
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: #eef4ff;
-  color: #1f6feb;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.risk-fields {
+.risk-finding dl {
   display: grid;
-  gap: 10px;
-  margin: 0;
+  max-width: 75ch;
+  margin: 18px 0 0;
 }
 
-.risk-fields div {
+.risk-finding dl div {
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
-  gap: 12px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(223, 230, 240, 0.74);
+  grid-template-columns: minmax(110px, 0.22fr) minmax(0, 1fr);
+  gap: 18px;
+  padding: 11px 0;
+  border-top: 1px solid var(--pm-stone);
 }
 
-.risk-fields dt {
+.risk-finding dt {
   color: var(--pm-muted);
-  font-size: 12px;
-  font-weight: 700;
+  font-family: var(--pm-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
-.risk-fields dd {
+.risk-finding dd {
   margin: 0;
-  color: #344054;
+  color: var(--pm-graphite);
+  font-size: 14px;
   line-height: 1.7;
   overflow-wrap: anywhere;
 }
 
+.risk-finding code,
+.legacy-narrative pre {
+  font-family: var(--pm-font-mono);
+  font-size: 11px;
+}
+
 .source-file {
-  color: var(--pm-primary);
-  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
-  font-size: 13px;
+  color: var(--pm-primary-deep);
 }
 
-.risk-high {
-  border-color: rgba(239, 68, 68, 0.26);
-  background: rgba(239, 68, 68, 0.1);
-  color: var(--risk-high);
+.legacy-narrative,
+.section-empty {
+  margin: 0;
+  padding: 22px 0;
+  border-top: 1px solid var(--pm-stone-strong);
+  border-bottom: 1px solid var(--pm-stone-strong);
 }
 
-.risk-medium {
-  border-color: rgba(245, 158, 11, 0.28);
-  background: rgba(245, 158, 11, 0.12);
-  color: var(--risk-medium);
+.legacy-narrative pre {
+  margin: 14px 0 0;
+  color: var(--pm-graphite);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
-.risk-low {
-  border-color: rgba(14, 165, 233, 0.24);
-  background: rgba(14, 165, 233, 0.1);
-  color: var(--risk-low);
-}
-
-.risk-info {
-  border-color: rgba(100, 116, 139, 0.24);
-  background: rgba(100, 116, 139, 0.1);
-  color: var(--risk-info);
+.section-empty {
+  color: var(--pm-muted);
+  line-height: 1.65;
 }
 
 @media (max-width: 620px) {
-  .risk-fields div {
+  .risk-finding dl div {
     grid-template-columns: 1fr;
-    gap: 4px;
+    gap: 5px;
+  }
+}
+
+@media print {
+  .risk-finding header,
+  .risk-finding h3 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .risk-finding dl div {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 }
 </style>

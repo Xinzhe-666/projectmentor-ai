@@ -1,0 +1,105 @@
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("../assets/fonts/IBMPlexSans-Regular.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("../assets/fonts/IBMPlexSans-SemiBold.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 600 800;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("../assets/fonts/IBMPlexMono-Regular.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 400 700;
+}
+
+html[data-experience="workbench"] {
+  font-family: "IBM Plex Sans", "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei UI", sans-serif;
+  color: #0b1220;
+  background: #f5f6f7;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  --pm-font-sans: "IBM Plex Sans", "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei UI", sans-serif;
+  --pm-font-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  --pm-ink: #0b1220;
+  --pm-graphite: #2b313b;
+  --pm-muted: #667085;
+  --pm-stone: #e2e5e9;
+  --pm-stone-strong: #c9ced6;
+  --pm-paper: #f5f6f7;
+  --pm-surface: #ffffff;
+  --pm-primary: #2c5aa0;
+  --pm-primary-dark: #20477f;
+  --pm-primary-soft: #e8eff9;
+  --pm-primary-deep: #17375f;
+  --pm-teal: #287b71;
+  --pm-green: #287548;
+  --pm-red: #a83b3b;
+  --pm-amber: #8d5f10;
+  --pm-border: var(--pm-stone);
+  --pm-card: var(--pm-surface);
+  --pm-soft: #eef1f4;
+  --pm-shadow: 0 20px 52px rgba(11, 18, 32, 0.12);
+  --pm-shadow-soft: 0 10px 28px rgba(11, 18, 32, 0.07);
+  --pm-supported: #22613d;
+  --pm-supported-bg: #eaf4ed;
+  --pm-partial: #76540c;
+  --pm-partial-bg: #f7f0dc;
+  --pm-doc: #31598f;
+  --pm-doc-bg: #e9eff8;
+  --pm-none: #5b6472;
+  --pm-none-bg: #edf0f3;
+  --pm-risk: #983838;
+  --pm-risk-bg: #f7e9e8;
+  --pm-risk-border: #e5c4c1;
+  --pm-control-text: #4c5563;
+  --pm-surface-hover: #f0f3f6;
+  --pm-scrim: rgba(11, 18, 32, 0.38);
+  --pm-inspection: #101722;
+  --pm-inspection-deep: #0c121c;
+  --pm-inspection-rule: #2a3444;
+  --pm-inspection-text: #edf1f7;
+  --pm-inspection-muted: #aeb7c5;
+  --pm-radius-sm: 4px;
+  --pm-radius-md: 8px;
+  --pm-radius-lg: 12px;
+  --pm-space-1: 4px;
+  --pm-space-2: 8px;
+  --pm-space-3: 12px;
+  --pm-space-4: 16px;
+  --pm-space-5: 20px;
+  --pm-space-6: 24px;
+  --pm-space-8: 32px;
+  --pm-space-10: 40px;
+  --pm-space-12: 48px;
+  --pm-space-16: 64px;
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
+  --motion-slow: 320ms;
+  --pm-motion-fast: var(--motion-fast);
+  --pm-motion-base: var(--motion-base);
+  --pm-motion-slow: var(--motion-slow);
+  --pm-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --pm-ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --pm-type-project-title: clamp(28px, 3vw, 40px);
+  --pm-type-report-title: clamp(32px, 4vw, 44px);
+  --pm-type-workspace-title: 22px;
+  --pm-type-section-title: 24px;
+  --pm-type-body: 15px;
+  --pm-type-metadata: 10px;
+  --pm-type-code: 11px;
+  --risk-high: var(--pm-risk);
+  --risk-medium: #9a6712;
+  --risk-low: var(--pm-primary);
+  --risk-info: var(--pm-muted);
+}

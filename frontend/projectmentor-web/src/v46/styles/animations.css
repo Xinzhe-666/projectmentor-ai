@@ -1,0 +1,212 @@
+@keyframes v46-pageFadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes v46-contentRise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes v46-ambientDrift {
+  from {
+    transform: translate3d(-2%, -1%, 0) rotate(0deg);
+  }
+
+  to {
+    transform: translate3d(2%, 1%, 0) rotate(1deg);
+  }
+}
+
+@keyframes v46-premiumMeshDrift {
+  0% {
+    transform: translate3d(-2%, -1%, 0) scale(1);
+  }
+
+  50% {
+    transform: translate3d(2%, 1.5%, 0) scale(1.04);
+  }
+
+  100% {
+    transform: translate3d(1%, -1.5%, 0) scale(1.01);
+  }
+}
+
+@keyframes v46-auroraSweep {
+  0% {
+    transform: translate3d(-4%, -2%, 0) rotate(0deg) scale(1);
+  }
+
+  45% {
+    transform: translate3d(3%, 2%, 0) rotate(8deg) scale(1.06);
+  }
+
+  100% {
+    transform: translate3d(2%, -3%, 0) rotate(-6deg) scale(1.02);
+  }
+}
+
+@keyframes v46-gridFloat {
+  from {
+    background-position: 0 0, 0 0;
+  }
+
+  to {
+    background-position: 34px 28px, -34px -28px;
+  }
+}
+
+@keyframes v46-premiumFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes v46-cinematicMockupFloat {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotateX(0deg) rotateY(0deg);
+  }
+
+  50% {
+    transform: translate3d(0, -14px, 0) rotateX(1deg) rotateY(-1.5deg);
+  }
+}
+
+@keyframes v46-commandGlow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(31, 111, 235, 0.12),
+      0 22px 58px rgba(31, 111, 235, 0.1);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(20, 184, 166, 0.18),
+      0 28px 68px rgba(20, 184, 166, 0.13);
+  }
+}
+
+@keyframes v46-softPulse {
+  0%,
+  100% {
+    opacity: 0.68;
+  }
+
+  50% {
+    opacity: 0.92;
+  }
+}
+
+@keyframes v46-shineSweep {
+  0% {
+    transform: translateX(-120%) rotate(8deg);
+  }
+
+  100% {
+    transform: translateX(140%) rotate(8deg);
+  }
+}
+
+@keyframes v46-staggerReveal {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+html[data-experience="classic"] .page-stack,
+html[data-experience="classic"] .page-container > .panel,
+html[data-experience="classic"] .page-container > .section-card {
+  animation: v46-pageFadeIn 280ms ease both;
+}
+
+html[data-experience="classic"] .stagger-item {
+  animation: v46-staggerReveal 420ms ease both;
+  animation-delay: calc(var(--stagger-index, 0) * 70ms);
+}
+
+html[data-experience="classic"] .pm-fade-up {
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity 620ms ease,
+    transform 620ms ease;
+  transition-delay: calc(var(--reveal-index, 0) * 60ms);
+}
+
+html[data-experience="classic"] .pm-fade-up.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+html[data-experience="classic"] .pm-scroll-reveal {
+  opacity: 0;
+  transform: translateY(22px) scale(0.99);
+  transition:
+    opacity 680ms ease,
+    transform 680ms ease;
+  transition-delay: calc(var(--reveal-index, 0) * 70ms);
+}
+
+html[data-experience="classic"] .pm-scroll-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+html[data-experience="classic"] .pm-float {
+  animation: v46-premiumFloat 7s ease-in-out infinite;
+}
+
+html[data-experience="classic"] .pm-floating-mockup {
+  animation: v46-cinematicMockupFloat 8s ease-in-out infinite;
+  transform-style: preserve-3d;
+}
+
+html[data-experience="classic"] .pm-slow-pulse {
+  animation: v46-softPulse 5.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-experience="classic"] *,
+  html[data-experience="classic"] *::before,
+  html[data-experience="classic"] *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+  }
+
+  html[data-experience="classic"] .pm-fade-up {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  html[data-experience="classic"] .pm-scroll-reveal {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

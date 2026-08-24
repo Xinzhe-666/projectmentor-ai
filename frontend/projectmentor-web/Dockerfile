@@ -1,4 +1,4 @@
-FROM node:lts-alpine AS build
+FROM docker.m.daocloud.io/library/node:22-alpine AS build
 
 WORKDIR /app
 
@@ -6,7 +6,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
-ARG VITE_WORKBENCH_EXPERIENCE_ENABLED=false
+ARG VITE_WORKBENCH_EXPERIENCE_ENABLED=true
 ENV VITE_WORKBENCH_EXPERIENCE_ENABLED=${VITE_WORKBENCH_EXPERIENCE_ENABLED}
 RUN npm run build
 

@@ -2,7 +2,9 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 
 import ExperienceLayoutHost from '@/experiences/ExperienceLayoutHost.vue'
 import ExperienceRouteHost from '@/experiences/ExperienceRouteHost.vue'
+import { getClassicRouteRedirect } from '@/experiences/classicRedirect'
 import { routeCatalog, type RouteCatalogItem } from '@/router/routeCatalog'
+import { useExperienceStore } from '@/stores/experience'
 import { useUserStore } from '@/stores/user'
 
 function createRouteRecord(entry: RouteCatalogItem): RouteRecordRaw {
@@ -46,7 +48,16 @@ const router = createRouter({
 })
 
 router.beforeEach((to) => {
+  const experienceStore = useExperienceStore()
   const userStore = useUserStore()
+
+  if (experienceStore.experienceMode === 'classic') {
+    const classicRedirect = getClassicRouteRedirect(to)
+
+    if (classicRedirect) {
+      return classicRedirect
+    }
+  }
 
   if (to.matched.some((route) => route.meta.requiresAuth) && !userStore.isLoggedIn) {
     return {

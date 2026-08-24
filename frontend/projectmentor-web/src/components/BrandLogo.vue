@@ -3,20 +3,17 @@
     class="brand-logo"
     :class="[`brand-logo--${resolvedVariant}`, `brand-logo--${resolvedTone}`]"
   >
-    <img class="brand-logo__mark" :src="markSource" alt="" width="40" height="40" />
-    <span v-if="resolvedVariant !== 'icon'" class="brand-logo__copy">
-      <strong>{{ resolvedVariant === 'compact' ? 'PMAI' : 'ProjectMentor AI' }}</strong>
-      <small v-if="resolvedVariant === 'primary'">Authenticity. Evidence. Confidence.</small>
-    </span>
+    <img class="brand-logo__image" :src="imageSource" alt="ProjectMentor AI" />
   </span>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import mark from '@/assets/brand/logo-mark.svg'
-import inverseMark from '@/assets/brand/logo-mark-inverse.svg'
-import monochromeMark from '@/assets/brand/logo-mark-mono.svg'
+import compactLogo from '@/assets/brand/cropped/brand-board-compact.png'
+import iconLogo from '@/assets/brand/cropped/brand-board-icon.png'
+import inversePrimaryLogo from '@/assets/brand/cropped/brand-board-inverse-primary.png'
+import primaryLogo from '@/assets/brand/cropped/brand-board-primary.png'
 
 const props = withDefaults(
   defineProps<{
@@ -38,84 +35,51 @@ const resolvedVariant = computed(() => {
 })
 
 const resolvedTone = computed(() => (props.inverse ? 'inverted' : props.tone))
-const markSource = computed(() => {
-  if (resolvedTone.value === 'inverted') return inverseMark
-  if (resolvedTone.value === 'monochrome') return monochromeMark
-  return mark
+const imageSource = computed(() => {
+  if (resolvedTone.value === 'inverted') return inversePrimaryLogo
+  if (resolvedVariant.value === 'icon') return iconLogo
+  if (resolvedVariant.value === 'compact') return compactLogo
+  return primaryLogo
 })
 </script>
 
 <style scoped>
 .brand-logo {
-  display: inline-flex;
+  display: inline-block;
   min-width: 0;
-  align-items: center;
-  gap: 12px;
-  color: var(--pm-ink);
+  line-height: 0;
 }
 
-.brand-logo--inverted {
-  color: var(--pm-surface);
-}
-
-.brand-logo__mark {
-  width: 36px;
-  height: 36px;
-  flex: 0 0 auto;
-}
-
-.brand-logo__copy,
-.brand-logo__copy strong,
-.brand-logo__copy small {
+.brand-logo__image {
   display: block;
+  width: 100%;
+  height: auto;
 }
 
-.brand-logo__copy strong {
-  color: currentColor;
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
-  white-space: nowrap;
-}
-
-.brand-logo__copy small {
-  margin-top: 5px;
-  color: var(--pm-muted);
-  font-family: var(--pm-font-mono);
-  font-size: 8px;
-  letter-spacing: 0.075em;
-  line-height: 1;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.brand-logo--inverted .brand-logo__copy small {
-  color: var(--pm-inspection-muted);
+.brand-logo--primary {
+  width: min(280px, 100%);
 }
 
 .brand-logo--compact {
-  gap: 9px;
-}
-
-.brand-logo--compact .brand-logo__mark {
-  width: 32px;
-  height: 32px;
-}
-
-.brand-logo--compact .brand-logo__copy strong {
-  font-family: var(--pm-font-mono);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  width: 138px;
 }
 
 .brand-logo--icon {
-  display: inline-flex;
+  width: 42px;
 }
 
-.brand-logo--icon .brand-logo__mark {
-  width: 34px;
-  height: 34px;
+.brand-logo--inverted.brand-logo--primary {
+  width: min(300px, 100%);
+}
+
+@media (max-width: 520px) {
+  .brand-logo--primary,
+  .brand-logo--inverted.brand-logo--primary {
+    width: min(240px, 100%);
+  }
+
+  .brand-logo--compact {
+    width: 118px;
+  }
 }
 </style>

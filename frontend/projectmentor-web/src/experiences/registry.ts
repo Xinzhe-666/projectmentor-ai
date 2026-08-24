@@ -39,64 +39,79 @@ export interface ResolvedExperienceRoute {
   unavailableTarget: ExperienceMode | null
 }
 
-const MainLayout = () => import('@/layouts/MainLayout.vue')
+const ClassicMainLayout = () => import('@/v46/layouts/MainLayout.vue')
+const WorkbenchMainLayout = () => import('@/layouts/MainLayout.vue')
 const ExperienceUnavailableBoundary = () => import('@/experiences/ExperienceUnavailableBoundary.vue')
-const LandingView = () => import('@/views/LandingView.vue')
-const LoginView = () => import('@/views/LoginView.vue')
-const RegisterView = () => import('@/views/RegisterView.vue')
-const DashboardView = () => import('@/views/DashboardView.vue')
-const ProjectListView = () => import('@/views/ProjectListView.vue')
-const ProjectCreateView = () => import('@/views/ProjectCreateView.vue')
-const ProjectDetailView = () => import('@/views/ProjectDetailView.vue')
-const ProjectDefenseView = () => import('@/views/ProjectDefenseView.vue')
-const ReportListView = () => import('@/views/ReportListView.vue')
-const ReportDetailView = () => import('@/views/ReportDetailView.vue')
-const PublicReportView = () => import('@/views/PublicReportView.vue')
-const HallucinationCheckView = () => import('@/views/HallucinationCheckView.vue')
-const InterviewView = () => import('@/views/InterviewView.vue')
-const InterviewListView = () => import('@/views/InterviewListView.vue')
-const CreditView = () => import('@/views/CreditView.vue')
-const SettingsView = () => import('@/views/SettingsView.vue')
-const AdminDashboardView = () => import('@/views/AdminDashboardView.vue')
+const ClassicLandingView = () => import('@/v46/views/LandingView.vue')
+const WorkbenchLandingView = () => import('@/views/LandingView.vue')
+const ClassicLoginView = () => import('@/v46/views/LoginView.vue')
+const WorkbenchLoginView = () => import('@/views/LoginView.vue')
+const ClassicRegisterView = () => import('@/v46/views/RegisterView.vue')
+const WorkbenchRegisterView = () => import('@/views/RegisterView.vue')
+const ClassicDashboardView = () => import('@/v46/views/DashboardView.vue')
+const WorkbenchDashboardView = () => import('@/views/DashboardView.vue')
+const ClassicProjectListView = () => import('@/v46/views/ProjectListView.vue')
+const WorkbenchProjectListView = () => import('@/views/ProjectListView.vue')
+const ClassicProjectCreateView = () => import('@/v46/views/ProjectCreateView.vue')
+const WorkbenchProjectCreateView = () => import('@/views/ProjectCreateView.vue')
+const ClassicProjectDetailView = () => import('@/v46/views/ProjectDetailView.vue')
+const WorkbenchProjectDetailView = () => import('@/views/ProjectDetailView.vue')
+const WorkbenchProjectDefenseView = () => import('@/views/ProjectDefenseView.vue')
+const ClassicReportListView = () => import('@/v46/views/ReportListView.vue')
+const WorkbenchReportListView = () => import('@/views/ReportListView.vue')
+const ClassicReportDetailView = () => import('@/v46/views/ReportDetailView.vue')
+const WorkbenchReportDetailView = () => import('@/views/ReportDetailView.vue')
+const ClassicPublicReportView = () => import('@/v46/views/PublicReportView.vue')
+const WorkbenchPublicReportView = () => import('@/views/PublicReportView.vue')
+const ClassicHallucinationCheckView = () => import('@/v46/views/HallucinationCheckView.vue')
+const WorkbenchHallucinationCheckView = () => import('@/views/HallucinationCheckView.vue')
+const ClassicInterviewView = () => import('@/v46/views/InterviewView.vue')
+const WorkbenchInterviewView = () => import('@/views/InterviewView.vue')
+const ClassicInterviewListView = () => import('@/v46/views/InterviewListView.vue')
+const WorkbenchInterviewListView = () => import('@/views/InterviewListView.vue')
+const ClassicCreditView = () => import('@/v46/views/CreditView.vue')
+const WorkbenchCreditView = () => import('@/views/CreditView.vue')
+const WorkbenchSettingsView = () => import('@/views/SettingsView.vue')
+const ClassicAdminDashboardView = () => import('@/v46/views/AdminDashboardView.vue')
+const WorkbenchAdminDashboardView = () => import('@/views/AdminDashboardView.vue')
 
-// The three ownership slots intentionally alias the current MainLayout during
-// the foundation phase. Distinct keys prevent a page from crossing experience
-// ownership when dedicated layouts are extracted later.
 const experienceLayoutRegistry: Record<ExperienceRouteLayout, ExperienceComponentLoader> = {
-  classic: MainLayout,
-  workbench: MainLayout,
-  shared: MainLayout
+  classic: ClassicMainLayout,
+  workbench: WorkbenchMainLayout,
+  shared: WorkbenchMainLayout
 }
 
-// Phase 6.1 introduces the routing boundary without moving or copying existing pages.
-// Entries that already represent the Workbench direction intentionally alias the
-// current component in both modes until the stable Classic sources are extracted.
 export const experienceRegistry: ExperienceRegistry = {
-  landing: hybridRoute('landing', LandingView),
-  login: hybridRoute('login', LoginView),
-  register: hybridRoute('register', RegisterView),
-  'public-report': hybridRoute('public-report', PublicReportView),
-  dashboard: hybridRoute('dashboard', DashboardView),
-  projects: classicOnlyRoute('projects', ProjectListView),
-  'project-create': classicOnlyRoute('project-create', ProjectCreateView),
-  'project-detail': hybridRoute('project-detail', ProjectDetailView),
+  landing: hybridRoute('landing', ClassicLandingView, WorkbenchLandingView),
+  login: hybridRoute('login', ClassicLoginView, WorkbenchLoginView),
+  register: hybridRoute('register', ClassicRegisterView, WorkbenchRegisterView),
+  'public-report': hybridRoute('public-report', ClassicPublicReportView, WorkbenchPublicReportView),
+  dashboard: hybridRoute('dashboard', ClassicDashboardView, WorkbenchDashboardView),
+  projects: hybridRoute('projects', ClassicProjectListView, WorkbenchProjectListView),
+  'project-create': hybridRoute('project-create', ClassicProjectCreateView, WorkbenchProjectCreateView),
+  'project-detail': hybridRoute('project-detail', ClassicProjectDetailView, WorkbenchProjectDetailView),
   'project-defense': {
     key: 'project-defense',
-    workbench: ProjectDefenseView,
+    workbench: WorkbenchProjectDefenseView,
     unavailablePolicy: 'show-boundary',
     layout: 'workbench'
   },
-  reports: hybridRoute('reports', ReportListView),
-  'report-detail': hybridRoute('report-detail', ReportDetailView),
-  hallucination: classicOnlyRoute('hallucination', HallucinationCheckView),
-  interview: classicOnlyRoute('interview', InterviewView),
-  interviews: classicOnlyRoute('interviews', InterviewListView),
-  credits: classicOnlyRoute('credits', CreditView),
-  settings: hybridRoute('settings', SettingsView),
-  admin: classicOnlyRoute('admin', AdminDashboardView),
+  reports: hybridRoute('reports', ClassicReportListView, WorkbenchReportListView),
+  'report-detail': hybridRoute('report-detail', ClassicReportDetailView, WorkbenchReportDetailView),
+  hallucination: hybridRoute('hallucination', ClassicHallucinationCheckView, WorkbenchHallucinationCheckView),
+  interview: hybridRoute('interview', ClassicInterviewView, WorkbenchInterviewView),
+  interviews: hybridRoute('interviews', ClassicInterviewListView, WorkbenchInterviewListView),
+  credits: hybridRoute('credits', ClassicCreditView, WorkbenchCreditView),
+  settings: {
+    key: 'settings',
+    workbench: WorkbenchSettingsView,
+    unavailablePolicy: 'show-boundary',
+    layout: 'workbench'
+  },
+  admin: hybridRoute('admin', ClassicAdminDashboardView, WorkbenchAdminDashboardView),
   'experience-workbench-only-test': {
     key: 'experience-workbench-only-test',
-    workbench: SettingsView,
+    workbench: WorkbenchSettingsView,
     unavailablePolicy: 'show-boundary',
     layout: 'workbench'
   }
@@ -104,26 +119,15 @@ export const experienceRegistry: ExperienceRegistry = {
 
 function hybridRoute<Key extends ExperienceRouteKey>(
   key: Key,
-  loader: ExperienceComponentLoader
+  classic: ExperienceComponentLoader,
+  workbench: ExperienceComponentLoader
 ): ExperienceRoute & { key: Key } {
   return {
     key,
-    classic: loader,
-    workbench: loader,
+    classic,
+    workbench,
     unavailablePolicy: 'fallback-classic',
     layout: 'shared'
-  }
-}
-
-function classicOnlyRoute<Key extends ExperienceRouteKey>(
-  key: Key,
-  loader: ExperienceComponentLoader
-): ExperienceRoute & { key: Key } {
-  return {
-    key,
-    classic: loader,
-    unavailablePolicy: 'fallback-classic',
-    layout: 'classic'
   }
 }
 
@@ -159,7 +163,7 @@ function createResolution(
   resolvedExperience: ExperienceMode,
   status: Exclude<ExperienceResolutionStatus, 'boundary'>
 ): ResolvedExperienceRoute {
-  const layoutKey = entry.layout === 'shared' ? 'shared' : resolvedExperience
+  const layoutKey = entry.layout === 'shared' ? resolvedExperience : entry.layout
 
   return {
     component,

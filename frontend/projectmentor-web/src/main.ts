@@ -9,10 +9,17 @@ import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import App from './App.vue'
 import { i18n } from './locales'
 import router from './router'
+import './v46/style.css'
+import './v46/styles/product-theme.css'
+import './v46/styles/animations.css'
+import './styles/workbench-tokens.css'
 import './style.css'
 import './styles/product-theme.css'
 import './styles/animations.css'
 import './styles/workbench-shell.css'
+import './styles/version-switcher.css'
+
+document.documentElement.dataset.experience = 'classic'
 
 const app = createApp(App)
 

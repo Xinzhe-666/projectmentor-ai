@@ -40,7 +40,7 @@ body {
 }
 
 .version-switcher__option {
-  min-width: 132px;
+  min-width: 188px;
   min-height: 32px;
   padding: 5px 12px;
   border: 0;
@@ -52,6 +52,10 @@ body {
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+}
+
+.version-switcher__option-label--compact {
+  display: none;
 }
 
 .version-switcher__option:hover:not(:disabled) {
@@ -129,5 +133,13 @@ html[data-experience="workbench"] .app-sidebar {
     min-height: 38px;
     padding: 6px 8px;
     font-size: 12px;
+  }
+
+  .version-switcher__option-label--full {
+    display: none;
+  }
+
+  .version-switcher__option-label--compact {
+    display: inline;
   }
 }

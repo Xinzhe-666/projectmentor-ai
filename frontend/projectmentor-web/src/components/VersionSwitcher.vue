@@ -12,7 +12,8 @@
         :disabled="option.disabled"
         @click="selectExperience(option.mode)"
       >
-        {{ option.label }}
+        <span class="version-switcher__option-label version-switcher__option-label--full">{{ option.label }}</span>
+        <span class="version-switcher__option-label version-switcher__option-label--compact">{{ option.compactLabel }}</span>
       </button>
     </div>
   </nav>
@@ -36,11 +37,13 @@ const options = computed(() => [
   {
     mode: 'classic' as const,
     label: t('versionSwitcher.classic'),
+    compactLabel: t('versionSwitcher.classicCompact'),
     disabled: false
   },
   {
     mode: 'workbench' as const,
     label: t('versionSwitcher.workbench'),
+    compactLabel: t('versionSwitcher.workbenchCompact'),
     disabled: !experienceStore.workbenchEnabled
   }
 ])

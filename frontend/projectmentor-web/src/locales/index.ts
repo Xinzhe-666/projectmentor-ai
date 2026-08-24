@@ -16,6 +16,8 @@ import settingsEnUS from './settings.en-US'
 import settingsZhCN from './settings.zh-CN'
 import defenseEnUS from './defense.en-US'
 import defenseZhCN from './defense.zh-CN'
+import { versionEnUS } from './version.en-US'
+import { versionZhCN } from './version.zh-CN'
 
 export const SUPPORTED_LOCALES = ['zh-CN', 'en-US'] as const
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number]
@@ -32,7 +34,8 @@ const messages = {
     reportV5: reportV5ZhCN,
     shellV5: workspaceV5ZhCN.shell,
     settings: settingsZhCN,
-    defense: defenseZhCN
+    defense: defenseZhCN,
+    versionSwitcher: versionZhCN
   },
   'en-US': {
     ...enUS,
@@ -43,7 +46,8 @@ const messages = {
     reportV5: reportV5EnUS,
     shellV5: workspaceV5EnUS.shell,
     settings: settingsEnUS,
-    defense: defenseEnUS
+    defense: defenseEnUS,
+    versionSwitcher: versionEnUS
   }
 }
 

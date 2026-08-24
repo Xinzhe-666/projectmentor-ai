@@ -5,7 +5,6 @@ import type {
   ExperienceResolutionStatus
 } from '@/types/experience'
 
-export const EXPERIENCE_STORAGE_KEY = 'pmai-experience-mode:v1'
 export const DEFAULT_EXPERIENCE_MODE: ExperienceMode = 'classic'
 
 function readWorkbenchFeatureFlag(): boolean {
@@ -42,37 +41,13 @@ interface ExperienceStoreState {
   unavailable: ExperienceUnavailableState
 }
 
-function isExperienceMode(value: string | null): value is ExperienceMode {
-  return value === 'classic' || value === 'workbench'
-}
-
-function readStoredExperienceMode(): ExperienceMode {
-  try {
-    const storedMode = localStorage.getItem(EXPERIENCE_STORAGE_KEY)
-    const validMode = isExperienceMode(storedMode) ? storedMode : DEFAULT_EXPERIENCE_MODE
-    return validMode === 'workbench' && !WORKBENCH_EXPERIENCE_ENABLED
-      ? DEFAULT_EXPERIENCE_MODE
-      : validMode
-  } catch {
-    return DEFAULT_EXPERIENCE_MODE
-  }
-}
-
-function persistExperienceMode(mode: ExperienceMode) {
-  try {
-    localStorage.setItem(EXPERIENCE_STORAGE_KEY, mode)
-  } catch {
-    // A storage failure must not prevent the selected experience from running.
-  }
-}
-
 function applyExperienceAttribute(mode: ExperienceMode) {
   document.documentElement.dataset.experience = mode
 }
 
 export const useExperienceStore = defineStore('experience', {
   state: (): ExperienceStoreState => {
-    const initialMode = readStoredExperienceMode()
+    const initialMode = DEFAULT_EXPERIENCE_MODE
 
     return {
       experienceMode: initialMode,
@@ -99,7 +74,7 @@ export const useExperienceStore = defineStore('experience', {
       }
 
       this.experienceMode = mode
-      persistExperienceMode(mode)
+      applyExperienceAttribute(mode)
     },
     setRouteResolution(
       routeKey: string,

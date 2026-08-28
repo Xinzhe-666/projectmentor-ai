@@ -56,6 +56,8 @@ ProjectMentor AI（PMAI）由李鑫哲独立设计、开发并上线。Copyright
 
 本项目当前采用自定义 **Source-Available / All Rights Reserved** 声明，不是 MIT、Apache、GPL 或其他标准开源许可证授权的开源项目。后续如决定正式开源，将重新评估 AGPL、Apache、MIT 等许可证。
 
+项目名称 `ProjectMentor AI`、简称 `PMAI`、Logo、图标、字标、组合标识和品牌视觉元素，不因本仓库公开或源码可查看而获得任何品牌或商标使用授权。初版与新版 Logo 的公开版本记录、文件指纹和使用规范见 [BRAND.md](BRAND.md)。
+
 ## 项目背景
 
 越来越多计算机学生、实习求职者和早期开发者会使用 AI 辅助做项目、写 README、整理简历和准备面试，但 AI 生成内容容易带来新的风险：
@@ -723,6 +725,7 @@ bash scripts/check-nginx-security.sh https://projectmentorai.com
 
 ## 更多文档
 
+- [品牌与 Logo 使用政策](BRAND.md)
 - [项目架构说明](docs/project-architecture.md)
 - [API 概览](docs/api-overview.md)
 - [演示指南](docs/demo-guide.md)

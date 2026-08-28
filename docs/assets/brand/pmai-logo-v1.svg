@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="240" viewBox="0 0 1000 240" role="img" aria-labelledby="title desc">
+  <title id="title">ProjectMentor AI initial logo</title>
+  <desc id="desc">Historical PMAI logo with a gradient PM icon and ProjectMentor AI wordmark.</desc>
+  <defs>
+    <linearGradient id="pmai-v1-gradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#111827"/>
+      <stop offset="1" stop-color="#1F6FEB"/>
+    </linearGradient>
+  </defs>
+  <rect x="18" y="18" width="204" height="204" rx="54" fill="url(#pmai-v1-gradient)"/>
+  <text x="120" y="147" text-anchor="middle" fill="#FFFFFF" font-family="DejaVu Sans, Arial, sans-serif" font-size="86" font-weight="800" letter-spacing="-4">PM</text>
+  <text x="258" y="150" fill="#162033" font-family="DejaVu Sans, Arial, sans-serif" font-size="78" font-weight="700" letter-spacing="-2.7">ProjectMentor AI</text>
+</svg>

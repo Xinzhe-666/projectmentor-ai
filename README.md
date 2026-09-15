@@ -692,10 +692,6 @@ bash scripts/check-nginx-security.sh https://projectmentorai.com
 
 更完整的演示说明见 [docs/demo-guide.md](docs/demo-guide.md)。
 
-## 简历与面试准备
-
-📚 面试准备与简历写法：请参考 [docs/interview-preparation.md](docs/interview-preparation.md)。
-
 ## 当前限制
 
 - PMAI 不是企业级代码审计、安全审计或商业项目真实性认证平台，也不自动保证简历或项目描述真实。
@@ -730,6 +726,5 @@ bash scripts/check-nginx-security.sh https://projectmentorai.com
 - [Cloudflare Tunnel 临时试用](docs/cloudflare-tunnel-demo.md)
 - [VPS 试用版部署](docs/server-deploy-vps.md)
 - [数据库迁移说明](docs/database-migrations.md)
-- [面试准备与简历写法](docs/interview-preparation.md)
 - [Roadmap](docs/roadmap.md)
 - [Release Notes](docs/release-notes.md)

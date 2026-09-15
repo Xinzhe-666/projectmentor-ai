@@ -294,6 +294,25 @@ jobs:
                  AND non_unique = 1;" \
               'project_id' \
               "$database_label QA project index"
+            assert_query_equals \
+              "$container_id" \
+              "SELECT is_nullable FROM information_schema.columns
+               WHERE table_schema = '$database_name'
+                 AND table_name = 'pm_analysis_task'
+                 AND column_name = 'active_key';" \
+              'YES' \
+              "$database_label nullable analysis active key"
+            assert_query_equals \
+              "$container_id" \
+              "SELECT CONCAT(non_unique, ':', COUNT(*), ':',
+                             GROUP_CONCAT(column_name ORDER BY seq_in_index SEPARATOR ','))
+               FROM information_schema.statistics
+               WHERE table_schema = '$database_name'
+                 AND table_name = 'pm_analysis_task'
+                 AND index_name = 'uk_analysis_task_active_key'
+               GROUP BY non_unique;" \
+              '0:1:active_key' \
+              "$database_label single-column unique analysis active key"
           }
 
           post_json() {
@@ -507,8 +526,17 @@ jobs:
             'fresh V3 SQL history'
           assert_query_equals \
             "$FRESH_MYSQL_CONTAINER" \
+            "SELECT COUNT(*) FROM flyway_schema_history
+             WHERE version = '4'
+               AND type = 'SQL'
+               AND script = 'V4__analysis_concurrency_foundation.sql'
+               AND success = 1;" \
+            '1' \
+            'fresh V4 SQL history'
+          assert_query_equals \
+            "$FRESH_MYSQL_CONTAINER" \
             'SELECT COUNT(*) FROM flyway_schema_history;' \
-            '3' \
+            '4' \
             'fresh history row count'
           assert_schema_integrity "$FRESH_MYSQL_CONTAINER" 'fresh'
           verify_project_file_mapper_upsert "$FRESH_MYSQL_CONTAINER"
@@ -581,8 +609,17 @@ jobs:
             'legacy V3 SQL history'
           assert_query_equals \
             "$LEGACY_MYSQL_CONTAINER" \
+            "SELECT COUNT(*) FROM flyway_schema_history
+             WHERE version = '4'
+               AND type = 'SQL'
+               AND script = 'V4__analysis_concurrency_foundation.sql'
+               AND success = 1;" \
+            '1' \
+            'legacy V4 SQL history'
+          assert_query_equals \
+            "$LEGACY_MYSQL_CONTAINER" \
             'SELECT COUNT(*) FROM flyway_schema_history;' \
-            '3' \
+            '4' \
             'legacy history row count'
           assert_query_equals \
             "$LEGACY_MYSQL_CONTAINER" \
@@ -604,4 +641,4 @@ jobs:
           stop_app
 
           printf '%s\n' \
-            'PASS fresh V1/V2, legacy baseline/V2, schema integrity, and Mapper upsert validation'
+            'PASS fresh V1/V2/V3/V4, legacy baseline/V2/V3/V4, schema integrity, and Mapper upsert validation'

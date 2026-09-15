@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.xinzhe.projectmentor.analysis.entity.AnalysisTask;
 import com.xinzhe.projectmentor.analysis.mapper.AnalysisTaskMapper;
 import com.xinzhe.projectmentor.analysis.vo.AnalysisTaskVO;
+import com.xinzhe.projectmentor.common.BusinessException;
+import com.xinzhe.projectmentor.common.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -12,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 @Slf4j
 @Service
@@ -45,11 +48,18 @@ public class TaskProgressService {
         task.setReportId(reportId);
         task.setFailReason(failReason);
 
-        if (finished) {
+        boolean terminal = isTerminalStatus(status);
+        if (terminal) {
+            task.setActiveKey(null);
+        }
+
+        if (finished || terminal) {
             task.setFinishTime(LocalDateTime.now());
         }
 
-        analysisTaskMapper.updateById(task);
+        if (analysisTaskMapper.updateTaskProgress(task) != 1) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "任务进度保存失败，请稍后重试");
+        }
 
         AnalysisTaskVO vo = AnalysisTaskVO.builder()
                 .taskId(task.getId())
@@ -68,22 +78,28 @@ public class TaskProgressService {
     }
 
     public AnalysisTaskVO getProgress(Long taskId) {
-        String redisKey = buildRedisKey(taskId);
-
-        try {
-            String json = stringRedisTemplate.opsForValue().get(redisKey);
-
-            if (json != null && !json.isBlank()) {
-                return objectMapper.readValue(json, AnalysisTaskVO.class);
-            }
-        } catch (Exception e) {
-            log.warn("Read task progress from Redis failed, taskId={}", taskId, e);
-        }
-
         AnalysisTask task = analysisTaskMapper.selectById(taskId);
 
         if (task == null) {
             return null;
+        }
+
+        String message = buildMessage(task.getStatus());
+
+        try {
+            String json = stringRedisTemplate.opsForValue().get(buildRedisKey(taskId));
+
+            if (json != null && !json.isBlank()) {
+                AnalysisTaskVO cached = objectMapper.readValue(json, AnalysisTaskVO.class);
+                if (Objects.equals(cached.getStatus(), task.getStatus())
+                        && Objects.equals(cached.getProgress(), task.getProgress())
+                        && cached.getMessage() != null
+                        && !cached.getMessage().isBlank()) {
+                    message = cached.getMessage();
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Read task progress from Redis failed, taskId={}", taskId, e);
         }
 
         return AnalysisTaskVO.builder()
@@ -94,7 +110,7 @@ public class TaskProgressService {
                 .progress(task.getProgress())
                 .reportId(task.getReportId())
                 .failReason(task.getFailReason())
-                .message(buildMessage(task.getStatus()))
+                .message(message)
                 .createTime(task.getCreateTime())
                 .finishTime(task.getFinishTime())
                 .build();
@@ -135,5 +151,9 @@ public class TaskProgressService {
             return "任务执行失败";
         }
         return "任务状态未知";
+    }
+
+    private boolean isTerminalStatus(String status) {
+        return "SUCCESS".equalsIgnoreCase(status) || "FAILED".equalsIgnoreCase(status);
     }
 }

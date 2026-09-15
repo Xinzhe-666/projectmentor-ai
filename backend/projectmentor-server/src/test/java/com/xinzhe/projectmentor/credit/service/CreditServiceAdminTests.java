@@ -127,7 +127,7 @@ class CreditServiceAdminTests {
         plan.setUserId(7L);
         plan.setPlanType("FREE");
         plan.setRemainingCredits(balance);
-        when(userPlanMapper.selectOne(any())).thenReturn(plan);
+        when(userPlanMapper.selectByUserIdForUpdate(7L)).thenReturn(plan);
         when(userPlanMapper.updateById(any(UserPlan.class))).thenReturn(1);
         doAnswer(invocation -> {
             CreditLog log = invocation.getArgument(0);

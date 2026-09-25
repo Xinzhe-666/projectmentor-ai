@@ -36,20 +36,62 @@ MySQL 是任务状态的真实来源。Redis 只保存短期进度缓存；Redis
 
 有界线程池饱和时，`AbortPolicy` 通过 Spring 的 `TaskRejectedException` 明确拒绝。服务将已经插入的任务更新为 `FAILED`、进度设为 100、记录用户提示和内部失败原因、设置完成时间并清空 `active_key`，不会遗留永久 `PENDING`。不使用无界队列，也不使用会让 Web 请求线程执行长耗时审计的 `CallerRunsPolicy`。
 
+## Phase 1：RabbitMQ 可靠分析任务管线
+
+Phase 1 在模块化单体内增加可渐进启用的可靠调度层。`projectmentor.analysis.dispatch-mode` 默认为 `local`，因此原有部署不需要 RabbitMQ；切换为 `rabbit` 后，API 不再提交本地线程池，而是在创建任务的同一个 MySQL 短事务中写入初始 Outbox。两种模式最终都调用同一个同步 `AnalysisTaskProcessor`，Rabbit Consumer 不再嵌套调用 `@Async`。
+
+### Transactional Outbox 与发布边界
+
+`pm_analysis_outbox` 是待发布事件的事实来源。API 事务要么同时提交 `pm_analysis_task` 与初始事件，要么同时回滚，不在数据库事务内等待网络。Relay 使用 `SELECT ... FOR UPDATE SKIP LOCKED` 短事务批量领取事件，写入带过期时间的唯一 claim owner，提交后才调用 RabbitMQ。事件结果更新必须匹配 claim owner；Relay 崩溃后，过期 claim 可被其他实例领取。
+
+发布使用持久化消息、durable direct exchange/queue、`mandatory=true`、correlated Publisher Confirm 和 Publisher Return。只有 Confirm ACK 且没有 Return 才把 Outbox 标记为 `PUBLISHED`。NACK、Return、Confirm 超时和连接异常会记录清理后的原因，并按有上限的指数退避重新调度；超过发布上限时保留 `FAILED` Outbox，并安全终结仍未开始的任务。Confirm 只表示 Broker 接收并路由了消息，不表示 Consumer 已处理成功。
+
+Broker 可能已接收消息，而进程在写回 `PUBLISHED` 前崩溃，因此发布语义是至少一次。消息只携带 message/task/project/user/correlation 定位信息、协议版本、尝试序号和创建时间，不携带源码、README、Prompt、JWT、邮箱或密钥。Consumer 会用 MySQL 重新校验任务、项目和用户关系，不信任消息中的权限或状态。
+
+### 消费、租约与 fencing token
+
+Consumer 使用手动 ACK，MySQL 是执行权和任务状态的事实来源。领取不是“先查再改”，而是一条条件 `UPDATE`：只有 `PENDING` 或租约已过期的 `RUNNING` 任务可以进入执行，同时递增 `execution_attempt` 与 `execution_version`，写入 worker、message ID、数据库时间计算的租约和心跳。
+
+心跳、进度、重试转换、失败转换和最终报告提交都校验 worker ID 与 execution version。报告插入、项目 `FINISHED`、任务 `SUCCESS`、report ID 和 `active_key` 释放位于同一短事务；`pm_analysis_report.task_id` 唯一索引提供数据库级最终幂等。旧 Worker 即使在租约过期后恢复，也无法用旧 fencing token 写报告或覆盖新 Worker。
+
+ACK 决策如下：
+
+| 场景 | 数据库动作 | Broker 动作 |
+| --- | --- | --- |
+| 成功提交终态 | 原子提交报告与 `SUCCESS` | ACK |
+| 已是 `SUCCESS`/`FAILED` 的重复消息 | 不再调用 AI；必要时补做幂等退款 | ACK |
+| 有效租约正在执行的重复消息 | 不启动第二个 Worker | ACK |
+| 不可重试业务错误 | fenced `FAILED`、释放活动键、幂等退款、写死信 Outbox | ACK |
+| 可重试错误且未超限 | 任务回到 `PENDING`，同事务写入 Retry Outbox | ACK |
+| 未知协议或无效消息 | 不执行任务 | Reject 到 DLQ |
+| 消费结果无法持久化 | 不确认数据库结果 | NACK/requeue |
+
+### 有限重试、DLQ 与恢复
+
+默认 Retry TTL 层级为 10 秒、60 秒、300 秒，最大执行尝试次数为 4；每次重试生成新的 message ID，保留 task/correlation identity。网络超时、连接异常、明确临时 AI/数据访问错误可重试；权限、项目不存在、参数/状态错误、额度不足、永久配置错误和未知协议不可重试。Spring AMQP 自动业务重试关闭，避免和持久化重试叠加。
+
+Worker 心跳停止后，Recovery Scanner 通过数据库行锁和条件版本更新领取过期任务。未超限时，任务回到可调度状态并在同一事务写 Retry Outbox；超限时进入 `FAILED`、清空 `active_key`，并写入死信诊断事件。主队列、Retry Queue 与 DLQ 默认统一使用 quorum queue；开发 Compose 的单节点 RabbitMQ 只提供持久化和一致队列语义，不等于高可用。未来生产高可用至少需要三节点 RabbitMQ，并应另行验证网络分区、磁盘告警和恢复流程。
+
+### Credits 与可观测性
+
+V5 为 `pm_credit_log.idempotency_key` 增加 nullable unique key。分析任务使用稳定的 `ANALYSIS_DEBIT:{taskId}` 和 `ANALYSIS_REFUND:{taskId}`：余额行先 `FOR UPDATE`，余额更新与流水写入同一事务，数据库唯一约束关闭重复投递竞争窗口；没有成功 debit 的任务不能退款，同一任务最多退款一次。现有管理员额度操作和同步报告接口继续使用原有兼容路径。
+
+指标复用 Actuator/Micrometer，覆盖提交、Outbox 领取/发布/失败、消费/重复/重试/死信、租约恢复、活跃 Worker、Outbox backlog 和执行时长。指标标签只包含 mode/result 等低基数字段；task/user/project/message 标识只进入经过清理的结构化日志。
+
 ## 尚未解决的风险
 
-- JVM 在任务插入后、执行期间或终态持久化前崩溃时，尚无租约、心跳、重试或启动恢复机制，任务可能停留在 `PENDING`/`RUNNING`。
 - ZIP 上传仍在请求线程同步解压和解析。大文件会占用请求线程、CPU、内存和磁盘 I/O，需在独立阶段异步化并加入资源配额。
 - 当前项目 QA 会从 MySQL 读取大量文件内容并执行关键词扫描。项目规模和并发增长后，这会放大数据库读取、JVM 内存和 CPU 压力。
 - 同步报告生成旧接口仍然存在；本阶段的活动任务唯一键保护异步 `startAnalysis` 主链路。后续应统一入口或为同步入口定义明确的并发策略。
 - `InterviewService` 可能存在跨远程调用的事务边界风险。本阶段按范围不做大规模重构，应在后续专项审查。
-- 本地内存队列不具备跨进程持久化、消费确认、重试和水平扩展能力。
+- `local` 兼容模式仍是单 JVM 的有界内存队列，不具备跨进程持久投递；需要上述保证的环境必须显式启用 `rabbit`。
+- 本阶段尚未实施 Milvus、Embedding、BM25、Reranker、ZIP 异步解析或正式容量压测，也不对吞吐或 RabbitMQ 集群高可用作承诺。
 
 ## 后续演进边界
 
-### Phase 1：RabbitMQ持久任务调度
+### Phase 1：RabbitMQ 持久任务调度（本阶段已实现）
 
-RabbitMQ 用于持久任务投递、消费确认、有限重试、死信与跨实例调度。引入前必须定义幂等键、投递/消费语义、任务租约、失败分类和补偿流程。数据库唯一键仍保留为最终一致性防线，不能用消息队列替代业务幂等。
+RabbitMQ 用于持久任务投递、消费确认、有限重试、死信与跨实例调度；数据库唯一键和 fencing token 仍是最终一致性防线，消息队列不替代业务幂等。
 
 ### Phase 2：异步上传和批量解析
 

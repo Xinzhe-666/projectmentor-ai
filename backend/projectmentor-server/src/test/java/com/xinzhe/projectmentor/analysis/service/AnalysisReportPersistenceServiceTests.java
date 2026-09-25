@@ -2,6 +2,7 @@ package com.xinzhe.projectmentor.analysis.service;
 
 import com.xinzhe.projectmentor.analysis.entity.AnalysisReport;
 import com.xinzhe.projectmentor.analysis.mapper.AnalysisReportMapper;
+import com.xinzhe.projectmentor.analysis.mapper.AnalysisTaskMapper;
 import com.xinzhe.projectmentor.common.BusinessException;
 import com.xinzhe.projectmentor.project.entity.Project;
 import com.xinzhe.projectmentor.project.mapper.ProjectMapper;
@@ -50,7 +51,7 @@ class AnalysisReportPersistenceServiceTests {
         when(reportMapper.insert(report)).thenReturn(1);
         when(projectMapper.updateById(project)).thenReturn(1);
 
-        new AnalysisReportPersistenceService(reportMapper, projectMapper)
+        new AnalysisReportPersistenceService(reportMapper, projectMapper, mock(AnalysisTaskMapper.class))
                 .saveReportAndMarkProjectFinished(report, project);
 
         verify(reportMapper).insert(report);
@@ -66,7 +67,8 @@ class AnalysisReportPersistenceServiceTests {
         Project project = new Project();
         when(reportMapper.insert(report)).thenReturn(0);
 
-        assertThatThrownBy(() -> new AnalysisReportPersistenceService(reportMapper, projectMapper)
+        assertThatThrownBy(() -> new AnalysisReportPersistenceService(
+                reportMapper, projectMapper, mock(AnalysisTaskMapper.class))
                 .saveReportAndMarkProjectFinished(report, project))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("AI 审计报告已生成但保存失败，额度已返还，请稍后重试。");
@@ -83,9 +85,32 @@ class AnalysisReportPersistenceServiceTests {
         when(reportMapper.insert(report)).thenReturn(1);
         when(projectMapper.updateById(project)).thenReturn(0);
 
-        assertThatThrownBy(() -> new AnalysisReportPersistenceService(reportMapper, projectMapper)
+        assertThatThrownBy(() -> new AnalysisReportPersistenceService(
+                reportMapper, projectMapper, mock(AnalysisTaskMapper.class))
                 .saveReportAndMarkProjectFinished(report, project))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("AI 审计报告状态保存失败，额度已返还，请稍后重试。");
+    }
+
+    @Test
+    void staleFencingTokenCannotWriteReportOrProjectTerminalState() {
+        AnalysisReportMapper reportMapper = mock(AnalysisReportMapper.class);
+        ProjectMapper projectMapper = mock(ProjectMapper.class);
+        AnalysisTaskMapper taskMapper = mock(AnalysisTaskMapper.class);
+        AnalysisExecutionContext stale = new AnalysisExecutionContext(
+                100L, 42L, 7L, "old-worker", 2L, 1, "message-1", "correlation-1"
+        );
+        when(taskMapper.selectOwnedExecutionForUpdate(100L, "old-worker", 2L)).thenReturn(null);
+
+        assertThatThrownBy(() -> new AnalysisReportPersistenceService(reportMapper, projectMapper, taskMapper)
+                .saveReportAndCompleteTask(new AnalysisReport(), new Project(), stale))
+                .isInstanceOf(StaleAnalysisExecutionException.class);
+
+        verify(reportMapper, never()).insert(org.mockito.ArgumentMatchers.any(AnalysisReport.class));
+        verify(projectMapper, never()).updateById(org.mockito.ArgumentMatchers.any(Project.class));
+        verify(taskMapper, never()).completeSuccess(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()
+        );
     }
 }

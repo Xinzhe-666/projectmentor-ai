@@ -75,6 +75,17 @@ public class AnalysisReportService {
     }
 
     public AnalysisReportVO generateReport(Long projectId) {
+        return generateReportInternal(projectId, null);
+    }
+
+    public AnalysisReportVO generateReportForTask(AnalysisExecutionContext execution) {
+        if (execution == null || execution.taskId() == null || execution.projectId() == null) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "分析执行上下文无效");
+        }
+        return generateReportInternal(execution.projectId(), execution);
+    }
+
+    private AnalysisReportVO generateReportInternal(Long projectId, AnalysisExecutionContext execution) {
         Project project = checkProjectOwner(projectId);
         Long userId = UserContext.getUserId();
 
@@ -105,6 +116,9 @@ public class AnalysisReportService {
 
             AnalysisReport report = new AnalysisReport();
             report.setProjectId(projectId);
+            if (execution != null) {
+                report.setTaskId(execution.taskId());
+            }
             report.setTotalScore(totalScore);
             report.setRunnabilityScore(runnabilityScore);
             report.setAuthenticityScore(authenticityScore);
@@ -125,13 +139,23 @@ public class AnalysisReportService {
             String fallbackResumeStandard = buildResumeStandard(project, scanResult);
             String fallbackResumeAdvanced = buildResumeAdvanced(project, scanResult);
 
-            creditService.consumeCredits(
-                    userId,
-                    CreditCostConstants.AI_AUDIT_REPORT,
-                    CreditCostConstants.OP_AI_AUDIT_REPORT,
-                    projectId,
-                    "AI 审计报告生成"
-            );
+            if (execution == null) {
+                creditService.consumeCredits(
+                        userId,
+                        CreditCostConstants.AI_AUDIT_REPORT,
+                        CreditCostConstants.OP_AI_AUDIT_REPORT,
+                        projectId,
+                        "AI 审计报告生成"
+                );
+            } else {
+                creditService.consumeCreditsOnceForTask(
+                        userId,
+                        CreditCostConstants.AI_AUDIT_REPORT,
+                        CreditCostConstants.OP_AI_AUDIT_REPORT,
+                        execution.taskId(),
+                        "异步 AI 审计任务扣费"
+                );
+            }
             creditConsumed = true;
 
             try {
@@ -146,6 +170,12 @@ public class AnalysisReportService {
                 report.setResumeStandard(isBlank(aiResult.getResumeStandard()) ? fallbackResumeStandard : aiResult.getResumeStandard());
                 report.setResumeAdvanced(isBlank(aiResult.getResumeAdvanced()) ? fallbackResumeAdvanced : aiResult.getResumeAdvanced());
             } catch (Exception e) {
+                if (execution != null) {
+                    if (e instanceof RuntimeException runtimeException) {
+                        throw runtimeException;
+                    }
+                    throw new BusinessException(ErrorCode.AI_SERVICE_ERROR, "AI 服务调用失败");
+                }
                 creditService.refundCredits(
                         userId,
                         CreditCostConstants.AI_AUDIT_REPORT,
@@ -163,11 +193,15 @@ public class AnalysisReportService {
                 report.setResumeAdvanced(fallbackResumeAdvanced);
             }
 
-            analysisReportPersistenceService.saveReportAndMarkProjectFinished(report, project);
+            if (execution == null) {
+                analysisReportPersistenceService.saveReportAndMarkProjectFinished(report, project);
+            } else {
+                analysisReportPersistenceService.saveReportAndCompleteTask(report, project, execution);
+            }
 
             return toVO(report);
         } catch (Exception e) {
-            if (creditConsumed && !creditRefunded) {
+            if (execution == null && creditConsumed && !creditRefunded) {
                 creditService.refundCredits(
                         userId,
                         CreditCostConstants.AI_AUDIT_REPORT,

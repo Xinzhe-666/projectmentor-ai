@@ -4,6 +4,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.concurrent.Executor;
@@ -11,7 +13,8 @@ import java.util.concurrent.ThreadPoolExecutor;
 
 @Configuration
 @EnableAsync
-@EnableConfigurationProperties(AnalysisExecutorProperties.class)
+@EnableScheduling
+@EnableConfigurationProperties({AnalysisExecutorProperties.class, AnalysisPipelineProperties.class})
 public class AsyncConfig {
 
     @Bean("analysisTaskExecutor")
@@ -29,5 +32,16 @@ public class AsyncConfig {
 
         executor.initialize();
         return executor;
+    }
+
+    @Bean("analysisLeaseTaskScheduler")
+    public ThreadPoolTaskScheduler analysisLeaseTaskScheduler() {
+        ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+        scheduler.setPoolSize(2);
+        scheduler.setThreadNamePrefix("analysis-lease-");
+        scheduler.setWaitForTasksToCompleteOnShutdown(true);
+        scheduler.setAwaitTerminationSeconds(10);
+        scheduler.initialize();
+        return scheduler;
     }
 }

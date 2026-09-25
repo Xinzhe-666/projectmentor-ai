@@ -26,6 +26,8 @@ public class CreditLog {
 
     private Long businessId;
 
+    private String idempotencyKey;
+
     private String remark;
 
     private LocalDateTime createTime;

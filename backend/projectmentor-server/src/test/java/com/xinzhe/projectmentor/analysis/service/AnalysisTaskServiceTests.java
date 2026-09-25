@@ -30,8 +30,10 @@ class AnalysisTaskServiceTests {
 
     private AnalysisTaskMapper analysisTaskMapper;
     private ProjectMapper projectMapper;
-    private AnalysisTaskAsyncExecutor asyncExecutor;
+    private AnalysisTaskSubmissionService submissionService;
+    private AnalysisTaskDispatcher dispatcher;
     private TaskProgressService taskProgressService;
+    private AnalysisPipelineMetrics metrics;
     private AnalysisTaskService service;
 
     @BeforeEach
@@ -39,13 +41,17 @@ class AnalysisTaskServiceTests {
         UserContext.setUserId(7L);
         analysisTaskMapper = mock(AnalysisTaskMapper.class);
         projectMapper = mock(ProjectMapper.class);
-        asyncExecutor = mock(AnalysisTaskAsyncExecutor.class);
+        submissionService = mock(AnalysisTaskSubmissionService.class);
+        dispatcher = mock(AnalysisTaskDispatcher.class);
         taskProgressService = mock(TaskProgressService.class);
+        metrics = mock(AnalysisPipelineMetrics.class);
         service = new AnalysisTaskService(
                 analysisTaskMapper,
                 projectMapper,
-                asyncExecutor,
-                taskProgressService
+                submissionService,
+                dispatcher,
+                taskProgressService,
+                metrics
         );
 
         Project project = new Project();
@@ -65,18 +71,18 @@ class AnalysisTaskServiceTests {
         doAnswer(invocation -> {
             AnalysisTask task = invocation.getArgument(0);
             task.setId(100L);
-            return 1;
-        }).when(analysisTaskMapper).insert(any(AnalysisTask.class));
+            return null;
+        }).when(submissionService).createTaskAndInitialEvent(any(AnalysisTask.class));
         AnalysisTaskVO expected = taskVo(100L, "PENDING", 0);
         when(taskProgressService.getProgress(100L)).thenReturn(expected);
 
         AnalysisTaskVO result = service.startAnalysis(42L);
 
         ArgumentCaptor<AnalysisTask> taskCaptor = ArgumentCaptor.forClass(AnalysisTask.class);
-        verify(analysisTaskMapper).insert(taskCaptor.capture());
+        verify(submissionService).createTaskAndInitialEvent(taskCaptor.capture());
         assertThat(taskCaptor.getValue().getActiveKey()).isEqualTo("FULL_ANALYSIS:42");
         assertThat(taskCaptor.getValue().getStatus()).isEqualTo("PENDING");
-        verify(asyncExecutor).executeAnalysisTask(100L, 42L, 7L);
+        verify(dispatcher).dispatch(100L);
         assertThat(result).isSameAs(expected);
     }
 
@@ -90,8 +96,8 @@ class AnalysisTaskServiceTests {
         AnalysisTaskVO result = service.startAnalysis(42L);
 
         assertThat(result).isSameAs(expected);
-        verify(analysisTaskMapper, never()).insert(any(AnalysisTask.class));
-        verify(asyncExecutor, never()).executeAnalysisTask(any(), any(), any());
+        verify(submissionService, never()).createTaskAndInitialEvent(any(AnalysisTask.class));
+        verify(dispatcher, never()).dispatch(any());
     }
 
     @Test
@@ -100,21 +106,21 @@ class AnalysisTaskServiceTests {
         when(analysisTaskMapper.selectOne(any(LambdaQueryWrapper.class)))
                 .thenReturn(null, concurrent);
         doThrow(new DuplicateKeyException("duplicate active key"))
-                .when(analysisTaskMapper).insert(any(AnalysisTask.class));
+                .when(submissionService).createTaskAndInitialEvent(any(AnalysisTask.class));
         AnalysisTaskVO expected = taskVo(89L, "PENDING", 0);
         when(taskProgressService.getProgress(89L)).thenReturn(expected);
 
         AnalysisTaskVO result = service.startAnalysis(42L);
 
         assertThat(result).isSameAs(expected);
-        verify(asyncExecutor, never()).executeAnalysisTask(any(), any(), any());
+        verify(dispatcher, never()).dispatch(any());
     }
 
     @Test
     void duplicateKeyWithoutRecoverableTaskBecomesStableBusinessError() {
         when(analysisTaskMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
         doThrow(new DuplicateKeyException("uk_analysis_task_active_key"))
-                .when(analysisTaskMapper).insert(any(AnalysisTask.class));
+                .when(submissionService).createTaskAndInitialEvent(any(AnalysisTask.class));
 
         assertThatThrownBy(() -> service.startAnalysis(42L))
                 .isInstanceOf(BusinessException.class)
@@ -128,10 +134,10 @@ class AnalysisTaskServiceTests {
         doAnswer(invocation -> {
             AnalysisTask task = invocation.getArgument(0);
             task.setId(101L);
-            return 1;
-        }).when(analysisTaskMapper).insert(any(AnalysisTask.class));
+            return null;
+        }).when(submissionService).createTaskAndInitialEvent(any(AnalysisTask.class));
         doThrow(new TaskRejectedException("executor saturated"))
-                .when(asyncExecutor).executeAnalysisTask(101L, 42L, 7L);
+                .when(dispatcher).dispatch(101L);
 
         assertThatThrownBy(() -> service.startAnalysis(42L))
                 .isInstanceOf(BusinessException.class)

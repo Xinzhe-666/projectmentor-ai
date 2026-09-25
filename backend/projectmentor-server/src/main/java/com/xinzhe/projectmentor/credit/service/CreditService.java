@@ -321,6 +321,64 @@ public class CreditService {
         createCreditLog(userId, amount, before, after, operationType, businessId, remark);
     }
 
+    @Transactional(rollbackFor = Exception.class)
+    public boolean consumeCreditsOnceForTask(Long userId,
+                                             int cost,
+                                             String operationType,
+                                             Long taskId,
+                                             String remark) {
+        if (taskId == null || cost <= 0) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "任务扣费参数无效");
+        }
+        String idempotencyKey = analysisDebitKey(taskId);
+        UserPlan userPlan = getOrCreateUserPlanForUpdate(userId);
+        if (creditLogMapper.selectByIdempotencyKey(idempotencyKey) != null) {
+            return false;
+        }
+
+        int before = currentBalance(userPlan);
+        if (before < cost) {
+            throw new BusinessException(ErrorCode.CREDIT_NOT_ENOUGH, "额度不足，无法执行分析任务");
+        }
+        int after = before - cost;
+        updateBalance(userPlan, after);
+        createCreditLog(userId, -cost, before, after, operationType, taskId, remark, idempotencyKey);
+        return true;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public boolean refundCreditsOnceForTask(Long userId,
+                                            String operationType,
+                                            Long taskId,
+                                            String remark) {
+        if (taskId == null) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "任务退款参数无效");
+        }
+        UserPlan userPlan = getOrCreateUserPlanForUpdate(userId);
+        CreditLog debit = creditLogMapper.selectByIdempotencyKey(analysisDebitKey(taskId));
+        if (debit == null || debit.getChangeAmount() == null || debit.getChangeAmount() >= 0) {
+            return false;
+        }
+        String refundKey = analysisRefundKey(taskId);
+        if (creditLogMapper.selectByIdempotencyKey(refundKey) != null) {
+            return false;
+        }
+
+        long refundAmountLong = -(long) debit.getChangeAmount();
+        if (refundAmountLong > Integer.MAX_VALUE) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "任务退款额度无效");
+        }
+        int refundAmount = (int) refundAmountLong;
+        int before = currentBalance(userPlan);
+        if (before > Integer.MAX_VALUE - refundAmount) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "额度余额已达到系统上限");
+        }
+        int after = before + refundAmount;
+        updateBalance(userPlan, after);
+        createCreditLog(userId, refundAmount, before, after, operationType, taskId, remark, refundKey);
+        return true;
+    }
+
     private LambdaQueryWrapper<CreditLog> buildAdminLogWrapper(Long userId,
                                                                String type,
                                                                String module,
@@ -433,6 +491,20 @@ public class CreditService {
                                       String operationType,
                                       Long businessId,
                                       String remark) {
+        return createCreditLog(
+                userId, changeAmount, beforeAmount, afterAmount,
+                operationType, businessId, remark, null
+        );
+    }
+
+    private CreditLog createCreditLog(Long userId,
+                                      Integer changeAmount,
+                                      Integer beforeAmount,
+                                      Integer afterAmount,
+                                      String operationType,
+                                      Long businessId,
+                                      String remark,
+                                      String idempotencyKey) {
         CreditLog creditLog = new CreditLog();
         creditLog.setUserId(userId);
         creditLog.setChangeAmount(changeAmount);
@@ -440,12 +512,21 @@ public class CreditService {
         creditLog.setAfterAmount(afterAmount);
         creditLog.setOperationType(operationType);
         creditLog.setBusinessId(businessId);
+        creditLog.setIdempotencyKey(idempotencyKey);
         creditLog.setRemark(remark);
 
         if (creditLogMapper.insert(creditLog) != 1) {
             throw new BusinessException(ErrorCode.OPERATION_ERROR, "额度流水写入失败");
         }
         return creditLog;
+    }
+
+    private String analysisDebitKey(Long taskId) {
+        return "ANALYSIS_DEBIT:" + taskId;
+    }
+
+    private String analysisRefundKey(Long taskId) {
+        return "ANALYSIS_REFUND:" + taskId;
     }
 
     private void validateAdjustmentRequest(AdminCreditAdjustmentRequest request) {

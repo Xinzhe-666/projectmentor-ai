@@ -22,6 +22,8 @@ public class AnalysisTask {
 
     private String activeKey;
 
+    private String correlationId;
+
     private Integer creditCost;
 
     /**
@@ -30,6 +32,20 @@ public class AnalysisTask {
     private String status;
 
     private Integer progress;
+
+    private String workerId;
+
+    private LocalDateTime leaseExpiresAt;
+
+    private LocalDateTime heartbeatAt;
+
+    private Integer executionAttempt;
+
+    private Long executionVersion;
+
+    private String lastMessageId;
+
+    private String retryReason;
 
     private Long reportId;
 

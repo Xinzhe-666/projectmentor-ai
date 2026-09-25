@@ -15,6 +15,8 @@ import org.springframework.core.task.TaskRejectedException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
+import java.util.UUID;
+
 @Service
 @RequiredArgsConstructor
 public class AnalysisTaskService {
@@ -27,9 +29,13 @@ public class AnalysisTaskService {
 
     private final ProjectMapper projectMapper;
 
-    private final AnalysisTaskAsyncExecutor asyncExecutor;
+    private final AnalysisTaskSubmissionService submissionService;
+
+    private final AnalysisTaskDispatcher dispatcher;
 
     private final TaskProgressService taskProgressService;
+
+    private final AnalysisPipelineMetrics metrics;
 
     public AnalysisTaskVO startAnalysis(Long projectId) {
         Long userId = getCurrentUserId();
@@ -47,17 +53,13 @@ public class AnalysisTaskService {
         task.setProjectId(projectId);
         task.setTaskType(FULL_ANALYSIS);
         task.setActiveKey(activeKey);
+        task.setCorrelationId(UUID.randomUUID().toString());
         task.setCreditCost(CreditCostConstants.AI_AUDIT_REPORT);
         task.setStatus("PENDING");
         task.setProgress(0);
 
         try {
-            if (analysisTaskMapper.insert(task) != 1) {
-                throw new BusinessException(
-                        ErrorCode.OPERATION_ERROR,
-                        "审计任务创建失败，请稍后重试"
-                );
-            }
+            submissionService.createTaskAndInitialEvent(task);
         } catch (DuplicateKeyException e) {
             AnalysisTask concurrentTask = findActiveTask(userId, projectId, activeKey);
             if (concurrentTask != null) {
@@ -81,7 +83,7 @@ public class AnalysisTaskService {
         );
 
         try {
-            asyncExecutor.executeAnalysisTask(task.getId(), projectId, userId);
+            dispatcher.dispatch(task.getId());
         } catch (TaskRejectedException e) {
             taskProgressService.updateProgress(
                     task.getId(),
@@ -97,6 +99,8 @@ public class AnalysisTaskService {
                     "当前审计任务较多，请稍后重试"
             );
         }
+
+        metrics.taskSubmitted(dispatcher instanceof RabbitAnalysisTaskDispatcher ? "rabbit" : "local");
 
         return taskProgressService.getProgress(task.getId());
     }

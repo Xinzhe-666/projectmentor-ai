@@ -186,6 +186,7 @@ class AnalysisReportServiceClaimEvidenceAiTests {
         AnalysisReportService service = new AnalysisReportService(
                 creditService,
                 analysisReportMapper,
+                null,
                 projectMapper,
                 null,
                 null,

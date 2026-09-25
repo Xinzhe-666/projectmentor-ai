@@ -20,6 +20,8 @@ public class AnalysisTask {
 
     private String taskType;
 
+    private String activeKey;
+
     private Integer creditCost;
 
     /**

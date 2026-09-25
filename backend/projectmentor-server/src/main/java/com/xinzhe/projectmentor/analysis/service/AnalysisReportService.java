@@ -29,7 +29,6 @@ import com.xinzhe.projectmentor.share.entity.ReportShare;
 import com.xinzhe.projectmentor.share.mapper.ReportShareMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
@@ -50,6 +49,8 @@ public class AnalysisReportService {
     private final com.xinzhe.projectmentor.credit.service.CreditService creditService;
 
     private final AnalysisReportMapper analysisReportMapper;
+
+    private final AnalysisReportPersistenceService analysisReportPersistenceService;
 
     private final ProjectMapper projectMapper;
 
@@ -73,7 +74,6 @@ public class AnalysisReportService {
         return text == null || text.isBlank();
     }
 
-    @Transactional(rollbackFor = Exception.class)
     public AnalysisReportVO generateReport(Long projectId) {
         Project project = checkProjectOwner(projectId);
         Long userId = UserContext.getUserId();
@@ -163,20 +163,7 @@ public class AnalysisReportService {
                 report.setResumeAdvanced(fallbackResumeAdvanced);
             }
 
-            if (analysisReportMapper.insert(report) <= 0) {
-                throw new BusinessException(
-                        ErrorCode.OPERATION_ERROR,
-                        "AI 审计报告已生成但保存失败，额度已返还，请稍后重试。"
-                );
-            }
-
-            project.setStatus("FINISHED");
-            if (projectMapper.updateById(project) <= 0) {
-                throw new BusinessException(
-                        ErrorCode.OPERATION_ERROR,
-                        "AI 审计报告状态保存失败，额度已返还，请稍后重试。"
-                );
-            }
+            analysisReportPersistenceService.saveReportAndMarkProjectFinished(report, project);
 
             return toVO(report);
         } catch (Exception e) {
@@ -288,7 +275,6 @@ public class AnalysisReportService {
         return toVO(report);
     }
 
-    @Transactional(rollbackFor = Exception.class)
     public AnalysisReportVO enhanceClaimEvidence(Long reportId) {
         Long userId = getCurrentUserId();
         AnalysisReport report = requireOwnedReport(reportId, userId);

@@ -25,6 +25,7 @@ import com.xinzhe.projectmentor.credit.vo.AdminCreditUserVO;
 import com.xinzhe.projectmentor.credit.vo.CreditInfoVO;
 import com.xinzhe.projectmentor.credit.vo.CreditLogVO;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -167,7 +168,7 @@ public class CreditService {
         User adminUser = adminService.requireAdminUser();
         validateAdjustmentRequest(request);
         User targetUser = requireExistingUser(userId);
-        UserPlan userPlan = getOrCreateUserPlan(userId);
+        UserPlan userPlan = getOrCreateUserPlanForUpdate(userId);
 
         int before = currentBalance(userPlan);
         if (before > Integer.MAX_VALUE - request.getAmount()) {
@@ -202,7 +203,7 @@ public class CreditService {
         User adminUser = adminService.requireAdminUser();
         validateAdjustmentRequest(request);
         User targetUser = requireExistingUser(userId);
-        UserPlan userPlan = getOrCreateUserPlan(userId);
+        UserPlan userPlan = getOrCreateUserPlanForUpdate(userId);
 
         int before = currentBalance(userPlan);
         if (before < request.getAmount()) {
@@ -281,7 +282,7 @@ public class CreditService {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "消耗额度必须大于 0");
         }
 
-        UserPlan userPlan = getOrCreateUserPlan(userId);
+        UserPlan userPlan = getOrCreateUserPlanForUpdate(userId);
         int before = currentBalance(userPlan);
 
         if (before < cost) {
@@ -309,8 +310,11 @@ public class CreditService {
             return;
         }
 
-        UserPlan userPlan = getOrCreateUserPlan(userId);
+        UserPlan userPlan = getOrCreateUserPlanForUpdate(userId);
         int before = currentBalance(userPlan);
+        if (before > Integer.MAX_VALUE - amount) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "额度余额已达到系统上限");
+        }
         int after = before + amount;
 
         updateBalance(userPlan, after);
@@ -365,11 +369,57 @@ public class CreditService {
         newPlan.setUserId(userId);
         newPlan.setPlanType("FREE");
         newPlan.setRemainingCredits(0);
-        userPlanMapper.insert(newPlan);
-        return newPlan;
+        try {
+            if (userPlanMapper.insert(newPlan) != 1) {
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "额度账户创建失败，请稍后重试");
+            }
+            return newPlan;
+        } catch (DuplicateKeyException e) {
+            UserPlan concurrentPlan = findUserPlan(userId);
+            if (concurrentPlan != null) {
+                return concurrentPlan;
+            }
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "额度账户创建失败，请稍后重试");
+        }
+    }
+
+    private UserPlan getOrCreateUserPlanForUpdate(Long userId) {
+        UserPlan userPlan = userPlanMapper.selectByUserIdForUpdate(userId);
+        if (userPlan != null) {
+            return userPlan;
+        }
+
+        UserPlan newPlan = new UserPlan();
+        newPlan.setUserId(userId);
+        newPlan.setPlanType("FREE");
+        newPlan.setRemainingCredits(0);
+
+        try {
+            if (userPlanMapper.insert(newPlan) != 1) {
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "额度账户创建失败，请稍后重试");
+            }
+            return newPlan;
+        } catch (DuplicateKeyException e) {
+            UserPlan concurrentPlan = userPlanMapper.selectByUserIdForUpdate(userId);
+            if (concurrentPlan != null) {
+                return concurrentPlan;
+            }
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "额度账户创建失败，请稍后重试");
+        }
+    }
+
+    private UserPlan findUserPlan(Long userId) {
+        return userPlanMapper.selectOne(
+                new LambdaQueryWrapper<UserPlan>()
+                        .eq(UserPlan::getUserId, userId)
+                        .last("LIMIT 1")
+        );
     }
 
     private void updateBalance(UserPlan userPlan, int balance) {
+        if (balance < 0) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "额度余额不能为负数");
+        }
         userPlan.setRemainingCredits(balance);
         if (userPlanMapper.updateById(userPlan) != 1) {
             throw new BusinessException(ErrorCode.OPERATION_ERROR, "额度余额更新失败");

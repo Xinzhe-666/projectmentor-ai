@@ -113,7 +113,8 @@ class AnalysisPipelineRabbitIT {
         assertThat(publisher.publish(routed).status()).isEqualTo(RabbitPublishResult.Status.ACK);
         Message received = rabbitTemplate.receive(mainQueue, 3000);
         assertThat(received).isNotNull();
-        assertThat(received.getMessageProperties().getDeliveryMode()).isEqualTo(MessageDeliveryMode.PERSISTENT);
+        assertThat(received.getMessageProperties().getReceivedDeliveryMode())
+                .isEqualTo(MessageDeliveryMode.PERSISTENT);
 
         AnalysisOutboxEvent unroutable = event(mainExchange, "missing.binding");
         assertThat(publisher.publish(unroutable).status()).isEqualTo(RabbitPublishResult.Status.RETURNED);
@@ -124,12 +125,12 @@ class AnalysisPipelineRabbitIT {
         rabbitTemplate.send(mainExchange, route, persistentMessage("redeliver-me"));
         Connection connection = connectionFactory.createConnection();
         try {
-            Channel firstChannel = connection.createChannel(false);
+            Channel firstChannel = connection.getDelegate().createChannel();
             GetResponse first = awaitGet(firstChannel, mainQueue, false);
             assertThat(first).isNotNull();
             firstChannel.close();
 
-            Channel secondChannel = connection.createChannel(false);
+            Channel secondChannel = connection.getDelegate().createChannel();
             GetResponse redelivered = awaitGet(secondChannel, mainQueue, false);
             assertThat(redelivered.getEnvelope().isRedeliver()).isTrue();
             secondChannel.basicAck(redelivered.getEnvelope().getDeliveryTag(), false);

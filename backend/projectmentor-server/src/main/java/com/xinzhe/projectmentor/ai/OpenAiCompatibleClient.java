@@ -8,14 +8,16 @@ import com.xinzhe.projectmentor.ai.dto.ChatMessage;
 import com.xinzhe.projectmentor.ai.entity.AiCallLog;
 import com.xinzhe.projectmentor.ai.mapper.AiCallLogMapper;
 import com.xinzhe.projectmentor.auth.interceptor.UserContext;
-import com.xinzhe.projectmentor.common.BusinessException;
-import com.xinzhe.projectmentor.common.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import java.net.SocketTimeoutException;
 import java.time.Duration;
 import java.util.List;
 
@@ -84,27 +86,42 @@ public class OpenAiCompatibleClient implements LlmClient {
             );
 
             if (response == null || response.getChoices() == null || response.getChoices().isEmpty()) {
-                throw new BusinessException(ErrorCode.AI_SERVICE_ERROR, "AI 返回为空");
+                throw AiServiceException.invalidResponse();
             }
 
             ChatCompletionResponse.Message message = response.getChoices().get(0).getMessage();
             if (message == null || message.getContent() == null || message.getContent().isBlank()) {
-                throw new BusinessException(ErrorCode.AI_SERVICE_ERROR, "AI 返回内容为空");
+                throw AiServiceException.invalidResponse();
             }
 
             content = message.getContent();
             success = true;
             return content;
-        } catch (BusinessException e) {
-            errorMessage = e.getMessage();
+        } catch (AiServiceException e) {
+            errorMessage = e.safeDescriptor();
             throw e;
+        } catch (HttpStatusCodeException e) {
+            AiServiceException classified = AiServiceException.fromHttpStatus(e.getStatusCode().value(), e);
+            errorMessage = classified.safeDescriptor();
+            logClassifiedFailure(normalizedModule, classified);
+            throw classified;
+        } catch (ResourceAccessException e) {
+            AiServiceException classified = containsCause(e, SocketTimeoutException.class)
+                    ? AiServiceException.timeout(e)
+                    : AiServiceException.network(e);
+            errorMessage = classified.safeDescriptor();
+            logClassifiedFailure(normalizedModule, classified);
+            throw classified;
+        } catch (RestClientException e) {
+            AiServiceException classified = AiServiceException.network(e);
+            errorMessage = classified.safeDescriptor();
+            logClassifiedFailure(normalizedModule, classified);
+            throw classified;
         } catch (Exception e) {
-            errorMessage = e.getMessage();
-            log.warn("AI service call failed: module={}, model={}, message={}",
-                    normalizedModule,
-                    resolveModel(),
-                    e.getMessage());
-            throw new BusinessException(ErrorCode.AI_SERVICE_ERROR, "AI 服务调用失败：" + safe(e.getMessage()));
+            AiServiceException classified = AiServiceException.invalidRequest(e);
+            errorMessage = classified.safeDescriptor();
+            logClassifiedFailure(normalizedModule, classified);
+            throw classified;
         } finally {
             long latencyMs = System.currentTimeMillis() - startTime;
             recordCall(
@@ -120,11 +137,11 @@ public class OpenAiCompatibleClient implements LlmClient {
 
     private void validateAiAvailable() {
         if (!Boolean.TRUE.equals(aiProperties.getEnabled())) {
-            throw new BusinessException(ErrorCode.AI_SERVICE_ERROR, "AI 服务未启用");
+            throw AiServiceException.disabled();
         }
 
         if (aiProperties.getApiKey() == null || aiProperties.getApiKey().isBlank()) {
-            throw new BusinessException(ErrorCode.AI_SERVICE_ERROR, "AI_API_KEY 未配置");
+            throw AiServiceException.missingApiKey();
         }
     }
 
@@ -168,19 +185,26 @@ public class OpenAiCompatibleClient implements LlmClient {
                     .resumeAdvanced(aiJsonUtil.getText(root, "resumeAdvanced"))
                     .build();
         } catch (Exception e) {
-            log.warn("AI audit response is not valid JSON, fallback to raw summary. responseChars={}",
+            log.warn("AI audit response is not valid JSON. responseChars={}",
                     content == null ? 0 : content.length());
-
-            return AiAuditResult.builder()
-                    .summary(content)
-                    .strengths("AI 返回内容未能解析为结构化 JSON，请查看 summary 原文。")
-                    .weaknesses("AI 结构化解析失败，后续可优化 Prompt 或增加 JSON 修复逻辑。")
-                    .suggestions("建议检查 AI 返回格式，并要求模型严格输出 JSON。")
-                    .resumeBasic("")
-                    .resumeStandard("")
-                    .resumeAdvanced("")
-                    .build();
+            throw AiServiceException.invalidResponse();
         }
+    }
+
+    private void logClassifiedFailure(String module, AiServiceException failure) {
+        log.warn("AI service call failed: module={}, model={}, category={}, retryable={}, status={}",
+                module, resolveModel(), failure.getKind(), failure.isRetryable(), failure.getHttpStatus());
+    }
+
+    private boolean containsCause(Throwable throwable, Class<? extends Throwable> type) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (type.isInstance(current)) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private void recordCall(String module,
@@ -202,7 +226,8 @@ public class OpenAiCompatibleClient implements LlmClient {
 
             aiCallLogMapper.insert(callLog);
         } catch (Exception e) {
-            log.warn("Failed to record AI call log: module={}, message={}", module, e.getMessage());
+            log.warn("Failed to record AI call log: module={}, type={}",
+                    module, e.getClass().getSimpleName());
         }
     }
 

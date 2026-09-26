@@ -1,15 +1,19 @@
 package com.xinzhe.projectmentor.integration;
 
 import com.xinzhe.projectmentor.analysis.entity.AnalysisOutboxEvent;
+import com.xinzhe.projectmentor.analysis.entity.AnalysisReport;
 import com.xinzhe.projectmentor.analysis.entity.AnalysisTask;
 import com.xinzhe.projectmentor.analysis.mapper.AnalysisOutboxMapper;
 import com.xinzhe.projectmentor.analysis.mapper.AnalysisTaskMapper;
 import com.xinzhe.projectmentor.analysis.service.AnalysisExecutionTransitionService;
+import com.xinzhe.projectmentor.analysis.service.AnalysisExecutionContext;
 import com.xinzhe.projectmentor.analysis.service.AnalysisOutboxClaimService;
+import com.xinzhe.projectmentor.analysis.service.AnalysisReportPersistenceService;
 import com.xinzhe.projectmentor.analysis.service.AnalysisTaskSubmissionService;
 import com.xinzhe.projectmentor.auth.interceptor.UserContext;
 import com.xinzhe.projectmentor.config.AnalysisPipelineProperties;
 import com.xinzhe.projectmentor.credit.service.CreditService;
+import com.xinzhe.projectmentor.project.entity.Project;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,6 +54,7 @@ class AnalysisPipelineMySqlIT {
     @Autowired private AnalysisExecutionTransitionService transitions;
     @Autowired private AnalysisPipelineProperties properties;
     @Autowired private CreditService creditService;
+    @Autowired private AnalysisReportPersistenceService reportPersistenceService;
 
     private Long userId;
     private Long projectId;
@@ -202,6 +207,54 @@ class AnalysisPipelineMySqlIT {
         )).isZero();
     }
 
+    @Test
+    void fallbackPersistenceFailureRollsBackReportTaskProjectAndRefundTogether() {
+        AnalysisTask task = newTask("fallback-rollback");
+        task.setStatus("RUNNING");
+        task.setWorkerId("worker-fallback");
+        task.setLeaseExpiresAt(LocalDateTime.now().plusMinutes(2));
+        task.setHeartbeatAt(LocalDateTime.now());
+        task.setExecutionAttempt(4);
+        task.setExecutionVersion(9L);
+        taskMapper.insert(task);
+        jdbc.update("UPDATE pm_project SET status='ANALYZING' WHERE id=?", projectId);
+        creditService.consumeCreditsOnceForTask(
+                userId, 1, "AI_AUDIT_REPORT", task.getId(), "fallback rollback debit"
+        );
+
+        jdbc.update("INSERT INTO pm_analysis_report(project_id,task_id,summary) VALUES (?,?,?)",
+                projectId, task.getId(), "existing unique task report");
+        AnalysisReport duplicate = new AnalysisReport();
+        duplicate.setProjectId(projectId);
+        duplicate.setTaskId(task.getId());
+        duplicate.setSummary("must roll back");
+        Project project = new Project();
+        project.setId(projectId);
+        project.setStatus("ANALYZING");
+        AnalysisExecutionContext execution = new AnalysisExecutionContext(
+                task.getId(), projectId, userId, "worker-fallback", 9L, 4,
+                "message-fallback", task.getCorrelationId()
+        );
+
+        assertThatThrownBy(() -> reportPersistenceService.saveFallbackReportCompleteTaskAndRefund(
+                duplicate, project, execution
+        )).isInstanceOf(RuntimeException.class);
+
+        AnalysisTask unchanged = taskMapper.selectById(task.getId());
+        assertThat(unchanged.getStatus()).isEqualTo("RUNNING");
+        assertThat(unchanged.getReportId()).isNull();
+        assertThat(jdbc.queryForObject("SELECT status FROM pm_project WHERE id=?", String.class, projectId))
+                .isEqualTo("ANALYZING");
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM pm_analysis_report WHERE task_id=?", Integer.class, task.getId()
+        )).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM pm_credit_log WHERE idempotency_key=?", Integer.class,
+                "ANALYSIS_REFUND:" + task.getId()
+        )).isZero();
+        assertThat(balance()).isEqualTo(9);
+    }
+
     private int claim(AnalysisTask task, String worker, String message) {
         return taskMapper.claimExecution(task.getId(), userId, projectId, task.getCorrelationId(),
                 worker, message, 30, 4);
@@ -255,6 +308,7 @@ class AnalysisPipelineMySqlIT {
     }
 
     private void cleanup() {
+        jdbc.update("DELETE FROM pm_analysis_report WHERE task_id IN (SELECT id FROM pm_analysis_task WHERE active_key LIKE ?)", PREFIX + "%");
         jdbc.update("DELETE FROM pm_analysis_outbox WHERE task_id IN (SELECT id FROM pm_analysis_task WHERE active_key LIKE ?)", PREFIX + "%");
         jdbc.update("DELETE FROM pm_analysis_task WHERE active_key LIKE ? OR correlation_id LIKE ?", PREFIX + "%", PREFIX + "%");
         jdbc.update("DELETE FROM pm_credit_log WHERE user_id IN (SELECT id FROM pm_user WHERE username LIKE ?)", PREFIX + "%");

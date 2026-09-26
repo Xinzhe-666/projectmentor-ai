@@ -14,6 +14,8 @@ import com.xinzhe.projectmentor.common.BusinessException;
 import com.xinzhe.projectmentor.common.ErrorCode;
 import com.xinzhe.projectmentor.credit.CreditCostConstants;
 import com.xinzhe.projectmentor.credit.service.CreditService;
+import com.xinzhe.projectmentor.config.AnalysisPipelineProperties;
+import com.xinzhe.projectmentor.ai.AiServiceException;
 import com.xinzhe.projectmentor.project.entity.Project;
 import com.xinzhe.projectmentor.project.mapper.ProjectMapper;
 import com.xinzhe.projectmentor.scanner.ProjectRuleScanner;
@@ -43,19 +45,25 @@ class AnalysisReportServiceCreditTests {
     private AnalysisReportPersistenceService persistenceService;
     private LlmClient llmClient;
     private AnalysisReportService service;
+    private AnalysisReportMapper reportMapper;
+    private ProjectMapper projectMapper;
+    private ProjectRuleScanner scanner;
+    private ClaimEvidenceAuditService claimAudit;
+    private AuditPromptBuilder promptBuilder;
+    private ObjectMapper objectMapper;
 
     @BeforeEach
     void setUp() {
         UserContext.setUserId(7L);
         creditService = mock(CreditService.class);
-        AnalysisReportMapper reportMapper = mock(AnalysisReportMapper.class);
+        reportMapper = mock(AnalysisReportMapper.class);
         persistenceService = mock(AnalysisReportPersistenceService.class);
-        ProjectMapper projectMapper = mock(ProjectMapper.class);
-        ProjectRuleScanner scanner = mock(ProjectRuleScanner.class);
-        ClaimEvidenceAuditService claimAudit = mock(ClaimEvidenceAuditService.class);
+        projectMapper = mock(ProjectMapper.class);
+        scanner = mock(ProjectRuleScanner.class);
+        claimAudit = mock(ClaimEvidenceAuditService.class);
         llmClient = mock(LlmClient.class);
-        AuditPromptBuilder promptBuilder = mock(AuditPromptBuilder.class);
-        ObjectMapper objectMapper = new ObjectMapper();
+        promptBuilder = mock(AuditPromptBuilder.class);
+        objectMapper = new ObjectMapper();
 
         Project project = new Project();
         project.setId(42L);
@@ -94,7 +102,9 @@ class AnalysisReportServiceCreditTests {
                 new AiJsonUtil(objectMapper),
                 llmClient,
                 promptBuilder,
-                null
+                null,
+                new AnalysisFailureClassifier(),
+                new AnalysisPipelineProperties()
         );
     }
 
@@ -109,7 +119,7 @@ class AnalysisReportServiceCreditTests {
 
         var result = service.generateReport(42L);
 
-        assertThat(result.getSummary()).contains("AI 调用失败").contains("额度已返还");
+        assertThat(result.getSummary()).contains("AI 不可用").contains("额度已返还").contains("规则扫描");
         verifyCreditConsumedOnce();
         verifyCreditRefundedOnce();
         verify(persistenceService).saveReportAndMarkProjectFinished(any(AnalysisReport.class), any(Project.class));
@@ -138,6 +148,133 @@ class AnalysisReportServiceCreditTests {
 
         verifyCreditConsumedOnce();
         verify(creditService, never()).refundCredits(any(), anyInt(), anyString(), any(), anyString());
+    }
+
+    @Test
+    void asyncAiSuccessDebitsOnceCompletesTaskAndDoesNotRefund() {
+        AnalysisPipelineProperties properties = rabbitProperties();
+        service = asyncService(properties);
+        when(llmClient.generateAuditReport("prompt")).thenReturn(successfulAiResult());
+
+        service.generateReportForTask(execution(1));
+
+        verify(creditService).consumeCreditsOnceForTask(eq(7L), anyInt(), anyString(), eq(100L), anyString());
+        verify(persistenceService).saveReportAndCompleteTask(
+                any(AnalysisReport.class), any(Project.class), eq(execution(1))
+        );
+        verify(persistenceService, never()).saveFallbackReportCompleteTaskAndRefund(any(), any(), any());
+    }
+
+    @Test
+    void permanentAiFailureCreatesFallbackWithoutRetry() {
+        service = asyncService(rabbitProperties());
+        when(llmClient.generateAuditReport("prompt")).thenThrow(AiServiceException.fromHttpStatus(401, null));
+
+        var result = service.generateReportForTask(execution(1));
+
+        assertThat(result.getSummary()).contains("AI 不可用").contains("规则扫描").contains("额度已返还");
+        verify(persistenceService).saveFallbackReportCompleteTaskAndRefund(
+                any(AnalysisReport.class), any(Project.class), eq(execution(1))
+        );
+        verify(persistenceService, never()).saveReportAndCompleteTask(any(), any(), any());
+    }
+
+    @Test
+    void disabledAndMissingKeyCreateFallbackWithoutRetry() {
+        service = asyncService(rabbitProperties());
+        when(llmClient.generateAuditReport("prompt"))
+                .thenThrow(AiServiceException.disabled())
+                .thenThrow(AiServiceException.missingApiKey());
+
+        service.generateReportForTask(execution(1));
+        AnalysisExecutionContext second = new AnalysisExecutionContext(
+                101L, 42L, 7L, "worker-2", 4L, 1, "message-2", "correlation-2"
+        );
+        service.generateReportForTask(second);
+
+        verify(persistenceService).saveFallbackReportCompleteTaskAndRefund(
+                any(AnalysisReport.class), any(Project.class), eq(execution(1))
+        );
+        verify(persistenceService).saveFallbackReportCompleteTaskAndRefund(
+                any(AnalysisReport.class), any(Project.class), eq(second)
+        );
+        verify(persistenceService, never()).saveReportAndCompleteTask(any(), any(), any());
+    }
+
+    @Test
+    void transientAiFailureRetriesBeforeLimitWithoutSavingPartialReportOrRefunding() {
+        service = asyncService(rabbitProperties());
+        when(llmClient.generateAuditReport("prompt")).thenThrow(AiServiceException.fromHttpStatus(429, null));
+
+        assertThatThrownBy(() -> service.generateReportForTask(execution(1)))
+                .isInstanceOf(AiServiceException.class);
+
+        verify(persistenceService, never()).saveReportAndCompleteTask(any(), any(), any());
+        verify(persistenceService, never()).saveFallbackReportCompleteTaskAndRefund(any(), any(), any());
+        verify(creditService, never()).refundCreditsOnceForTask(any(), anyString(), any(), anyString());
+    }
+
+    @Test
+    void finalTransientAiFailureCreatesFallbackAndCompletesSuccessfully() {
+        AnalysisPipelineProperties properties = rabbitProperties();
+        properties.getRabbit().getExecution().setMaximumAttempts(4);
+        service = asyncService(properties);
+        when(llmClient.generateAuditReport("prompt")).thenThrow(AiServiceException.fromHttpStatus(503, null));
+
+        var result = service.generateReportForTask(execution(4));
+
+        assertThat(result.getSummary()).contains("AI 不可用").contains("规则扫描");
+        verify(persistenceService).saveFallbackReportCompleteTaskAndRefund(
+                any(AnalysisReport.class), any(Project.class), eq(execution(4))
+        );
+    }
+
+    @Test
+    void insufficientCreditsFailsWithoutAiReportOrRefund() {
+        service = asyncService(rabbitProperties());
+        doThrow(new BusinessException(ErrorCode.CREDIT_NOT_ENOUGH, "额度不足"))
+                .when(creditService).consumeCreditsOnceForTask(eq(7L), anyInt(), anyString(), eq(100L), anyString());
+
+        assertThatThrownBy(() -> service.generateReportForTask(execution(1)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("额度不足");
+
+        verify(llmClient, never()).generateAuditReport(anyString());
+        verify(persistenceService, never()).saveReportAndCompleteTask(any(), any(), any());
+        verify(persistenceService, never()).saveFallbackReportCompleteTaskAndRefund(any(), any(), any());
+        verify(creditService, never()).refundCreditsOnceForTask(any(), anyString(), any(), anyString());
+    }
+
+    private AnalysisReportService asyncService(AnalysisPipelineProperties properties) {
+        properties.setDispatchMode(AnalysisPipelineProperties.DispatchMode.RABBIT);
+        return new AnalysisReportService(
+                creditService,
+                reportMapper,
+                persistenceService,
+                projectMapper,
+                null,
+                scanner,
+                claimAudit,
+                objectMapper,
+                new AiJsonUtil(objectMapper),
+                llmClient,
+                promptBuilder,
+                null,
+                new AnalysisFailureClassifier(),
+                properties
+        );
+    }
+
+    private AnalysisPipelineProperties rabbitProperties() {
+        AnalysisPipelineProperties properties = new AnalysisPipelineProperties();
+        properties.setDispatchMode(AnalysisPipelineProperties.DispatchMode.RABBIT);
+        return properties;
+    }
+
+    private AnalysisExecutionContext execution(int attempt) {
+        return new AnalysisExecutionContext(
+                100L, 42L, 7L, "worker-1", 3L, attempt, "message-1", "correlation-1"
+        );
     }
 
     private AiAuditResult successfulAiResult() {

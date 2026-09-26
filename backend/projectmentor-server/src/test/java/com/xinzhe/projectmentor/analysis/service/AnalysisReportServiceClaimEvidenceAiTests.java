@@ -195,7 +195,9 @@ class AnalysisReportServiceClaimEvidenceAiTests {
                 new AiJsonUtil(objectMapper),
                 llmClient,
                 null,
-                new ClaimEvidenceAiPromptBuilder(objectMapper)
+                new ClaimEvidenceAiPromptBuilder(objectMapper),
+                new AnalysisFailureClassifier(),
+                new com.xinzhe.projectmentor.config.AnalysisPipelineProperties()
         );
 
         return new TestFixture(service, analysisReportMapper, creditService, llmClient, report);

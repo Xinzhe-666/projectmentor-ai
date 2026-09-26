@@ -20,6 +20,7 @@ import com.xinzhe.projectmentor.common.BusinessException;
 import com.xinzhe.projectmentor.common.ErrorCode;
 import com.xinzhe.projectmentor.common.PageResult;
 import com.xinzhe.projectmentor.credit.CreditCostConstants;
+import com.xinzhe.projectmentor.config.AnalysisPipelineProperties;
 import com.xinzhe.projectmentor.project.entity.Project;
 import com.xinzhe.projectmentor.project.mapper.ProjectMapper;
 import com.xinzhe.projectmentor.scanner.ProjectRuleScanner;
@@ -69,6 +70,10 @@ public class AnalysisReportService {
     private final AuditPromptBuilder auditPromptBuilder;
 
     private final ClaimEvidenceAiPromptBuilder claimEvidenceAiPromptBuilder;
+
+    private final AnalysisFailureClassifier failureClassifier;
+
+    private final AnalysisPipelineProperties pipelineProperties;
 
     private boolean isBlank(String text) {
         return text == null || text.isBlank();
@@ -171,10 +176,26 @@ public class AnalysisReportService {
                 report.setResumeAdvanced(isBlank(aiResult.getResumeAdvanced()) ? fallbackResumeAdvanced : aiResult.getResumeAdvanced());
             } catch (Exception e) {
                 if (execution != null) {
-                    if (e instanceof RuntimeException runtimeException) {
-                        throw runtimeException;
+                    if (shouldRetryAiFailure(execution, e)) {
+                        if (e instanceof RuntimeException runtimeException) {
+                            throw runtimeException;
+                        }
+                        throw new BusinessException(ErrorCode.AI_SERVICE_ERROR, "AI 服务暂时不可用");
                     }
-                    throw new BusinessException(ErrorCode.AI_SERVICE_ERROR, "AI 服务调用失败");
+                    populateFallbackReport(
+                            report,
+                            fallbackSummary,
+                            fallbackStrengths,
+                            fallbackWeaknesses,
+                            fallbackSuggestions,
+                            fallbackResumeBasic,
+                            fallbackResumeStandard,
+                            fallbackResumeAdvanced
+                    );
+                    analysisReportPersistenceService.saveFallbackReportCompleteTaskAndRefund(
+                            report, project, execution
+                    );
+                    return toVO(report);
                 }
                 creditService.refundCredits(
                         userId,
@@ -184,13 +205,16 @@ public class AnalysisReportService {
                         "AI 审计报告生成失败返还"
                 );
                 creditRefunded = true;
-                report.setSummary(fallbackSummary + "（AI 调用失败，额度已返还；当前报告由规则扫描模块生成。）");
-                report.setStrengths(fallbackStrengths);
-                report.setWeaknesses(fallbackWeaknesses);
-                report.setSuggestions(fallbackSuggestions);
-                report.setResumeBasic(fallbackResumeBasic);
-                report.setResumeStandard(fallbackResumeStandard);
-                report.setResumeAdvanced(fallbackResumeAdvanced);
+                populateFallbackReport(
+                        report,
+                        fallbackSummary,
+                        fallbackStrengths,
+                        fallbackWeaknesses,
+                        fallbackSuggestions,
+                        fallbackResumeBasic,
+                        fallbackResumeStandard,
+                        fallbackResumeAdvanced
+                );
             }
 
             if (execution == null) {
@@ -213,6 +237,31 @@ public class AnalysisReportService {
 
             throw e;
         }
+    }
+
+    private boolean shouldRetryAiFailure(AnalysisExecutionContext execution, Exception failure) {
+        if (!pipelineProperties.isRabbitMode()) {
+            return false;
+        }
+        return failureClassifier.classify(failure) == AnalysisFailureClassifier.FailureType.RETRYABLE
+                && execution.executionAttempt() < pipelineProperties.getRabbit().getExecution().getMaximumAttempts();
+    }
+
+    private void populateFallbackReport(AnalysisReport report,
+                                        String summary,
+                                        String strengths,
+                                        String weaknesses,
+                                        String suggestions,
+                                        String resumeBasic,
+                                        String resumeStandard,
+                                        String resumeAdvanced) {
+        report.setSummary(summary + "（AI 不可用，额度已返还；当前报告全部来自规则扫描。）");
+        report.setStrengths(strengths);
+        report.setWeaknesses(weaknesses);
+        report.setSuggestions(suggestions);
+        report.setResumeBasic(resumeBasic);
+        report.setResumeStandard(resumeStandard);
+        report.setResumeAdvanced(resumeAdvanced);
     }
 
     public List<AnalysisReportVO> listProjectReports(Long projectId) {

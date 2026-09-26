@@ -42,7 +42,7 @@ Phase 1 在模块化单体内增加可渐进启用的可靠调度层。`projectm
 
 ### Transactional Outbox 与发布边界
 
-`pm_analysis_outbox` 是待发布事件的事实来源。API 事务要么同时提交 `pm_analysis_task` 与初始事件，要么同时回滚，不在数据库事务内等待网络。Relay 使用 `SELECT ... FOR UPDATE SKIP LOCKED` 短事务批量领取事件，写入带过期时间的唯一 claim owner，提交后才调用 RabbitMQ。事件结果更新必须匹配 claim owner；Relay 崩溃后，过期 claim 可被其他实例领取。
+`pm_analysis_outbox` 是待发布事件的事实来源。API 事务要么同时提交 `pm_analysis_task` 与初始事件，要么同时回滚，不在数据库事务内等待网络。Relay 使用 `SELECT ... FOR UPDATE SKIP LOCKED` 短事务批量领取事件，写入带过期时间的唯一 claim owner，提交后才调用 RabbitMQ。每一条事件正式发布前都会按 `id + CLAIMED + claim_owner` 条件续租；续租失败表示所有权已经被其他实例接管，旧 Relay 必须跳过。Confirm 后的结果更新仍校验 owner，因此慢批次后半段不会由过期 owner 继续发送。
 
 发布使用持久化消息、durable direct exchange/queue、`mandatory=true`、correlated Publisher Confirm 和 Publisher Return。只有 Confirm ACK 且没有 Return 才把 Outbox 标记为 `PUBLISHED`。NACK、Return、Confirm 超时和连接异常会记录清理后的原因，并按有上限的指数退避重新调度；超过发布上限时保留 `FAILED` Outbox，并安全终结仍未开始的任务。Confirm 只表示 Broker 接收并路由了消息，不表示 Consumer 已处理成功。
 
@@ -61,22 +61,25 @@ ACK 决策如下：
 | 成功提交终态 | 原子提交报告与 `SUCCESS` | ACK |
 | 已是 `SUCCESS`/`FAILED` 的重复消息 | 不再调用 AI；必要时补做幂等退款 | ACK |
 | 有效租约正在执行的重复消息 | 不启动第二个 Worker | ACK |
-| 不可重试业务错误 | fenced `FAILED`、释放活动键、幂等退款、写死信 Outbox | ACK |
+| 永久 AI 错误，或瞬时 AI 错误已到最后一次 | fenced 保存规则降级报告、项目和任务 `SUCCESS`、同事务幂等退款 | ACK，不进入 DLQ |
+| 非 AI 的不可重试业务错误 | fenced `FAILED`、释放活动键、幂等退款、写死信 Outbox | ACK |
 | 可重试错误且未超限 | 任务回到 `PENDING`，同事务写入 Retry Outbox | ACK |
 | 未知协议或无效消息 | 不执行任务 | Reject 到 DLQ |
-| 消费结果无法持久化 | 不确认数据库结果 | NACK/requeue |
+| 消费结果无法持久化 | 不确认数据库结果 | Reject/requeue；delivery limit 后进入 DLQ |
 
 ### 有限重试、DLQ 与恢复
 
-默认 Retry TTL 层级为 10 秒、60 秒、300 秒，最大执行尝试次数为 4；每次重试生成新的 message ID，保留 task/correlation identity。网络超时、连接异常、明确临时 AI/数据访问错误可重试；权限、项目不存在、参数/状态错误、额度不足、永久配置错误和未知协议不可重试。Spring AMQP 自动业务重试关闭，避免和持久化重试叠加。
+默认 Retry TTL 层级为 10 秒、60 秒、300 秒，最大执行尝试次数为 4；每次重试生成新的 message ID，保留 task/correlation identity。AI 连接/读取超时、HTTP 408/429/5xx 和明确临时网络错误可重试；AI disabled、Key 缺失、HTTP 400/401/403/404、模型/参数错误和无效返回结构直接生成规则降级报告。瞬时 AI 错误到最后一次也生成降级报告；报告明确标注 AI 不可用和额度已返还。规则报告、项目 `FINISHED`、任务 `SUCCESS`、`active_key` 释放与任务级退款在同一 fenced 短事务内，任一步失败全部回滚。项目/权限/额度/状态、规则扫描或最终持久化错误仍按非 AI 失败处理。Spring AMQP 自动业务重试关闭，避免和持久化重试叠加。
 
-Worker 心跳停止后，Recovery Scanner 通过数据库行锁和条件版本更新领取过期任务。未超限时，任务回到可调度状态并在同一事务写 Retry Outbox；超限时进入 `FAILED`、清空 `active_key`，并写入死信诊断事件。主队列、Retry Queue 与 DLQ 默认统一使用 quorum queue；开发 Compose 的单节点 RabbitMQ 只提供持久化和一致队列语义，不等于高可用。未来生产高可用至少需要三节点 RabbitMQ，并应另行验证网络分区、磁盘告警和恢复流程。
+Worker 心跳停止后，Recovery Scanner 通过数据库行锁和条件版本更新领取过期任务。未超限时，任务回到可调度状态并在同一事务写 Retry Outbox；超限时进入 `FAILED`、清空 `active_key`，并写入死信诊断事件。Rabbit 模式正式要求 quorum queue，classic 配置会启动失败。Main Queue 和每个 Retry Queue 显式使用 `x-dead-letter-strategy=at-least-once`、`x-overflow=reject-publish` 和有限 `x-delivery-limit`；Main 超限进入 DLQ，Retry Queue 在 TTL 后可靠转回 Main，DLQ 自身不再配置 DLX。开发 Compose 的单节点 RabbitMQ 只提供持久化和一致队列语义，不等于高可用。未来生产高可用至少需要三节点 RabbitMQ，并应另行验证网络分区、磁盘告警和恢复流程。
 
 ### Credits 与可观测性
 
 V5 为 `pm_credit_log.idempotency_key` 增加 nullable unique key。分析任务使用稳定的 `ANALYSIS_DEBIT:{taskId}` 和 `ANALYSIS_REFUND:{taskId}`：余额行先 `FOR UPDATE`，余额更新与流水写入同一事务，数据库唯一约束关闭重复投递竞争窗口；没有成功 debit 的任务不能退款，同一任务最多退款一次。现有管理员额度操作和同步报告接口继续使用原有兼容路径。
 
 指标复用 Actuator/Micrometer，覆盖提交、Outbox 领取/发布/失败、消费/重复/重试/死信、租约恢复、活跃 Worker、Outbox backlog 和执行时长。指标标签只包含 mode/result 等低基数字段；task/user/project/message 标识只进入经过清理的结构化日志。
+
+真实 RabbitMQ 集成门禁覆盖 Broker 协议和拓扑语义：Confirm/Return、持久化消息、物理 Channel manual ACK/redelivery、Retry TTL、有限 requeue 后 DLQ、at-least-once DLX 目标延迟创建后的恢复，以及 Broker unavailable 后 Outbox 恢复。Consumer 任务领取、重复投递、AI 分类、规则降级和 fenced 最终提交由协调器/服务单元测试与 MySQL 真实集成测试覆盖；当前不把这些测试描述为完整启动真实 `@RabbitListener` 的 AI 端到端测试。
 
 ## 尚未解决的风险
 

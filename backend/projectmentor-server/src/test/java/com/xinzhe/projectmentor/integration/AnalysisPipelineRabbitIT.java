@@ -80,8 +80,7 @@ class AnalysisPipelineRabbitIT {
 
         DirectExchange main = new DirectExchange(mainExchange, true, false);
         DirectExchange dead = new DirectExchange(deadExchange, true, false);
-        Queue queue = QueueBuilder.durable(mainQueue)
-                .quorum()
+        Queue queue = reliableDeadLetterQueue(mainQueue, 3)
                 .deadLetterExchange(deadExchange)
                 .deadLetterRoutingKey(route)
                 .build();
@@ -148,8 +147,7 @@ class AnalysisPipelineRabbitIT {
         String retryExchange = PREFIX + "retry." + suffix;
         String retryQueue = mainQueue + ".retry";
         DirectExchange retry = new DirectExchange(retryExchange, true, false);
-        Queue delayed = QueueBuilder.durable(retryQueue)
-                .quorum()
+        Queue delayed = reliableDeadLetterQueue(retryQueue, 3)
                 .ttl(250)
                 .deadLetterExchange(mainExchange)
                 .deadLetterRoutingKey(route)
@@ -181,6 +179,84 @@ class AnalysisPipelineRabbitIT {
             });
         } finally {
             admin.deleteQueue(retryQueue);
+        }
+    }
+
+    @Test
+    void quorumDeliveryLimitStopsPersistenceFailureHotLoopAndDeadLetters() throws Exception {
+        rabbitTemplate.send(mainExchange, route, persistentMessage("database-still-down"));
+        AtomicReference<Message> deadLetter = new AtomicReference<>();
+        Connection connection = connectionFactory.createConnection();
+        try {
+            Channel channel = connection.getDelegate().createChannel();
+            await().atMost(Duration.ofSeconds(10)).until(() -> {
+                GetResponse delivery = channel.basicGet(mainQueue, false);
+                if (delivery != null) {
+                    channel.basicReject(delivery.getEnvelope().getDeliveryTag(), true);
+                }
+                Message dead = rabbitTemplate.receive(deadQueue);
+                if (dead != null) {
+                    deadLetter.set(dead);
+                    return true;
+                }
+                return false;
+            });
+            channel.close();
+        } finally {
+            connection.close();
+        }
+
+        assertThat(new String(deadLetter.get().getBody(), StandardCharsets.UTF_8))
+                .isEqualTo("database-still-down");
+        assertThat(admin.getQueueInfo(mainQueue).getMessageCount()).isZero();
+    }
+
+    @Test
+    void atLeastOnceRetryDeadLetterSurvivesMissingTargetAndArrivesAfterBindingRecovery() {
+        String sourceExchange = PREFIX + "source." + suffix;
+        String sourceQueue = PREFIX + "source.queue." + suffix;
+        String sourceRoute = PREFIX + "source.route." + suffix;
+        String targetExchange = PREFIX + "late.target." + suffix;
+        String targetQueue = PREFIX + "late.target.queue." + suffix;
+        String targetRoute = PREFIX + "late.target.route." + suffix;
+
+        admin.declareExchange(new DirectExchange(sourceExchange, true, false));
+        Queue delayed = reliableDeadLetterQueue(sourceQueue, 3)
+                .ttl(250)
+                .deadLetterExchange(targetExchange)
+                .deadLetterRoutingKey(targetRoute)
+                .build();
+        admin.declareQueue(delayed);
+        admin.declareBinding(BindingBuilder.bind(delayed)
+                .to(new DirectExchange(sourceExchange, true, false)).with(sourceRoute));
+
+        try {
+            rabbitTemplate.send(sourceExchange, sourceRoute, persistentMessage("survive-missing-dlx"));
+            long targetCreationNotBefore = System.nanoTime() + Duration.ofSeconds(1).toNanos();
+            await().atMost(Duration.ofSeconds(3)).until(() -> System.nanoTime() >= targetCreationNotBefore);
+
+            DirectExchange recoveredTarget = new DirectExchange(targetExchange, true, false);
+            Queue recoveredQueue = QueueBuilder.durable(targetQueue).quorum().build();
+            admin.declareExchange(recoveredTarget);
+            admin.declareQueue(recoveredQueue);
+            admin.declareBinding(BindingBuilder.bind(recoveredQueue).to(recoveredTarget).with(targetRoute));
+
+            AtomicReference<Message> recovered = new AtomicReference<>();
+            await().atMost(Duration.ofSeconds(15)).until(() -> {
+                Message message = rabbitTemplate.receive(targetQueue);
+                if (message == null) {
+                    return false;
+                }
+                recovered.set(message);
+                return true;
+            });
+            assertThat(new String(recovered.get().getBody(), StandardCharsets.UTF_8))
+                    .isEqualTo("survive-missing-dlx");
+        } finally {
+            admin.deleteQueue(sourceQueue);
+            admin.deleteQueue(targetQueue);
+            admin.deleteExchange(sourceExchange);
+            admin.deleteExchange(targetExchange);
         }
     }
 
@@ -245,6 +321,14 @@ class AnalysisPipelineRabbitIT {
         return MessageBuilder.withBody(body.getBytes(StandardCharsets.UTF_8))
                 .setDeliveryMode(MessageDeliveryMode.PERSISTENT)
                 .build();
+    }
+
+    private QueueBuilder reliableDeadLetterQueue(String name, int deliveryLimit) {
+        return QueueBuilder.durable(name)
+                .quorum()
+                .withArgument("x-dead-letter-strategy", "at-least-once")
+                .withArgument("x-overflow", "reject-publish")
+                .withArgument("x-delivery-limit", deliveryLimit);
     }
 
     private GetResponse awaitGet(Channel channel, String queue, boolean autoAck) {

@@ -237,18 +237,27 @@ class AnalysisPipelineRabbitIT {
 
             DirectExchange recoveredTarget = new DirectExchange(targetExchange, true, false);
             Queue recoveredQueue = QueueBuilder.durable(targetQueue).quorum().build();
-            admin.declareExchange(recoveredTarget);
             admin.declareQueue(recoveredQueue);
+            admin.declareExchange(recoveredTarget);
             admin.declareBinding(BindingBuilder.bind(recoveredQueue).to(recoveredTarget).with(targetRoute));
 
+            // RabbitMQ's at-least-once dead-letter worker retries unavailable targets
+            // periodically. A newly expired message also wakes the worker without relying
+            // on a fixed broker retry interval, while the assertion still requires the
+            // original message retained during the outage to arrive.
+            rabbitTemplate.send(sourceExchange, sourceRoute, persistentMessage("wake-dlx-worker"));
+
             AtomicReference<Message> recovered = new AtomicReference<>();
-            await().atMost(Duration.ofSeconds(15)).until(() -> {
+            await().atMost(Duration.ofSeconds(60)).until(() -> {
                 Message message = rabbitTemplate.receive(targetQueue);
                 if (message == null) {
                     return false;
                 }
-                recovered.set(message);
-                return true;
+                if ("survive-missing-dlx".equals(new String(message.getBody(), StandardCharsets.UTF_8))) {
+                    recovered.set(message);
+                    return true;
+                }
+                return false;
             });
             assertThat(new String(recovered.get().getBody(), StandardCharsets.UTF_8))
                     .isEqualTo("survive-missing-dlx");

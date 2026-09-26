@@ -130,6 +130,7 @@ projectmentor:
         min-concurrency: ${ANALYSIS_RABBIT_CONSUMER_MIN_CONCURRENCY:1}
         max-concurrency: ${ANALYSIS_RABBIT_CONSUMER_MAX_CONCURRENCY:4}
         prefetch: ${ANALYSIS_RABBIT_PREFETCH:1}
+        delivery-limit: ${ANALYSIS_RABBIT_DELIVERY_LIMIT:20}
       execution:
         lease-seconds: ${ANALYSIS_EXECUTION_LEASE_SECONDS:120}
         heartbeat-seconds: ${ANALYSIS_EXECUTION_HEARTBEAT_SECONDS:30}

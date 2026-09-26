@@ -33,6 +33,11 @@ class AnalysisPipelinePropertiesTests {
         properties.getRabbit().getExecution().setLeaseSeconds(120);
 
         assertThat(validator.validate(properties)).isNotEmpty();
+
+        properties = validRabbitProperties();
+        properties.getRabbit().getTopology().setQueueType(AnalysisPipelineProperties.QueueType.CLASSIC);
+
+        assertThat(validator.validate(properties)).isNotEmpty();
     }
 
     @Test

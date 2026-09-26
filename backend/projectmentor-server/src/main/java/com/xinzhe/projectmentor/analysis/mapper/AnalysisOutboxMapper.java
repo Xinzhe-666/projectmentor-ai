@@ -39,6 +39,17 @@ public interface AnalysisOutboxMapper extends BaseMapper<AnalysisOutboxEvent> {
 
     @Update("""
             UPDATE pm_analysis_outbox
+            SET claim_expires_at = TIMESTAMPADD(SECOND, #{claimLeaseSeconds}, NOW(6))
+            WHERE id = #{id}
+              AND status = 'CLAIMED'
+              AND claim_owner = #{claimOwner}
+            """)
+    int renewClaim(@Param("id") Long id,
+                   @Param("claimOwner") String claimOwner,
+                   @Param("claimLeaseSeconds") int claimLeaseSeconds);
+
+    @Update("""
+            UPDATE pm_analysis_outbox
             SET status = 'PUBLISHED',
                 published_at = NOW(6),
                 claim_owner = NULL,

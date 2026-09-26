@@ -57,6 +57,16 @@ public class AnalysisOutboxRelay {
     }
 
     private void publishOutsideTransaction(AnalysisOutboxEvent event, String claimOwner) {
+        int renewed = outboxMapper.renewClaim(
+                event.getId(), claimOwner, properties.getRabbit().getOutbox().getClaimLeaseSeconds()
+        );
+        if (renewed != 1) {
+            log.info("analysis_outbox_claim_lost eventId={} taskId={} owner={}",
+                    event.getEventId(), event.getTaskId(), claimOwner);
+            metrics.outbox("claim-lost");
+            return;
+        }
+
         RabbitPublishResult result = publisher.publish(event);
         if (result.reliable()) {
             if (outboxMapper.markPublished(event.getId(), claimOwner) == 1) {

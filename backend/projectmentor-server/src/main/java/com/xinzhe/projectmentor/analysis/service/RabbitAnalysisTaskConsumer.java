@@ -47,7 +47,10 @@ public class RabbitAnalysisTaskConsumer {
                     "analysis_consume_persistence_failed taskId={} messageId={} correlationId={} reason={}",
                     message.taskId(), message.messageId(), message.correlationId(), SafePipelineError.from(e)
             );
-            channel.basicNack(deliveryTag, false, true);
+            // Quorum delivery-count is incremented by AMQP 0-9-1 basic.reject, not basic.nack.
+            // Requeue remains true so transient database failures are retried, but x-delivery-limit
+            // bounds the loop and ultimately dead-letters the message.
+            channel.basicReject(deliveryTag, true);
         }
     }
 }

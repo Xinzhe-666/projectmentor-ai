@@ -43,6 +43,7 @@ class AnalysisOutboxRelayTests {
     void onlyAckWithoutReturnMarksEventPublished() {
         AnalysisOutboxEvent event = event(1);
         when(claimService.claimBatch("instance-a:relay")).thenReturn(List.of(event));
+        when(mapper.renewClaim(10L, "instance-a:relay", 30)).thenReturn(1);
         when(publisher.publish(event)).thenReturn(new RabbitPublishResult(RabbitPublishResult.Status.ACK, null));
 
         relay.relayOnce();
@@ -60,6 +61,7 @@ class AnalysisOutboxRelayTests {
         )) {
             AnalysisOutboxEvent event = event(1);
             when(claimService.claimBatch("instance-a:relay")).thenReturn(List.of(event));
+            when(mapper.renewClaim(10L, "instance-a:relay", 30)).thenReturn(1);
             when(publisher.publish(event)).thenReturn(new RabbitPublishResult(status, "not reliable"));
 
             relay.relayOnce();
@@ -77,6 +79,7 @@ class AnalysisOutboxRelayTests {
         properties.getRabbit().getOutbox().setMaximumAttempts(3);
         AnalysisOutboxEvent event = event(3);
         when(claimService.claimBatch("instance-a:relay")).thenReturn(List.of(event));
+        when(mapper.renewClaim(10L, "instance-a:relay", 30)).thenReturn(1);
         when(publisher.publish(event)).thenReturn(new RabbitPublishResult(RabbitPublishResult.Status.NACK, "nack"));
         when(transitions.failClaimedOutboxAndPendingTask(
                 10L, "instance-a:relay", 100L, "NACK: nack", "消息发布超过最大尝试次数"
@@ -90,9 +93,41 @@ class AnalysisOutboxRelayTests {
         verify(mapper, never()).markPublished(org.mockito.ArgumentMatchers.anyLong(), anyString());
     }
 
+    @Test
+    void staleOwnerCannotPublishAfterAnotherRelayTakesTheClaim() {
+        AnalysisOutboxEvent event = event(1);
+        when(claimService.claimBatch("instance-a:relay")).thenReturn(List.of(event));
+        when(mapper.renewClaim(10L, "instance-a:relay", 30)).thenReturn(0);
+
+        relay.relayOnce();
+
+        verify(publisher, never()).publish(org.mockito.ArgumentMatchers.any());
+        verify(mapper, never()).markPublished(org.mockito.ArgumentMatchers.anyLong(), anyString());
+    }
+
+    @Test
+    void slowEarlierPublishDoesNotAuthorizeExpiredLaterClaim() {
+        AnalysisOutboxEvent first = event(1);
+        AnalysisOutboxEvent second = event(1);
+        second.setId(11L);
+        second.setEventId("event-11");
+        when(claimService.claimBatch("instance-a:relay")).thenReturn(List.of(first, second));
+        when(mapper.renewClaim(10L, "instance-a:relay", 30)).thenReturn(1);
+        when(mapper.renewClaim(11L, "instance-a:relay", 30)).thenReturn(0);
+        when(publisher.publish(first)).thenReturn(new RabbitPublishResult(RabbitPublishResult.Status.ACK, null));
+
+        relay.relayOnce();
+
+        verify(publisher).publish(first);
+        verify(publisher, never()).publish(second);
+        verify(mapper).markPublished(10L, "instance-a:relay");
+        verify(mapper, never()).markPublished(11L, "instance-a:relay");
+    }
+
     private AnalysisOutboxEvent event(int attempts) {
         AnalysisOutboxEvent event = new AnalysisOutboxEvent();
         event.setId(10L);
+        event.setEventId("event-10");
         event.setTaskId(100L);
         event.setPublishAttempt(attempts);
         return event;

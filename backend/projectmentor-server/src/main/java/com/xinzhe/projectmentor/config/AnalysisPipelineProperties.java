@@ -42,6 +42,7 @@ public class AnalysisPipelineProperties {
             return true;
         }
         return rabbit.connection.hasRequiredValues()
+                && rabbit.topology.queueType == QueueType.QUORUM
                 && rabbit.consumer.maxConcurrency >= rabbit.consumer.minConcurrency
                 && rabbit.execution.heartbeatSeconds * 2L <= rabbit.execution.leaseSeconds
                 && rabbit.outbox.claimLeaseSeconds * 1000L > rabbit.publisher.confirmTimeoutMillis
@@ -143,6 +144,9 @@ public class AnalysisPipelineProperties {
         private int maxConcurrency = 4;
         @Min(1)
         private int prefetch = 1;
+        @Min(1)
+        @Max(1000)
+        private int deliveryLimit = 20;
     }
 
     @Data

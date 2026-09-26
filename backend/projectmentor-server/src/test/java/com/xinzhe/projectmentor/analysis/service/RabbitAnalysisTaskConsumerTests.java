@@ -28,7 +28,7 @@ class RabbitAnalysisTaskConsumerTests {
         new RabbitAnalysisTaskConsumer(objectMapper, coordinator).consume(raw(taskMessage, 11L), channel);
 
         verify(channel).basicAck(11L, false);
-        verify(channel, never()).basicNack(11L, false, true);
+        verify(channel, never()).basicReject(11L, true);
     }
 
     @Test
@@ -53,7 +53,7 @@ class RabbitAnalysisTaskConsumerTests {
 
         new RabbitAnalysisTaskConsumer(objectMapper, coordinator).consume(raw(taskMessage, 13L), channel);
 
-        verify(channel).basicNack(13L, false, true);
+        verify(channel).basicReject(13L, true);
         verify(channel, never()).basicAck(13L, false);
     }
 

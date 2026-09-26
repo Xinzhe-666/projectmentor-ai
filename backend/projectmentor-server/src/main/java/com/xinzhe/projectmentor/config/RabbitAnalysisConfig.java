@@ -26,15 +26,17 @@ public class RabbitAnalysisConfig {
     @Bean
     public Declarables analysisRabbitTopology(AnalysisPipelineProperties properties) {
         AnalysisPipelineProperties.Topology topology = properties.getRabbit().getTopology();
+        requireQuorum(topology);
+        int deliveryLimit = properties.getRabbit().getConsumer().getDeliveryLimit();
         DirectExchange mainExchange = new DirectExchange(topology.getMainExchange(), true, false);
         DirectExchange retryExchange = new DirectExchange(topology.getRetryExchange(), true, false);
         DirectExchange deadExchange = new DirectExchange(topology.getDeadLetterExchange(), true, false);
 
-        Queue mainQueue = durableQueue(topology.getMainQueue(), topology.getQueueType())
+        Queue mainQueue = deadLetteringQuorumQueue(topology.getMainQueue(), deliveryLimit)
                 .deadLetterExchange(topology.getDeadLetterExchange())
                 .deadLetterRoutingKey(topology.getDeadLetterRoutingKey())
                 .build();
-        Queue deadQueue = durableQueue(topology.getDeadLetterQueue(), topology.getQueueType()).build();
+        Queue deadQueue = QueueBuilder.durable(topology.getDeadLetterQueue()).quorum().build();
 
         List<Declarable> declarables = new ArrayList<>();
         declarables.add(mainExchange);
@@ -48,7 +50,7 @@ public class RabbitAnalysisConfig {
         for (Long ttlSeconds : properties.getRabbit().getRetry().getTtlSeconds()) {
             String retryQueueName = retryQueueName(topology, ttlSeconds);
             String retryRoutingKey = retryRoutingKey(ttlSeconds);
-            Queue retryQueue = durableQueue(retryQueueName, topology.getQueueType())
+            Queue retryQueue = deadLetteringQuorumQueue(retryQueueName, deliveryLimit)
                     .ttl(Math.toIntExact(ttlSeconds * 1000))
                     .deadLetterExchange(topology.getMainExchange())
                     .deadLetterRoutingKey(topology.getMainRoutingKey())
@@ -84,13 +86,17 @@ public class RabbitAnalysisConfig {
         return "analysis.retry." + ttlSeconds + "s.v1";
     }
 
-    private QueueBuilder durableQueue(String name, AnalysisPipelineProperties.QueueType queueType) {
-        QueueBuilder builder = QueueBuilder.durable(name);
-        if (queueType == AnalysisPipelineProperties.QueueType.QUORUM) {
-            builder.quorum();
-        } else {
-            builder.withArgument("x-queue-type", "classic");
+    private QueueBuilder deadLetteringQuorumQueue(String name, int deliveryLimit) {
+        return QueueBuilder.durable(name)
+                .quorum()
+                .withArgument("x-dead-letter-strategy", "at-least-once")
+                .withArgument("x-overflow", "reject-publish")
+                .withArgument("x-delivery-limit", deliveryLimit);
+    }
+
+    private void requireQuorum(AnalysisPipelineProperties.Topology topology) {
+        if (topology.getQueueType() != AnalysisPipelineProperties.QueueType.QUORUM) {
+            throw new IllegalStateException("Rabbit analysis pipeline requires quorum queues");
         }
-        return builder;
     }
 }

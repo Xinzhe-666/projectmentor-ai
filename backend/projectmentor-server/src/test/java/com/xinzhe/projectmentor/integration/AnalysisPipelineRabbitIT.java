@@ -241,23 +241,17 @@ class AnalysisPipelineRabbitIT {
             admin.declareExchange(recoveredTarget);
             admin.declareBinding(BindingBuilder.bind(recoveredQueue).to(recoveredTarget).with(targetRoute));
 
-            // RabbitMQ's at-least-once dead-letter worker retries unavailable targets
-            // periodically. A newly expired message also wakes the worker without relying
-            // on a fixed broker retry interval, while the assertion still requires the
-            // original message retained during the outage to arrive.
-            rabbitTemplate.send(sourceExchange, sourceRoute, persistentMessage("wake-dlx-worker"));
-
             AtomicReference<Message> recovered = new AtomicReference<>();
-            await().atMost(Duration.ofSeconds(60)).until(() -> {
+            // RabbitMQ 4.1 retries unroutable at-least-once dead letters on its
+            // publisher-confirm timeout (180 seconds by default). CI shortens that
+            // broker-only test setting, while this bound still supports a stock broker.
+            await().atMost(Duration.ofSeconds(210)).until(() -> {
                 Message message = rabbitTemplate.receive(targetQueue);
                 if (message == null) {
                     return false;
                 }
-                if ("survive-missing-dlx".equals(new String(message.getBody(), StandardCharsets.UTF_8))) {
-                    recovered.set(message);
-                    return true;
-                }
-                return false;
+                recovered.set(message);
+                return true;
             });
             assertThat(new String(recovered.get().getBody(), StandardCharsets.UTF_8))
                     .isEqualTo("survive-missing-dlx");

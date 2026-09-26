@@ -75,6 +75,7 @@ jobs:
           RABBITMQ_DEFAULT_USER: pmai_ci
           RABBITMQ_DEFAULT_PASS: ci-rabbitmq-integration-password
           RABBITMQ_DEFAULT_VHOST: /pmai-ci
+          RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: -rabbit dead_letter_worker_publisher_confirm_timeout 1000
         ports:
           - 5672/tcp
         options: >-

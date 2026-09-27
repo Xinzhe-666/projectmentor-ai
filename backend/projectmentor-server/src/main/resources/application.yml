@@ -2,6 +2,12 @@ server:
   port: 8080
   forward-headers-strategy: framework
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
 app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:https://projectmentorai.com,https://www.projectmentorai.com,http://projectmentorai.com,http://www.projectmentorai.com,http://8.218.121.30,http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000}
@@ -37,6 +43,22 @@ spring:
       password: ${REDIS_PASSWORD:}
       database: ${REDIS_DATABASE:0}
 
+  rabbitmq:
+    host: ${ANALYSIS_RABBIT_HOST:localhost}
+    port: ${ANALYSIS_RABBIT_PORT:5672}
+    virtual-host: ${ANALYSIS_RABBIT_VHOST:}
+    username: ${ANALYSIS_RABBIT_USERNAME:}
+    password: ${ANALYSIS_RABBIT_PASSWORD:}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
+    listener:
+      simple:
+        acknowledge-mode: manual
+        retry:
+          enabled: false
+
   mail:
     host: ${MAIL_HOST:}
     port: ${MAIL_PORT:587}
@@ -71,12 +93,52 @@ projectmentor:
     emails: ${ADMIN_EMAILS:}
 
   analysis:
+    dispatch-mode: ${ANALYSIS_DISPATCH_MODE:local}
     executor:
       core-pool-size: ${ANALYSIS_EXECUTOR_CORE_POOL_SIZE:2}
       max-pool-size: ${ANALYSIS_EXECUTOR_MAX_POOL_SIZE:4}
       queue-capacity: ${ANALYSIS_EXECUTOR_QUEUE_CAPACITY:50}
       keep-alive-seconds: ${ANALYSIS_EXECUTOR_KEEP_ALIVE_SECONDS:60}
       await-termination-seconds: ${ANALYSIS_EXECUTOR_AWAIT_TERMINATION_SECONDS:30}
+    rabbit:
+      connection:
+        host: ${ANALYSIS_RABBIT_HOST:}
+        port: ${ANALYSIS_RABBIT_PORT:5672}
+        virtual-host: ${ANALYSIS_RABBIT_VHOST:}
+        username: ${ANALYSIS_RABBIT_USERNAME:}
+        password: ${ANALYSIS_RABBIT_PASSWORD:}
+      topology:
+        main-exchange: ${ANALYSIS_RABBIT_MAIN_EXCHANGE:pmai.analysis.v1}
+        main-queue: ${ANALYSIS_RABBIT_MAIN_QUEUE:pmai.analysis.execute.v1}
+        main-routing-key: ${ANALYSIS_RABBIT_MAIN_ROUTING_KEY:analysis.execute.v1}
+        retry-exchange: ${ANALYSIS_RABBIT_RETRY_EXCHANGE:pmai.analysis.retry.v1}
+        dead-letter-exchange: ${ANALYSIS_RABBIT_DLX:pmai.analysis.dlx.v1}
+        dead-letter-queue: ${ANALYSIS_RABBIT_DLQ:pmai.analysis.dead.v1}
+        dead-letter-routing-key: ${ANALYSIS_RABBIT_DEAD_ROUTING_KEY:analysis.dead.v1}
+        queue-type: ${ANALYSIS_RABBIT_QUEUE_TYPE:quorum}
+      publisher:
+        confirm-timeout-millis: ${ANALYSIS_RABBIT_CONFIRM_TIMEOUT_MILLIS:5000}
+      outbox:
+        poll-interval-millis: ${ANALYSIS_OUTBOX_POLL_INTERVAL_MILLIS:1000}
+        batch-size: ${ANALYSIS_OUTBOX_BATCH_SIZE:50}
+        claim-lease-seconds: ${ANALYSIS_OUTBOX_CLAIM_LEASE_SECONDS:30}
+        maximum-attempts: ${ANALYSIS_OUTBOX_MAXIMUM_ATTEMPTS:8}
+        initial-backoff-seconds: ${ANALYSIS_OUTBOX_INITIAL_BACKOFF_SECONDS:5}
+        maximum-backoff-seconds: ${ANALYSIS_OUTBOX_MAXIMUM_BACKOFF_SECONDS:300}
+        published-retention-hours: ${ANALYSIS_OUTBOX_PUBLISHED_RETENTION_HOURS:168}
+      consumer:
+        min-concurrency: ${ANALYSIS_RABBIT_CONSUMER_MIN_CONCURRENCY:1}
+        max-concurrency: ${ANALYSIS_RABBIT_CONSUMER_MAX_CONCURRENCY:4}
+        prefetch: ${ANALYSIS_RABBIT_PREFETCH:1}
+        delivery-limit: ${ANALYSIS_RABBIT_DELIVERY_LIMIT:20}
+      execution:
+        lease-seconds: ${ANALYSIS_EXECUTION_LEASE_SECONDS:120}
+        heartbeat-seconds: ${ANALYSIS_EXECUTION_HEARTBEAT_SECONDS:30}
+        recovery-scan-interval-millis: ${ANALYSIS_RECOVERY_SCAN_INTERVAL_MILLIS:5000}
+        recovery-batch-size: ${ANALYSIS_RECOVERY_BATCH_SIZE:50}
+        maximum-attempts: ${ANALYSIS_EXECUTION_MAXIMUM_ATTEMPTS:4}
+      retry:
+        ttl-seconds: ${ANALYSIS_RETRY_TTL_SECONDS:10,60,300}
 
   email-verification:
     enabled: ${EMAIL_VERIFICATION_ENABLED:false}

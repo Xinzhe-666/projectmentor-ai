@@ -47,6 +47,79 @@ jobs:
       - name: Package backend
         run: ./mvnw -B clean package -DskipTests
 
+  rabbitmq-integration:
+    name: rabbitmq-integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: backend/projectmentor-server
+    services:
+      mysql:
+        image: mysql:8.0
+        command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+        env:
+          MYSQL_ROOT_PASSWORD: ci-rabbitmq-integration-mysql-password
+          MYSQL_DATABASE: projectmentor_ai_rabbit_it
+        ports:
+          - 3306/tcp
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pci-rabbitmq-integration-mysql-password --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-start-period=20s
+          --health-retries=30
+      rabbitmq:
+        image: rabbitmq:4.1.8-management-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: pmai_ci
+          RABBITMQ_DEFAULT_PASS: ci-rabbitmq-integration-password
+          RABBITMQ_DEFAULT_VHOST: /pmai-ci
+          RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: -rabbit dead_letter_worker_publisher_confirm_timeout 1000
+        ports:
+          - 5672/tcp
+        options: >-
+          --health-cmd="rabbitmq-diagnostics -q ping"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-start-period=20s
+          --health-retries=30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+          cache-dependency-path: backend/projectmentor-server/pom.xml
+
+      - name: Make Maven wrapper executable
+        run: chmod +x mvnw
+
+      - name: Run MySQL and RabbitMQ integration tests
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: ${{ job.services.mysql.ports['3306'] }}
+          DB_NAME: projectmentor_ai_rabbit_it
+          DB_USERNAME: root
+          DB_PASSWORD: ci-rabbitmq-integration-mysql-password
+          ANALYSIS_RABBIT_HOST: 127.0.0.1
+          ANALYSIS_RABBIT_PORT: ${{ job.services.rabbitmq.ports['5672'] }}
+          ANALYSIS_RABBIT_VHOST: /pmai-ci
+          ANALYSIS_RABBIT_USERNAME: pmai_ci
+          ANALYSIS_RABBIT_PASSWORD: ci-rabbitmq-integration-password
+          ANALYSIS_RABBIT_QUEUE_TYPE: quorum
+          ANALYSIS_RETRY_TTL_SECONDS: 1,2,3
+          JWT_SECRET: ci-rabbitmq-integration-jwt-secret-at-least-32-characters
+          AI_ENABLED: "false"
+          EMAIL_VERIFICATION_ENABLED: "false"
+        run: ./mvnw -B verify -Pintegration
+
   frontend:
     name: frontend
     runs-on: ubuntu-latest
@@ -121,9 +194,13 @@ jobs:
 
           export MYSQL_ROOT_PASSWORD='ci-placeholder-mysql-root-password'
           export JWT_SECRET='ci-placeholder-jwt-secret-at-least-32-characters'
+          export ANALYSIS_RABBIT_USERNAME='pmai-placeholder'
+          export ANALYSIS_RABBIT_PASSWORD='ci-placeholder-rabbit-password'
+          export ANALYSIS_RABBIT_VHOST='/pmai-placeholder'
 
           docker compose -f docker-compose.yml config --quiet
           docker compose -f docker-compose.yml -f docker-compose.fast.yml config --quiet
+          docker compose -f docker-compose.yml -f docker-compose.rabbit.yml config --quiet
 
   database-migration:
     name: database-migration
@@ -195,7 +272,7 @@ jobs:
 
           readonly database_name='projectmentor_ai'
           readonly baseline_migration_file='src/main/resources/db/migration/V1__baseline_schema.sql'
-          readonly expected_table_count='16'
+          readonly expected_table_count='17'
           app_pid=''
           app_log=''
 
@@ -313,6 +390,44 @@ jobs:
                GROUP BY non_unique;" \
               '0:1:active_key' \
               "$database_label single-column unique analysis active key"
+            assert_query_equals \
+              "$container_id" \
+              "SELECT COUNT(*) FROM information_schema.columns
+               WHERE table_schema = '$database_name'
+                 AND table_name = 'pm_analysis_task'
+                 AND column_name IN ('correlation_id','worker_id','lease_expires_at','heartbeat_at',
+                                     'execution_attempt','execution_version','last_message_id','retry_reason');" \
+              '8' \
+              "$database_label analysis lease and fencing columns"
+            assert_query_equals \
+              "$container_id" \
+              "SELECT CONCAT(non_unique, ':', GROUP_CONCAT(column_name ORDER BY seq_in_index SEPARATOR ','))
+               FROM information_schema.statistics
+               WHERE table_schema = '$database_name'
+                 AND table_name = 'pm_credit_log'
+                 AND index_name = 'uk_credit_log_idempotency_key'
+               GROUP BY non_unique;" \
+              '0:idempotency_key' \
+              "$database_label credit idempotency unique key"
+            assert_query_equals \
+              "$container_id" \
+              "SELECT CONCAT(non_unique, ':', GROUP_CONCAT(column_name ORDER BY seq_in_index SEPARATOR ','))
+               FROM information_schema.statistics
+               WHERE table_schema = '$database_name'
+                 AND table_name = 'pm_analysis_report'
+                 AND index_name = 'uk_analysis_report_task_id'
+               GROUP BY non_unique;" \
+              '0:task_id' \
+              "$database_label report task unique key"
+            assert_query_equals \
+              "$container_id" \
+              "SELECT GROUP_CONCAT(column_name ORDER BY seq_in_index SEPARATOR ',')
+               FROM information_schema.statistics
+               WHERE table_schema = '$database_name'
+                 AND table_name = 'pm_analysis_outbox'
+                 AND index_name = 'idx_analysis_outbox_relay';" \
+              'status,next_attempt_at,claim_expires_at,id' \
+              "$database_label outbox relay index"
           }
 
           post_json() {
@@ -477,6 +592,7 @@ jobs:
             'pm_interview_session',
             'pm_interview_message',
             'pm_analysis_task',
+            'pm_analysis_outbox',
             'pm_ai_call_log',
             'pm_defense_session',
             'pm_defense_question',
@@ -535,8 +651,17 @@ jobs:
             'fresh V4 SQL history'
           assert_query_equals \
             "$FRESH_MYSQL_CONTAINER" \
+            "SELECT COUNT(*) FROM flyway_schema_history
+             WHERE version = '5'
+               AND type = 'SQL'
+               AND script = 'V5__reliable_analysis_pipeline.sql'
+               AND success = 1;" \
+            '1' \
+            'fresh V5 SQL history'
+          assert_query_equals \
+            "$FRESH_MYSQL_CONTAINER" \
             'SELECT COUNT(*) FROM flyway_schema_history;' \
-            '4' \
+            '5' \
             'fresh history row count'
           assert_schema_integrity "$FRESH_MYSQL_CONTAINER" 'fresh'
           verify_project_file_mapper_upsert "$FRESH_MYSQL_CONTAINER"
@@ -618,8 +743,17 @@ jobs:
             'legacy V4 SQL history'
           assert_query_equals \
             "$LEGACY_MYSQL_CONTAINER" \
+            "SELECT COUNT(*) FROM flyway_schema_history
+             WHERE version = '5'
+               AND type = 'SQL'
+               AND script = 'V5__reliable_analysis_pipeline.sql'
+               AND success = 1;" \
+            '1' \
+            'legacy V5 SQL history'
+          assert_query_equals \
+            "$LEGACY_MYSQL_CONTAINER" \
             'SELECT COUNT(*) FROM flyway_schema_history;' \
-            '4' \
+            '5' \
             'legacy history row count'
           assert_query_equals \
             "$LEGACY_MYSQL_CONTAINER" \
@@ -641,4 +775,4 @@ jobs:
           stop_app
 
           printf '%s\n' \
-            'PASS fresh V1/V2/V3/V4, legacy baseline/V2/V3/V4, schema integrity, and Mapper upsert validation'
+            'PASS fresh V1-V5, legacy baseline/V2-V5, schema integrity, and Mapper upsert validation'

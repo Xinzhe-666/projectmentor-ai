@@ -209,6 +209,50 @@ class CreditServiceConcurrencyTests {
                 .containsExactly(Exception.class);
     }
 
+    @Test
+    void taskDebitUsesStableDatabaseBackedIdempotencyKey() {
+        Fixture fixture = fixtureWithLockedBalance(10);
+
+        assertThat(fixture.service.consumeCreditsOnceForTask(
+                7L, 2, "AI_AUDIT_REPORT", 100L, "task debit"
+        )).isTrue();
+
+        ArgumentCaptor<CreditLog> logCaptor = ArgumentCaptor.forClass(CreditLog.class);
+        verify(fixture.creditLogMapper).insert(logCaptor.capture());
+        assertThat(logCaptor.getValue().getIdempotencyKey()).isEqualTo("ANALYSIS_DEBIT:100");
+
+        CreditLog existing = new CreditLog();
+        existing.setIdempotencyKey("ANALYSIS_DEBIT:100");
+        when(fixture.creditLogMapper.selectByIdempotencyKey("ANALYSIS_DEBIT:100")).thenReturn(existing);
+        assertThat(fixture.service.consumeCreditsOnceForTask(
+                7L, 2, "AI_AUDIT_REPORT", 100L, "duplicate"
+        )).isFalse();
+    }
+
+    @Test
+    void taskRefundRequiresDebitAndUsesIndependentStableKey() {
+        Fixture noDebit = fixtureWithLockedBalance(8);
+        assertThat(noDebit.service.refundCreditsOnceForTask(
+                7L, "AI_AUDIT_REPORT_REFUND", 100L, "no debit"
+        )).isFalse();
+        verify(noDebit.userPlanMapper, never()).updateById(any(UserPlan.class));
+        verify(noDebit.creditLogMapper, never()).insert(any(CreditLog.class));
+
+        Fixture debited = fixtureWithLockedBalance(8);
+        CreditLog debit = new CreditLog();
+        debit.setChangeAmount(-2);
+        when(debited.creditLogMapper.selectByIdempotencyKey("ANALYSIS_DEBIT:100")).thenReturn(debit);
+        assertThat(debited.service.refundCreditsOnceForTask(
+                7L, "AI_AUDIT_REPORT_REFUND", 100L, "refund"
+        )).isTrue();
+
+        ArgumentCaptor<CreditLog> refund = ArgumentCaptor.forClass(CreditLog.class);
+        verify(debited.creditLogMapper).insert(refund.capture());
+        assertThat(refund.getValue().getIdempotencyKey()).isEqualTo("ANALYSIS_REFUND:100");
+        assertThat(refund.getValue().getChangeAmount()).isEqualTo(2);
+        assertThat(refund.getValue().getAfterAmount()).isEqualTo(10);
+    }
+
     private Fixture fixtureWithLockedBalance(int balance) {
         Fixture fixture = fixture();
         when(fixture.userPlanMapper.selectByUserIdForUpdate(7L)).thenReturn(plan(7L, balance));

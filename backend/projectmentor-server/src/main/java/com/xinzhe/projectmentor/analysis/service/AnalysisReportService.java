@@ -20,6 +20,7 @@ import com.xinzhe.projectmentor.common.BusinessException;
 import com.xinzhe.projectmentor.common.ErrorCode;
 import com.xinzhe.projectmentor.common.PageResult;
 import com.xinzhe.projectmentor.credit.CreditCostConstants;
+import com.xinzhe.projectmentor.config.AnalysisPipelineProperties;
 import com.xinzhe.projectmentor.project.entity.Project;
 import com.xinzhe.projectmentor.project.mapper.ProjectMapper;
 import com.xinzhe.projectmentor.scanner.ProjectRuleScanner;
@@ -70,11 +71,26 @@ public class AnalysisReportService {
 
     private final ClaimEvidenceAiPromptBuilder claimEvidenceAiPromptBuilder;
 
+    private final AnalysisFailureClassifier failureClassifier;
+
+    private final AnalysisPipelineProperties pipelineProperties;
+
     private boolean isBlank(String text) {
         return text == null || text.isBlank();
     }
 
     public AnalysisReportVO generateReport(Long projectId) {
+        return generateReportInternal(projectId, null);
+    }
+
+    public AnalysisReportVO generateReportForTask(AnalysisExecutionContext execution) {
+        if (execution == null || execution.taskId() == null || execution.projectId() == null) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "分析执行上下文无效");
+        }
+        return generateReportInternal(execution.projectId(), execution);
+    }
+
+    private AnalysisReportVO generateReportInternal(Long projectId, AnalysisExecutionContext execution) {
         Project project = checkProjectOwner(projectId);
         Long userId = UserContext.getUserId();
 
@@ -105,6 +121,9 @@ public class AnalysisReportService {
 
             AnalysisReport report = new AnalysisReport();
             report.setProjectId(projectId);
+            if (execution != null) {
+                report.setTaskId(execution.taskId());
+            }
             report.setTotalScore(totalScore);
             report.setRunnabilityScore(runnabilityScore);
             report.setAuthenticityScore(authenticityScore);
@@ -125,13 +144,23 @@ public class AnalysisReportService {
             String fallbackResumeStandard = buildResumeStandard(project, scanResult);
             String fallbackResumeAdvanced = buildResumeAdvanced(project, scanResult);
 
-            creditService.consumeCredits(
-                    userId,
-                    CreditCostConstants.AI_AUDIT_REPORT,
-                    CreditCostConstants.OP_AI_AUDIT_REPORT,
-                    projectId,
-                    "AI 审计报告生成"
-            );
+            if (execution == null) {
+                creditService.consumeCredits(
+                        userId,
+                        CreditCostConstants.AI_AUDIT_REPORT,
+                        CreditCostConstants.OP_AI_AUDIT_REPORT,
+                        projectId,
+                        "AI 审计报告生成"
+                );
+            } else {
+                creditService.consumeCreditsOnceForTask(
+                        userId,
+                        CreditCostConstants.AI_AUDIT_REPORT,
+                        CreditCostConstants.OP_AI_AUDIT_REPORT,
+                        execution.taskId(),
+                        "异步 AI 审计任务扣费"
+                );
+            }
             creditConsumed = true;
 
             try {
@@ -146,6 +175,28 @@ public class AnalysisReportService {
                 report.setResumeStandard(isBlank(aiResult.getResumeStandard()) ? fallbackResumeStandard : aiResult.getResumeStandard());
                 report.setResumeAdvanced(isBlank(aiResult.getResumeAdvanced()) ? fallbackResumeAdvanced : aiResult.getResumeAdvanced());
             } catch (Exception e) {
+                if (execution != null) {
+                    if (shouldRetryAiFailure(execution, e)) {
+                        if (e instanceof RuntimeException runtimeException) {
+                            throw runtimeException;
+                        }
+                        throw new BusinessException(ErrorCode.AI_SERVICE_ERROR, "AI 服务暂时不可用");
+                    }
+                    populateFallbackReport(
+                            report,
+                            fallbackSummary,
+                            fallbackStrengths,
+                            fallbackWeaknesses,
+                            fallbackSuggestions,
+                            fallbackResumeBasic,
+                            fallbackResumeStandard,
+                            fallbackResumeAdvanced
+                    );
+                    analysisReportPersistenceService.saveFallbackReportCompleteTaskAndRefund(
+                            report, project, execution
+                    );
+                    return toVO(report);
+                }
                 creditService.refundCredits(
                         userId,
                         CreditCostConstants.AI_AUDIT_REPORT,
@@ -154,20 +205,27 @@ public class AnalysisReportService {
                         "AI 审计报告生成失败返还"
                 );
                 creditRefunded = true;
-                report.setSummary(fallbackSummary + "（AI 调用失败，额度已返还；当前报告由规则扫描模块生成。）");
-                report.setStrengths(fallbackStrengths);
-                report.setWeaknesses(fallbackWeaknesses);
-                report.setSuggestions(fallbackSuggestions);
-                report.setResumeBasic(fallbackResumeBasic);
-                report.setResumeStandard(fallbackResumeStandard);
-                report.setResumeAdvanced(fallbackResumeAdvanced);
+                populateFallbackReport(
+                        report,
+                        fallbackSummary,
+                        fallbackStrengths,
+                        fallbackWeaknesses,
+                        fallbackSuggestions,
+                        fallbackResumeBasic,
+                        fallbackResumeStandard,
+                        fallbackResumeAdvanced
+                );
             }
 
-            analysisReportPersistenceService.saveReportAndMarkProjectFinished(report, project);
+            if (execution == null) {
+                analysisReportPersistenceService.saveReportAndMarkProjectFinished(report, project);
+            } else {
+                analysisReportPersistenceService.saveReportAndCompleteTask(report, project, execution);
+            }
 
             return toVO(report);
         } catch (Exception e) {
-            if (creditConsumed && !creditRefunded) {
+            if (execution == null && creditConsumed && !creditRefunded) {
                 creditService.refundCredits(
                         userId,
                         CreditCostConstants.AI_AUDIT_REPORT,
@@ -179,6 +237,31 @@ public class AnalysisReportService {
 
             throw e;
         }
+    }
+
+    private boolean shouldRetryAiFailure(AnalysisExecutionContext execution, Exception failure) {
+        if (!pipelineProperties.isRabbitMode()) {
+            return false;
+        }
+        return failureClassifier.classify(failure) == AnalysisFailureClassifier.FailureType.RETRYABLE
+                && execution.executionAttempt() < pipelineProperties.getRabbit().getExecution().getMaximumAttempts();
+    }
+
+    private void populateFallbackReport(AnalysisReport report,
+                                        String summary,
+                                        String strengths,
+                                        String weaknesses,
+                                        String suggestions,
+                                        String resumeBasic,
+                                        String resumeStandard,
+                                        String resumeAdvanced) {
+        report.setSummary(summary + "（AI 不可用，额度已返还；当前报告全部来自规则扫描。）");
+        report.setStrengths(strengths);
+        report.setWeaknesses(weaknesses);
+        report.setSuggestions(suggestions);
+        report.setResumeBasic(resumeBasic);
+        report.setResumeStandard(resumeStandard);
+        report.setResumeAdvanced(resumeAdvanced);
     }
 
     public List<AnalysisReportVO> listProjectReports(Long projectId) {

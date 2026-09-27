@@ -15,6 +15,15 @@ import java.util.List;
 public interface CreditLogMapper extends BaseMapper<CreditLog> {
 
     @Select("""
+            SELECT id, user_id, change_amount, before_amount, after_amount,
+                   operation_type, business_id, idempotency_key, remark, create_time
+            FROM pm_credit_log
+            WHERE idempotency_key = #{idempotencyKey}
+            LIMIT 1
+            """)
+    CreditLog selectByIdempotencyKey(@Param("idempotencyKey") String idempotencyKey);
+
+    @Select("""
             <script>
             SELECT
                 COALESCE(SUM(CASE

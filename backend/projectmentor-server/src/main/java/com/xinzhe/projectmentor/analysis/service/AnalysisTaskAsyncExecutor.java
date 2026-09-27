@@ -1,71 +1,45 @@
 package com.xinzhe.projectmentor.analysis.service;
 
-import com.xinzhe.projectmentor.analysis.vo.AnalysisReportVO;
-import com.xinzhe.projectmentor.auth.interceptor.UserContext;
+import com.xinzhe.projectmentor.analysis.entity.AnalysisTask;
+import com.xinzhe.projectmentor.analysis.mapper.AnalysisTaskMapper;
+import com.xinzhe.projectmentor.analysis.message.AnalysisTaskMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+
+import java.time.Instant;
+import java.util.UUID;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class AnalysisTaskAsyncExecutor {
 
-    private final AnalysisReportService analysisReportService;
+    private final AnalysisTaskMapper taskMapper;
 
-    private final TaskProgressService taskProgressService;
+    private final AnalysisDeliveryCoordinator coordinator;
 
     @Async("analysisTaskExecutor")
-    public void executeAnalysisTask(Long taskId, Long projectId, Long userId) {
+    public void executeAnalysisTask(Long taskId) {
         try {
-            UserContext.setUserId(userId);
-
-            taskProgressService.updateProgress(
-                    taskId,
-                    "RUNNING",
-                    10,
-                    "任务开始执行，正在准备项目审计",
-                    null,
-                    null,
-                    false
+            AnalysisTask task = taskMapper.selectById(taskId);
+            if (task == null) {
+                return;
+            }
+            AnalysisTaskMessage message = new AnalysisTaskMessage(
+                    UUID.randomUUID().toString(),
+                    AnalysisTaskMessage.CURRENT_SCHEMA_VERSION,
+                    task.getId(),
+                    task.getProjectId(),
+                    task.getUserId(),
+                    1,
+                    task.getCorrelationId(),
+                    Instant.now()
             );
-
-            taskProgressService.updateProgress(
-                    taskId,
-                    "RUNNING",
-                    35,
-                    "正在执行规则扫描和证据链分析",
-                    null,
-                    null,
-                    false
-            );
-
-            AnalysisReportVO report = analysisReportService.generateReport(projectId);
-
-            taskProgressService.updateProgress(
-                    taskId,
-                    "SUCCESS",
-                    100,
-                    "项目审计报告生成完成",
-                    report.getId(),
-                    null,
-                    true
-            );
+            coordinator.handle(message, false);
         } catch (Exception e) {
-            log.error("Analysis task failed, taskId={}, projectId={}", taskId, projectId, e);
-
-            taskProgressService.updateProgress(
-                    taskId,
-                    "FAILED",
-                    100,
-                    "项目审计任务执行失败",
-                    null,
-                    e.getMessage(),
-                    true
-            );
-        } finally {
-            UserContext.clear();
+            log.error("local_analysis_dispatch_failed taskId={} reason={}", taskId, SafePipelineError.from(e));
         }
     }
 }

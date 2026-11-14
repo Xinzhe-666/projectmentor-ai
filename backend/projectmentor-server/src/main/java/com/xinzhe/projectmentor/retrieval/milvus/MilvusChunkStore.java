@@ -9,6 +9,7 @@ import com.xinzhe.projectmentor.retrieval.search.ReciprocalRankFusion;
 import com.xinzhe.projectmentor.retrieval.search.RetrievalCandidate;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.milvus.v2.client.MilvusClientV2;
+import io.milvus.v2.common.ConsistencyLevel;
 import io.milvus.v2.common.IndexParam;
 import io.milvus.v2.service.vector.request.AnnSearchReq;
 import io.milvus.v2.service.vector.request.DeleteReq;
@@ -80,6 +81,7 @@ public class MilvusChunkStore {
             client.hybridSearch(HybridSearchReq.builder().databaseName(milvus.getDatabase())
                     .collectionName(milvus.getCollection()).searchRequests(List.of(dense, sparse))
                     .ranker(RRFRanker.builder().k(retrieval.getRrfK()).build())
+                    .consistencyLevel(ConsistencyLevel.STRONG)
                     .limit(limit).outFields(OUTPUT_FIELDS).build());
             // Per-path searches retain explainable ranks/scores; fusion mirrors the same RRF formula.
             List<RetrievalCandidate> denseResults = searchPath("dense_vector", IndexParam.MetricType.COSINE,
@@ -113,6 +115,7 @@ public class MilvusChunkStore {
         SearchResp response = client.search(SearchReq.builder().databaseName(milvus.getDatabase())
                 .collectionName(milvus.getCollection()).annsField(field).metricType(metric)
                 .data(List.of((io.milvus.v2.service.vector.request.data.BaseVector) vector))
+                .consistencyLevel(ConsistencyLevel.STRONG)
                 .filter(FILTER).filterTemplateValues(values).limit(limit).outputFields(OUTPUT_FIELDS).build());
         if (response.getSearchResults().isEmpty()) return List.of();
         List<RetrievalCandidate> result = new ArrayList<>();

@@ -14,7 +14,14 @@ import java.util.concurrent.ThreadPoolExecutor;
 @Configuration
 @EnableAsync
 @EnableScheduling
-@EnableConfigurationProperties({AnalysisExecutorProperties.class, AnalysisPipelineProperties.class})
+@EnableConfigurationProperties({
+        AnalysisExecutorProperties.class,
+        AnalysisPipelineProperties.class,
+        EmbeddingProperties.class,
+        MilvusProperties.class,
+        RetrievalProperties.class,
+        VectorIndexProperties.class
+})
 public class AsyncConfig {
 
     @Bean("analysisTaskExecutor")
@@ -30,6 +37,20 @@ public class AsyncConfig {
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
         executor.setThreadNamePrefix("analysis-task-");
 
+        executor.initialize();
+        return executor;
+    }
+
+    @Bean("vectorIndexTaskExecutor")
+    public Executor vectorIndexTaskExecutor(VectorIndexProperties properties) {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(Math.min(2, properties.getConsumerConcurrency()));
+        executor.setMaxPoolSize(properties.getConsumerConcurrency());
+        executor.setQueueCapacity(50);
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(30);
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        executor.setThreadNamePrefix("vector-index-");
         executor.initialize();
         return executor;
     }

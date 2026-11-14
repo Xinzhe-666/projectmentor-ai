@@ -89,6 +89,53 @@ knife4j:
     language: zh_cn
 
 projectmentor:
+  embedding:
+    enabled: ${EMBEDDING_ENABLED:false}
+    base-url: ${EMBEDDING_BASE_URL:https://api.openai.com/v1}
+    api-key: ${EMBEDDING_API_KEY:}
+    model: ${EMBEDDING_MODEL:text-embedding-3-small}
+    dimension: ${EMBEDDING_DIMENSION:1536}
+    batch-size: ${EMBEDDING_BATCH_SIZE:32}
+    timeout-seconds: ${EMBEDDING_TIMEOUT:30}
+    max-retries: ${EMBEDDING_MAX_RETRIES:3}
+    max-input-chars: ${EMBEDDING_MAX_INPUT_CHARS:16000}
+  milvus:
+    enabled: ${MILVUS_ENABLED:false}
+    uri: ${MILVUS_URI:http://localhost:19530}
+    token: ${MILVUS_TOKEN:}
+    database: ${MILVUS_DATABASE:pmai}
+    collection: ${MILVUS_COLLECTION:pmai_code_chunks_v1}
+    timeout-seconds: ${MILVUS_TIMEOUT_SECONDS:10}
+  retrieval:
+    mode: ${PMAI_RETRIEVAL_MODE:lexical}
+    candidate-limit: ${PMAI_RETRIEVAL_CANDIDATE_LIMIT:40}
+    result-limit: ${PMAI_RETRIEVAL_RESULT_LIMIT:8}
+    rrf-k: ${PMAI_RETRIEVAL_RRF_K:60}
+    timeout-millis: ${PMAI_RETRIEVAL_TIMEOUT_MILLIS:3000}
+  vector-index:
+    dispatch-mode: ${INDEX_DISPATCH_MODE:local}
+    chunk-max-lines: ${INDEX_CHUNK_MAX_LINES:160}
+    chunk-overlap-lines: ${INDEX_CHUNK_OVERLAP_LINES:20}
+    chunk-max-chars: ${INDEX_CHUNK_MAX_CHARS:12000}
+    maximum-attempts: ${INDEX_EXECUTION_MAXIMUM_ATTEMPTS:4}
+    lease-seconds: ${INDEX_EXECUTION_LEASE_SECONDS:120}
+    heartbeat-seconds: ${INDEX_EXECUTION_HEARTBEAT_SECONDS:30}
+    consumer-concurrency: ${INDEX_RABBIT_CONCURRENCY:2}
+    prefetch: ${INDEX_RABBIT_PREFETCH:1}
+    main-exchange: ${INDEX_RABBIT_MAIN_EXCHANGE:pmai.index.v1}
+    main-queue: ${INDEX_RABBIT_MAIN_QUEUE:pmai.index.execute.v1}
+    main-routing-key: ${INDEX_RABBIT_MAIN_ROUTING_KEY:index.execute.v1}
+    retry-exchange: ${INDEX_RABBIT_RETRY_EXCHANGE:pmai.index.retry.v1}
+    dead-letter-exchange: ${INDEX_RABBIT_DLX:pmai.index.dlx.v1}
+    dead-letter-queue: ${INDEX_RABBIT_DLQ:pmai.index.dead.v1}
+    dead-letter-routing-key: ${INDEX_RABBIT_DEAD_ROUTING_KEY:index.dead.v1}
+    outbox-poll-interval-millis: ${INDEX_OUTBOX_POLL_INTERVAL_MILLIS:1000}
+    outbox-batch-size: ${INDEX_OUTBOX_BATCH_SIZE:50}
+    outbox-claim-lease-seconds: ${INDEX_OUTBOX_CLAIM_LEASE_SECONDS:30}
+    outbox-maximum-attempts: ${INDEX_OUTBOX_MAXIMUM_ATTEMPTS:8}
+    publisher-confirm-timeout-millis: ${INDEX_RABBIT_CONFIRM_TIMEOUT_MILLIS:5000}
+    retry-ttl-seconds: ${INDEX_RETRY_TTL_SECONDS:10,60,300}
+
   admin:
     emails: ${ADMIN_EMAILS:}
 

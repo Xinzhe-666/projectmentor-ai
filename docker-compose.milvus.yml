@@ -58,7 +58,7 @@ services:
       MINIO_REGION: us-east-1
     volumes:
       - milvus_data:/var/lib/milvus
-      - ./deploy/milvus/milvus.yaml:/milvus/configs/milvus.yaml:ro
+      - ./deploy/milvus/milvus.yaml:/milvus/configs/user.yaml:ro
     depends_on:
       milvus-etcd:
         condition: service_healthy

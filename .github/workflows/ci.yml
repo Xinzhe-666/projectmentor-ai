@@ -830,6 +830,9 @@ jobs:
           cache: maven
           cache-dependency-path: backend/projectmentor-server/pom.xml
 
+      - name: Prepare isolated Compose environment
+        run: touch .env
+
       - name: Start authenticated Milvus standalone
         run: docker compose -p pmai-v7-ci -f docker-compose.yml -f docker-compose.milvus.yml up -d milvus-standalone
 

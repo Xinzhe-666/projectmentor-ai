@@ -10,7 +10,7 @@ PMAI 的目标不是替用户“包装项目”，而是帮助用户基于真实
 
 ## Public Preview / 公开内测
 
-当前状态：**Public Preview / 内测中**。
+当前版本：**PMAI v7 · Public Preview**。v7 代码、测试和部署材料正在 Draft PR 阶段，尚未合并或部署生产。
 
 核心能力：
 
@@ -20,6 +20,7 @@ PMAI 的目标不是替用户“包装项目”，而是帮助用户基于真实
 - Interview deep-dive；
 - Credits cost control；
 - Admin AI usage dashboard。
+- Evidence-aware Hybrid RAG（可配置，默认保持 lexical）。
 
 使用提醒：
 
@@ -69,23 +70,34 @@ ProjectMentor AI（PMAI）由李鑫哲独立设计、开发并上线。Copyright
 
 ProjectMentor AI 的定位不是“让 AI 直接打分”，而是先做规则扫描和证据链整理，再用 AI 做表达增强和审计补充。AI 不可用时，系统仍然可以输出规则版报告。
 
-## 当前公开预览版本：V4.9-1
+## 当前公开预览版本：PMAI v7
 
-V4.9-1 是“数据库约束与项目删除一致性”版本：
+v7 增加 Milvus Evidence-aware Hybrid RAG 与可靠异步项目索引，同时保留原有基础检索作为默认路径和故障降级：
 
-- 新增不可变的 `V2__schema_integrity_constraints.sql`：为用户邮箱增加数据库唯一约束，为项目文件增加 `(project_id, file_path)` 组合唯一约束，将新套餐记录的 credits 默认值对齐为 `10`，并补充 QA 按 `project_id` 清理所需的索引；V2 不批量改写现有余额，也不会自动删除历史重复数据。
-- 注册继续保留友好的 username / email 预检查，同时由数据库 UNIQUE 处理并发窗口；约束冲突会转换为稳定业务错误，不向前端暴露 SQL 或索引细节。
-- README 与 ZIP 文件写入统一使用 MySQL 原子 upsert；同一项目的同一路径更新内容与文件类型，不同项目仍可拥有相同的 `README.md`。
-- 项目删除在单个事务中清理分享、面试消息、QA、分析任务、报告、面试会话、项目文件和项目本体；QA 使用物理删除，已有分享 token 随记录删除立即失效。
-- 项目存在 `PENDING` / `RUNNING` 分析任务时拒绝删除；credit ledger、AI call audit、feedback、用户及套餐记录继续保留。
-- CI 的真实 MySQL smoke test 同时覆盖 fresh `V1 SQL + V2 SQL`、legacy `V1 BASELINE + V2 SQL`、V2 schema 断言、legacy 哨兵数据保留以及通过后端 API 调用 Mapper 的 README upsert 行为。
+- Milvus Server `2.6.26` + Java SDK `2.6.27`，共享版本化 Collection，Dense COSINE + 内置 BM25；
+- OpenAI-compatible 独立 Embedding Provider，批处理、边界校验、有限重试与敏感文本脱敏；
+- 确定性代码分块，保留真实路径、符号、行号和内容哈希；
+- MySQL Task + 独立 Outbox、RabbitMQ quorum queue、manual ACK、有限重试、DLQ、Lease/Heartbeat/Fencing；
+- pending/active Generation 原子切换，半成品索引不可见；
+- RRF 后执行轻量证据重排，Q&A 返回可解释文件与行号；
+- `lexical` / `shadow` / `hybrid` 三种模式，任何向量侧故障自动回退基础检索；
+- 项目详情索引状态与幂等重建，Classic / Evidence Workbench 手机抽屉与顶部布局修复。
 
-V1 已是不可变 migration。生产执行 V2 前必须先备份，并运行 [数据库迁移 preflight](docs/database-migrations.md)：重复邮箱和重复 `(project_id, file_path)` 两项查询都必须返回 0 行；只要有返回就应 **STOP**，人工审查后再制定显式修复方案，禁止自动删除或合并数据。
+| 维度 | 当前事实 |
+| --- | --- |
+| 已实现 | V6 schema、索引/检索代码、RBAC 初始化、Compose、前端状态与移动适配、评测/容量脚本 |
+| 可配置 | Milvus、Embedding、Rabbit index dispatch、三种 retrieval mode；默认全部不会强制开启 Hybrid |
+| 已测试 | 后端单测、前端构建、Compose config、确定性 24-query 流程评测；真实 Milvus/Rabbit/MySQL 由独立 CI job 门禁 |
+| 尚未部署 | 本分支没有合并、没有生产部署、没有执行生产迁移或创建 Tag/Release |
+| 限制 | 当前机器没有可用 Docker engine 与合法付费 Embedding Key，因此真实 Dense 质量和完整容器容量基线尚未执行 |
+
+V1–V5 保持不可变；v7 只新增 `V6__project_vector_index.sql`。生产顺序和回滚见 [v7 部署手册](docs/deployment-v7.md)。
 
 PMAI 当前核心架构可以概括为：
 
 ```text
 规则证据链（免费）
+  + 可降级的混合证据检索（Milvus Dense + BM25）
   + AI 深度增强（消耗 credits，失败返还）
   + credits 成本控制
   + 管理员后台与使用统计
@@ -122,7 +134,7 @@ Claim-Evidence 的核心价值，是把项目描述拆成可核对的主张，�
 - 当前不是商业安全审计系统；
 - 当前不承诺 AI 结论完全准确；
 - 当前未接入真实支付系统；
-- 当前项目问答仍是轻量证据检索增强，不是成熟向量数据库 RAG；
+- Hybrid 尚未部署生产，默认 lexical；真实语义质量仍取决于合法配置的 Embedding 模型和评测；
 - 当前主要用于学习、项目复盘、简历表达检查和答辩 / 面试准备。
 
 完整已知边界见：[docs/known-limitations.md](docs/known-limitations.md)。
@@ -150,7 +162,8 @@ PMAI 面向需要验证项目真实性的开发者，适用人群包括计算机
 | 只读报告分享 | 已支持 | 审计报告已支持生成随机 Token 只读分享链接，公开页仅展示脱敏后的报告内容 |
 | AI 增强报告 | 基础版 | 支持 OpenAI-compatible API；AI 不可用时降级为规则报告 |
 | AI 幻觉检测 | 已完成 | 检测 AI 回答中的过度鼓励、缺少证据和简历风险 |
-| 项目问答 | MVP | V4.2-4 支持轻量检索增强问答、历史记录、证据可信度、面试讲法、简历风险提示、面试版复制、关键词扩展、文件权重和检索解释，不接入向量数据库 |
+| 项目问答 | v7 可配置 | 保持原 API；支持 lexical/shadow/hybrid、文件与行号引用、证据解释及自动 lexical fallback；Hybrid 默认未启用 |
+| 项目向量索引 | v7 可配置 | 可靠异步索引、Generation 切换、状态查看和幂等重建；需 Milvus、Embedding，生产建议 Rabbit dispatch |
 | 面试深挖 | 基础版 | 支持会话、证据约束追问、问题列表、进度、跳过、结束复盘、评分总结和浏览器打印 / 另存为 PDF |
 | 额度系统 | 已完成 | 注册赠送 10 credits；规则扫描和历史查看不扣额度，调用 AI 的功能按统一成本扣减，失败返还并记录流水 |
 | 管理员后台 | V4.5-4 | 支持 AI 使用统计、用户额度分页、额度流水、管理员发放 / 扣除和反馈管理，通过 `ADMIN_EMAILS` 配置管理员邮箱，不引入复杂 RBAC |
@@ -158,8 +171,8 @@ PMAI 面向需要验证项目真实性的开发者，适用人群包括计算机
 | 体验与演示优化 | V4.5-5 | 优化 Landing、新手引导、项目创建说明、报告解读、Claim-Evidence 状态解释、Credits 费用说明、空状态、管理员视觉和八步演示路径 |
 | 作者支持入口 | 轻量版 | “请作者喝咖啡”仅展示本地二维码，自愿支持，不影响任何功能使用，不是支付系统 |
 | 反馈入口 | 已完成 | 登录用户可站内提交反馈，管理员可筛选和更新反馈状态；保留 GitHub Issues 作为备用入口，不做复杂工单系统 |
-| 异步任务 | 已完成 | 支持异步分析任务，Redis 缓存任务进度 |
-| Docker 部署 | 已完成 | 支持 Docker Compose 启动 MySQL、Redis、后端、前端和 Nginx |
+| 异步任务 | 已完成 | 分析与向量索引使用独立 RabbitMQ 拓扑；MySQL 是任务/Outbox 事实源，Redis 只缓存分析进度 |
+| Docker 部署 | 已完成 / v7 待部署 | 现有栈已支持；v7 增加固定版本的 Milvus/etcd/MinIO Compose 与认证初始化材料，尚未用于生产 |
 | 线上备份与恢复 | 已完成 | V4.4-1 提供 MySQL 备份、恢复和线上状态检查脚本，便于服务器迁移和故障排查 |
 | Nginx 安全收口 | V4.8-3 | HTTPS 下拦截 `.env`、数据库备份、压缩文件、Swagger / Actuator / GraphQL、调试入口和常见扫描特征，并提供部署后回归脚本；不替代后端鉴权或完整 WAF |
 
@@ -192,10 +205,10 @@ flowchart LR
 
 | 层级 | 技术 |
 | --- | --- |
-| 后端 | Java 17, Spring Boot 3, MyBatis-Plus, MySQL 8, Redis, JWT, BCrypt, Validation, AOP, `@Async` |
+| 后端 | Java 17, Spring Boot 3, MyBatis-Plus, MySQL 8, Redis, RabbitMQ, Milvus Java SDK v2 |
 | 前端 | Vue 3, Vite, TypeScript, Element Plus, Pinia, Vue Router, vue-i18n, Axios, ECharts, markdown-it |
-| 部署 | Docker Compose, Nginx, MySQL, Redis |
-| AI | OpenAI-compatible API，可接 DeepSeek / 豆包 / OpenAI 风格接口 |
+| 部署 | Docker Compose, Nginx, MySQL, Redis, RabbitMQ, Milvus Standalone, etcd, MinIO |
+| AI | Chat 与 Embedding 使用彼此独立的 OpenAI-compatible 配置 |
 
 AI Key 未配置或调用失败时，系统会自动降级为规则版报告。
 
@@ -204,7 +217,9 @@ AI Key 未配置或调用失败时，系统会自动降级为规则版报告。
 - 不直接相信 README：README 只是待验证材料，系统会结合上传文件做规则扫描。
 - 不直接相信 AI 回答：AI 幻觉检测会识别过度鼓励、缺少证据和不适合写入简历的表述。
 - 先规则扫描，再 AI 增强：规则扫描负责稳定输出，AI 负责补充表达与总结。
-- 项目问答仍是轻量 MVP：只基于已保存文件做关键词扩展、文件权重打分、证据片段抽取和证据充分度评估，不接入 Milvus、向量数据库或 embedding。
+- 项目问答先验证 MySQL 所有权和 active generation；Hybrid 使用 Dense + BM25 + RRF + evidence rerank，任一向量侧故障回到原基础检索。
+- Milvus 不是事实源：权限、项目文件、索引状态与可见 generation 均由 MySQL 决定。
+- 半成品不可见：完整 pending generation 通过计数、快照和搜索校验后才原子切换为 active。
 - 每个关键结论尽量带证据：通过文件类型、路径、配置和代码片段形成证据链。
 - V4.4-0.5 基于真实用户反馈优化：项目详情文件列表支持分页、路径搜索和 CODE / CONFIG / DOC / OTHER 筛选，避免长列表撑满页面。
 - V4.4-0.5 优化模拟面试：默认最多 8 个核心问题，按项目真实性、技术实现、证据解释、简历风险和压力追问组织，并展示问题列表、进度、跳过和结束复盘。
@@ -234,7 +249,7 @@ V4.1-10 主要做产品体验收口，不新增数据库表，不修改核心审
 
 V4.2-1 增加项目详情页的“项目问答”入口，用于围绕当前项目已上传的 README 和 ZIP 解析文本提问。
 
-- 当前不是成熟向量 RAG，不接入 Milvus，不做 embedding，只做轻量关键词检索增强问答。
+- 该历史版本只提供轻量关键词检索；v7 在保持 API 兼容的前提下新增可配置 Hybrid 路径与自动降级。
 - 后端会先按当前登录用户校验项目归属，再检索该项目自己的 `pm_project_file` 文件内容。
 - 回答会返回文件路径、命中原因和 500 字以内的证据片段。
 - AI 可用时，回答必须基于证据组织；证据不足时要明确提示。
@@ -706,6 +721,8 @@ bash scripts/check-nginx-security.sh https://projectmentorai.com
 - 审计报告只读分享当前为基础版能力，不包含访问统计和密码保护。
 - 反馈入口支持登录用户站内提交，并保留模板复制和 GitHub Issues 备用入口；当前不是正式工单系统。
 - 还需要真实用户测试，用于调整规则、文案和演示流程。
+- v7 Hybrid 尚未生产部署；真实 Dense 质量评测和完整容器容量基线仍是上线阻塞证据。
+- Milvus Standalone 不是高可用集群；启用前必须完成资源核算、认证初始化和 lexical -> shadow -> hybrid 灰度。
 
 ## 后续路线
 
@@ -714,7 +731,7 @@ bash scripts/check-nginx-security.sh https://projectmentorai.com
 - V4.2：项目问答。V4.2-4 已完成轻量检索增强问答、问答历史、证据可信度、面试讲法、简历风险提示、面试版复制、关键词扩展、文件权重、snippet 优化和检索解释；后续 V4.2-5 或 V4.3 可评估向量检索升级或管理员后台。
 - V4.3：管理员后台 / 用户反馈。V4.5-4 已在原有看板上补充 AI 用量统计、额度发放 / 扣除和流水管理。
 - V4.4：更正式的部署和用户体系。
-- V4.9-1：数据库约束与事务化项目删除一致性（已完成）。
+- PMAI v7：Milvus Hybrid RAG、可靠索引、移动端与发布材料（Draft PR，尚未部署）。
 - V4.9-2：credits 并发安全。
 
 详细路线见 [docs/roadmap.md](docs/roadmap.md)。
@@ -729,5 +746,10 @@ bash scripts/check-nginx-security.sh https://projectmentorai.com
 - [Cloudflare Tunnel 临时试用](docs/cloudflare-tunnel-demo.md)
 - [VPS 试用版部署](docs/server-deploy-vps.md)
 - [数据库迁移说明](docs/database-migrations.md)
+- [v7 Hybrid RAG 架构](docs/architecture/v7-milvus-hybrid-rag.md)
+- [检索质量评测](docs/retrieval-evaluation.md)
+- [Milvus 运维](docs/milvus-operations.md)
+- [容量基线](docs/capacity-baseline.md)
+- [v7 部署与回滚](docs/deployment-v7.md)
 - [Roadmap](docs/roadmap.md)
 - [Release Notes](docs/release-notes.md)

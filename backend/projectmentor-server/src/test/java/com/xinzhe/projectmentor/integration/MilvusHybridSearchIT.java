@@ -23,29 +23,31 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 class MilvusHybridSearchIT {
     private static MilvusClientV2 client;
     private static MilvusChunkStore store;
+    private static String uri;
+    private static String token;
+    private static String database;
+    private static String collection;
     private static final long USER_A = 7001L;
     private static final long USER_B = 7002L;
     private static final long PROJECT = 8001L;
+    private static final long OTHER_PROJECT = 8002L;
     private static final long GENERATION = 11L;
 
     @BeforeAll
     static void setup() {
-        String uri = System.getenv("MILVUS_IT_URI");
+        uri = System.getenv("MILVUS_IT_URI");
         assumeTrue(uri != null && !uri.isBlank(), "MILVUS_IT_URI not configured");
-        String token = System.getenv("MILVUS_IT_TOKEN");
-        String database = env("MILVUS_DATABASE", "pmai");
-        String collection = env("MILVUS_COLLECTION", "pmai_code_chunks_v1");
-        client = new MilvusClientV2(ConnectConfig.builder().uri(uri).token(token).dbName(database)
-                .connectTimeoutMs(10000).rpcDeadlineMs(30000).build());
+        token = System.getenv("MILVUS_IT_TOKEN");
+        database = env("MILVUS_DATABASE", "pmai");
+        collection = env("MILVUS_COLLECTION", "pmai_code_chunks_v1");
+        client = newClient();
         MilvusProperties milvus = new MilvusProperties();
         milvus.setEnabled(true); milvus.setUri(uri); milvus.setToken(token);
         milvus.setDatabase(database); milvus.setCollection(collection); milvus.setTimeoutSeconds(30);
         EmbeddingProperties embedding = new EmbeddingProperties();
         embedding.setEnabled(true); embedding.setDimension(4); embedding.setModel("ci-mock-embedding");
         new MilvusCollectionManager(client, milvus, embedding).ensureCollection();
-        RetrievalProperties retrieval = new RetrievalProperties();
-        retrieval.setCandidateLimit(10); retrieval.setResultLimit(5); retrieval.setRrfK(60);
-        store = new MilvusChunkStore(client, milvus, retrieval, new ReciprocalRankFusion(), new SimpleMeterRegistry());
+        store = newStore(client);
 
         List<CodeChunk> a = List.of(
                 chunk("a-auth", 1L, "src/AuthService.java", "java", "TYPE", "AuthService", "hash-a",
@@ -59,6 +61,11 @@ class MilvusHybridSearchIT {
                 List.of(chunk("b-secret", 3L, "src/Other.java", "java", "CODE", "Other", "hash-c",
                         "class Other { void jwt() {} }", "jwt other tenant")),
                 List.of(new float[]{1, 0, 0, 0}))).isEqualTo(1);
+        assertThat(store.insert(USER_A, OTHER_PROJECT, GENERATION,
+                List.of(chunk("a-other-project", 4L, "src/CrossProject.java", "java", "CODE",
+                        "CrossProject", "hash-d", "class CrossProject { void issueJwtToken() {} }",
+                        "Cross Project issue Jwt Token authentication")),
+                List.of(new float[]{1, 0, 0, 0}))).isEqualTo(1);
     }
 
     @AfterAll
@@ -66,6 +73,7 @@ class MilvusHybridSearchIT {
         if (store != null) {
             store.deleteGeneration(USER_A, PROJECT, GENERATION);
             store.deleteGeneration(USER_B, PROJECT, GENERATION);
+            store.deleteGeneration(USER_A, OTHER_PROJECT, GENERATION);
         }
         if (client != null) client.close();
     }
@@ -75,7 +83,8 @@ class MilvusHybridSearchIT {
         List<RetrievalCandidate> hits = store.hybridSearch(USER_A, PROJECT, GENERATION,
                 "AuthService jwt-expire", new float[]{1, 0, 0, 0});
         assertThat(hits).isNotEmpty();
-        assertThat(hits).allSatisfy(hit -> assertThat(hit.filePath()).doesNotContain("Other.java"));
+        assertThat(hits).allSatisfy(hit -> assertThat(hit.filePath())
+                .doesNotContain("Other.java", "CrossProject.java"));
         assertThat(hits).anySatisfy(hit -> {
             assertThat(hit.filePath()).isEqualTo("src/AuthService.java");
             assertThat(hit.denseRank()).isNotNull();
@@ -84,6 +93,48 @@ class MilvusHybridSearchIT {
         });
         assertThat(store.hybridSearch(USER_A, PROJECT, GENERATION + 1,
                 "AuthService", new float[]{1, 0, 0, 0})).isEmpty();
+
+        MilvusClientV2 reconnected = newClient();
+        try {
+            assertThat(newStore(reconnected).hybridSearch(USER_A, PROJECT, GENERATION,
+                    "AuthService", new float[]{1, 0, 0, 0})).isNotEmpty();
+        } finally {
+            reconnected.close();
+        }
+
+        assertThat(store.insert(USER_A, PROJECT, GENERATION,
+                List.of(chunk("a-auth", 1L, "src/AuthService.java", "java", "TYPE", "AuthService",
+                        "hash-a2", "class AuthService { void issueJwtTokenV2() {} }",
+                        "Auth Service issue Jwt Token V2 authentication")),
+                List.of(new float[]{1, 0, 0, 0}))).isEqualTo(1);
+        assertThat(store.hybridSearch(USER_A, PROJECT, GENERATION,
+                "issueJwtTokenV2", new float[]{1, 0, 0, 0}))
+                .anySatisfy(hit -> assertThat(hit.content()).contains("issueJwtTokenV2"));
+
+        assertThat(store.hybridSearch(USER_A, OTHER_PROJECT, GENERATION,
+                "CrossProject", new float[]{1, 0, 0, 0})).isNotEmpty();
+        store.deleteProject(USER_A, OTHER_PROJECT);
+        assertThat(store.hybridSearch(USER_A, OTHER_PROJECT, GENERATION,
+                "CrossProject", new float[]{1, 0, 0, 0})).isEmpty();
+
+        store.deleteGeneration(USER_A, PROJECT, GENERATION);
+        assertThat(store.hybridSearch(USER_A, PROJECT, GENERATION,
+                "AuthService", new float[]{1, 0, 0, 0})).isEmpty();
+    }
+
+    private static MilvusClientV2 newClient() {
+        return new MilvusClientV2(ConnectConfig.builder().uri(uri).token(token).dbName(database)
+                .connectTimeoutMs(10000).rpcDeadlineMs(30000).build());
+    }
+
+    private static MilvusChunkStore newStore(MilvusClientV2 targetClient) {
+        MilvusProperties milvus = new MilvusProperties();
+        milvus.setEnabled(true); milvus.setUri(uri); milvus.setToken(token);
+        milvus.setDatabase(database); milvus.setCollection(collection); milvus.setTimeoutSeconds(30);
+        RetrievalProperties retrieval = new RetrievalProperties();
+        retrieval.setCandidateLimit(10); retrieval.setResultLimit(5); retrieval.setRrfK(60);
+        return new MilvusChunkStore(targetClient, milvus, retrieval,
+                new ReciprocalRankFusion(), new SimpleMeterRegistry());
     }
 
     private static CodeChunk chunk(String id, long fileId, String path, String language, String type,

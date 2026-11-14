@@ -11,8 +11,10 @@ import com.xinzhe.projectmentor.file.vo.SkippedProjectFileVO;
 import com.xinzhe.projectmentor.file.vo.UploadZipResultVO;
 import com.xinzhe.projectmentor.project.entity.Project;
 import com.xinzhe.projectmentor.project.mapper.ProjectMapper;
+import com.xinzhe.projectmentor.indexing.service.VectorIndexTaskSubmissionService;
 import com.xinzhe.projectmentor.util.ZipFileUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -69,6 +71,9 @@ public class ProjectZipUploadService {
 
     private final ProjectFileMapper projectFileMapper;
 
+    @Autowired(required = false)
+    private VectorIndexTaskSubmissionService vectorIndexTasks;
+
     @Transactional(rollbackFor = Exception.class)
     public UploadZipResultVO uploadZip(Long projectId, MultipartFile file) {
         checkProjectOwner(projectId);
@@ -99,6 +104,10 @@ public class ProjectZipUploadService {
             }
         } catch (IOException e) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "ZIP 文件解析失败，请确认文件格式正确");
+        }
+
+        if (!context.savedFiles.isEmpty() && vectorIndexTasks != null) {
+            vectorIndexTasks.scheduleIfEnabled(projectId);
         }
 
         return UploadZipResultVO.builder()

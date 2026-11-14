@@ -23,6 +23,7 @@ class VectorIndexSchemaMigrationTests {
                     .contains("lease_expires_at")
                     .contains("active_generation")
                     .contains("pending_generation")
+                    .contains("file_path          VARCHAR(255) NOT NULL")
                     .contains("UNIQUE KEY uk_vector_manifest_file (project_id, generation, file_path)");
         }
     }

@@ -65,7 +65,7 @@ CREATE TABLE pm_vector_file_manifest
     project_id         BIGINT       NOT NULL,
     user_id            BIGINT       NOT NULL,
     file_id            BIGINT       NULL,
-    file_path          VARCHAR(768) NOT NULL,
+    file_path          VARCHAR(255) NOT NULL,
     content_hash       CHAR(64)     NOT NULL,
     generation         BIGINT       NOT NULL,
     embedding_model    VARCHAR(128) NOT NULL,

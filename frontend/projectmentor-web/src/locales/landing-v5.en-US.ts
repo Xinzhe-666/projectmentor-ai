@@ -9,7 +9,7 @@ export default {
     support: 'Support the maker'
   },
   meta: {
-    release: 'PMAI V5',
+    release: 'PMAI v7 · Public Preview',
     environment: 'Public Preview',
     rules: 'Rule engine online',
     privacy: 'Do not upload secrets'

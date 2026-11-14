@@ -1,4 +1,4 @@
-/* PMAI V5 authenticated workbench: flat, ruled, evidence-led. */
+/* PMAI v7 evidence workbench: flat, ruled, evidence-led. */
 html[data-experience="workbench"] .shell {
   min-height: 100vh;
   background: var(--pm-paper);

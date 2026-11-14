@@ -54,6 +54,8 @@
       <TaskProgress v-if="task" :task="task" :interrupted="pollingInterrupted" @retry="resumePolling" />
     </header>
 
+    <ProjectVectorIndexStatus v-if="!loading && !projectError" :project-id="projectId" />
+
     <nav class="project-navigation" :aria-label="t('projects.v5.navigationLabel')">
       <button
         v-for="item in navigationItems"
@@ -242,6 +244,7 @@ import EmptyState from '@/components/EmptyState.vue'
 import ProjectEvidenceWorkspace from '@/components/ProjectEvidenceWorkspace.vue'
 import ProjectQaPanel from '@/components/ProjectQaPanel.vue'
 import ProjectSourceManager from '@/components/ProjectSourceManager.vue'
+import ProjectVectorIndexStatus from '@/components/ProjectVectorIndexStatus.vue'
 import StatusLabel from '@/components/StatusLabel.vue'
 import TaskProgress from '@/components/TaskProgress.vue'
 import { AI_CREDIT_COSTS } from '@/constants/creditCosts'

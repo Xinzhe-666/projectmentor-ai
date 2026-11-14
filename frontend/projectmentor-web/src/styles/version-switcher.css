@@ -1,9 +1,10 @@
 :root {
-  --pmai-version-switcher-height: 48px;
+  --pmai-version-switcher-height: calc(48px + env(safe-area-inset-top, 0px));
 }
 
 body {
   padding-top: var(--pmai-version-switcher-height);
+  overflow-x: clip;
 }
 
 .version-switcher {
@@ -16,6 +17,8 @@ body {
   justify-content: center;
   gap: 14px;
   padding: 6px 16px;
+  padding-top: calc(6px + env(safe-area-inset-top, 0px));
+  box-sizing: border-box;
   border-bottom: 1px solid #d8dde5;
   background: #ffffff;
   color: #202733;
@@ -80,6 +83,7 @@ body {
 
 html[data-experience="classic"] .app-sidebar,
 html[data-experience="workbench"] .app-sidebar,
+html[data-experience="classic"] .app-header,
 html[data-experience="workbench"] .app-header {
   top: var(--pmai-version-switcher-height);
 }
@@ -106,7 +110,7 @@ html[data-experience="workbench"] .app-sidebar {
 
 @media (max-width: 520px) {
   :root {
-    --pmai-version-switcher-height: 56px;
+    --pmai-version-switcher-height: calc(56px + env(safe-area-inset-top, 0px));
   }
 
   .version-switcher {

@@ -9,7 +9,7 @@ export default {
     support: '请作者喝咖啡'
   },
   meta: {
-    release: 'PMAI V5',
+    release: 'PMAI v7 · Public Preview',
     environment: '公开预览',
     rules: '规则引擎在线',
     privacy: '请勿上传机密'

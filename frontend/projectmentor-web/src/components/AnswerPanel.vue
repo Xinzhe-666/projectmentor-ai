@@ -32,7 +32,7 @@
         <dl class="answer-assessment">
           <div>
             <dt>{{ t('qa.v6.methodLabel') }}</dt>
-            <dd>{{ record.aiUsed ? t('qa.v6.aiInterpretation') : t('qa.v6.ruleFinding') }}</dd>
+            <dd>{{ retrievalModeLabel }}</dd>
           </div>
           <div>
             <dt>{{ t('qa.v6.evidenceConfidence') }}</dt>
@@ -52,6 +52,11 @@
       <aside v-if="!record.aiUsed" class="ai-unavailable-note" role="note">
         <strong>{{ t('qa.v6.aiUnavailableTitle') }}</strong>
         <p>{{ t('qa.v6.aiUnavailableDescription') }}</p>
+      </aside>
+
+      <aside v-if="record.retrievalNotice" class="retrieval-notice" role="note">
+        <strong>{{ retrievalModeLabel }}</strong>
+        <p>{{ record.retrievalNotice }}</p>
       </aside>
 
       <section class="evidence-section" aria-labelledby="qa-evidence-heading">
@@ -144,6 +149,9 @@ const evidenceSummary = computed(() => t(`qa.v6.evidenceSummaries.${evidenceLeve
   count: rawEvidenceItems.value.length
 }))
 const formattedDate = computed(() => formatDate(props.record.createTime))
+const retrievalModeLabel = computed(() => props.record.retrievalMode === 'hybrid'
+  ? (locale.value.startsWith('zh') ? '混合证据检索' : 'Hybrid evidence retrieval')
+  : (locale.value.startsWith('zh') ? '基础检索' : 'Basic retrieval'))
 
 const projectFileMap = computed(() => new Map(
   props.projectFiles.map((file) => [normalizePath(file.filePath), file])
@@ -380,6 +388,17 @@ async function copyAnswer() {
   line-height: 1.65;
 }
 
+.retrieval-notice {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.24fr) minmax(0, 1fr);
+  gap: 24px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--pm-stone-strong);
+}
+
+.retrieval-notice strong { color: var(--pm-primary-dark); font-size: 13px; }
+.retrieval-notice p { margin: 0; color: var(--pm-graphite); font-size: 13px; line-height: 1.65; }
+
 .insufficient-evidence {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -527,7 +546,8 @@ async function copyAnswer() {
   }
 
   .insufficient-evidence,
-  .ai-unavailable-note {
+  .ai-unavailable-note,
+  .retrieval-notice {
     grid-template-columns: 1fr;
   }
 

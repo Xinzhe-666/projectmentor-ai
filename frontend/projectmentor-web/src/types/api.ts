@@ -104,6 +104,11 @@ export interface VectorIndexStatus {
   status: 'NOT_INDEXED' | 'PENDING' | 'RUNNING' | 'READY' | 'DEGRADED' | 'FAILED' | 'DELETING' | string
   displayStatus: string
   activeGeneration?: number
+  activeBuildId?: string
+  pendingGeneration?: number
+  pendingBuildId?: string
+  sourceRevision?: number
+  rescheduleRequired?: boolean
   chunkCount: number
   indexedFileCount: number
   embeddingModel?: string

@@ -14,6 +14,7 @@ import com.xinzhe.projectmentor.indexing.mapper.VectorIndexTaskMapper;
 import com.xinzhe.projectmentor.indexing.message.VectorIndexMessage;
 import com.xinzhe.projectmentor.retrieval.chunk.CodeChunk;
 import com.xinzhe.projectmentor.retrieval.chunk.EvidenceAwareCodeChunker;
+import com.xinzhe.projectmentor.retrieval.chunk.ProjectContentHasher;
 import com.xinzhe.projectmentor.retrieval.embedding.EmbeddingException;
 import com.xinzhe.projectmentor.retrieval.embedding.EmbeddingProvider;
 import com.xinzhe.projectmentor.retrieval.milvus.MilvusChunkStore;
@@ -44,6 +45,7 @@ public class VectorIndexWorker {
     private final ProjectVectorIndexMapper indexMapper;
     private final ProjectFileMapper fileMapper;
     private final EvidenceAwareCodeChunker chunker;
+    private final ProjectContentHasher contentHasher;
     private final EmbeddingProvider embedding;
     private final MilvusCollectionManager collectionManager;
     private final MilvusChunkStore chunkStore;
@@ -55,8 +57,9 @@ public class VectorIndexWorker {
 
     public ProcessingResult process(VectorIndexMessage message) {
         String workerId = identity.newWorkerId();
+        String buildId = UUID.randomUUID().toString();
         int claimed = taskMapper.claim(message.taskId(), message.userId(), message.projectId(), message.generation(),
-                workerId, message.messageId(), properties.getLeaseSeconds(), properties.getMaximumAttempts());
+                workerId, buildId, message.messageId(), properties.getLeaseSeconds(), properties.getMaximumAttempts());
         VectorIndexTask task = taskMapper.selectById(message.taskId());
         if (claimed != 1) {
             if (task == null || "SUCCEEDED".equals(task.getStatus()) || "FAILED".equals(task.getStatus())) {
@@ -65,14 +68,15 @@ public class VectorIndexWorker {
             return ProcessingResult.RETRY_LATER;
         }
         VectorIndexExecutionContext execution = new VectorIndexExecutionContext(task.getId(), task.getUserId(),
-                task.getProjectId(), task.getGeneration(), workerId, task.getExecutionVersion(), task.getExecutionAttempt());
-        ProjectVectorIndex state = indexMapper.selectOwned(task.getProjectId(), task.getUserId());
-        Long previousGeneration = state == null ? null : state.getActiveGeneration();
+                task.getProjectId(), task.getGeneration(), task.getTargetRevision(), task.getBuildId(), workerId,
+                task.getExecutionVersion(), task.getExecutionAttempt());
         ScheduledFuture<?> heartbeat = startHeartbeat(execution);
         long started = System.nanoTime();
         try {
             requireHeartbeat(execution, 8);
-            if (indexMapper.markRunning(execution.projectId(), execution.userId(), execution.generation()) != 1) {
+            if (indexMapper.markRunningFenced(execution.projectId(), execution.userId(), execution.generation(),
+                    execution.targetRevision(), execution.taskId(), execution.workerId(),
+                    execution.executionVersion(), execution.buildId()) != 1) {
                 throw new StaleVectorIndexExecutionException();
             }
             collectionManager.ensureCollection();
@@ -87,39 +91,49 @@ public class VectorIndexWorker {
             requireHeartbeat(execution, 25);
             List<float[]> vectors = embedding.embed(chunks.stream().map(CodeChunk::embeddingText).toList());
             requireHeartbeat(execution, 65);
-            long inserted = chunkStore.insert(execution.userId(), execution.projectId(), execution.generation(), chunks, vectors);
+            long inserted = chunkStore.insert(execution.userId(), execution.projectId(), execution.generation(),
+                    execution.buildId(), chunks, vectors);
+            requireHeartbeat(execution, 75);
             if (inserted != chunks.size()) throw new IllegalStateException("MILVUS_INSERT_COUNT_MISMATCH");
             if (!chunks.isEmpty() && chunkStore.hybridSearch(execution.userId(), execution.projectId(),
-                    execution.generation(), chunks.get(0).symbolName(), vectors.get(0)).isEmpty()) {
+                    execution.generation(), execution.buildId(), chunks.get(0).symbolName(), vectors.get(0)).isEmpty()) {
                 throw new IllegalStateException("MILVUS_GENERATION_NOT_SEARCHABLE");
             }
             validateSnapshot(execution.projectId(), byFile);
             requireHeartbeat(execution, 90);
             List<VectorFileManifest> manifests = manifests(execution, byFile);
-            commitService.commit(execution, manifests, chunks.size());
+            VectorGenerationCommitService.CommitResult commit = commitService.commit(execution, manifests, chunks.size());
+            if (!commit.activated()) {
+                chunkStore.deleteBuild(execution.userId(), execution.projectId(), execution.generation(), execution.buildId());
+                metrics.counter("pmai.index.task", "result", "superseded").increment();
+                return ProcessingResult.ACK;
+            }
             metrics.counter("pmai.index.task", "result", "completed").increment();
             metrics.counter("pmai.index.generation.switch", "result", "success").increment();
             metrics.summary("pmai.index.files").record(manifests.size());
             metrics.summary("pmai.index.chunks").record(chunks.size());
-            if (previousGeneration != null && previousGeneration != execution.generation()) {
+            if (commit.previousGeneration() != null && commit.previousBuildId() != null
+                    && commit.previousGeneration() != execution.generation()) {
                 try {
-                    chunkStore.deleteGeneration(execution.userId(), execution.projectId(), previousGeneration);
+                    chunkStore.deleteBuild(execution.userId(), execution.projectId(),
+                            commit.previousGeneration(), commit.previousBuildId());
                     metrics.counter("pmai.index.stale.cleanup", "result", "success").increment();
                 } catch (RuntimeException cleanupError) {
                     metrics.counter("pmai.index.stale.cleanup", "result", "failed").increment();
                     log.warn("vector_generation_cleanup_failed taskId={} generation={} reason={}",
-                            execution.taskId(), previousGeneration, SafePipelineError.from(cleanupError));
+                            execution.taskId(), commit.previousGeneration(), SafePipelineError.from(cleanupError));
                 }
             }
             return ProcessingResult.ACK;
         } catch (Exception error) {
             String code = errorCode(error);
             String safe = SafePipelineError.sanitize(error.getMessage());
-            try { chunkStore.deleteGeneration(execution.userId(), execution.projectId(), execution.generation()); }
+            try { chunkStore.deleteBuild(execution.userId(), execution.projectId(), execution.generation(), execution.buildId()); }
             catch (Exception ignored) { metrics.counter("pmai.index.stale.cleanup", "result", "failed").increment(); }
             boolean shouldRetry = retryable(error) && execution.executionAttempt() < properties.getMaximumAttempts();
             if (shouldRetry) {
-                if (taskMapper.releaseForRetry(execution.taskId(), execution.workerId(), execution.executionVersion(), safe) != 1) {
+                if (taskMapper.releaseForRetry(execution.taskId(), execution.workerId(), execution.executionVersion(),
+                        execution.buildId(), safe) != 1) {
                     shouldRetry = false;
                 }
             }
@@ -139,14 +153,16 @@ public class VectorIndexWorker {
     private ScheduledFuture<?> startHeartbeat(VectorIndexExecutionContext execution) {
         return analysisLeaseTaskScheduler.scheduleAtFixedRate(() -> {
             try { taskMapper.heartbeat(execution.taskId(), execution.workerId(), execution.executionVersion(),
-                    properties.getLeaseSeconds(), 10); }
+                    execution.buildId(), properties.getLeaseSeconds(), 10); }
             catch (Exception e) { log.warn("vector_index_heartbeat_failed taskId={}", execution.taskId()); }
         }, Duration.ofSeconds(properties.getHeartbeatSeconds()));
     }
 
     private void requireHeartbeat(VectorIndexExecutionContext execution, int progress) {
         if (taskMapper.heartbeat(execution.taskId(), execution.workerId(), execution.executionVersion(),
-                properties.getLeaseSeconds(), progress) != 1) throw new StaleVectorIndexExecutionException();
+                execution.buildId(), properties.getLeaseSeconds(), progress) != 1) {
+            throw new StaleVectorIndexExecutionException();
+        }
     }
 
     private List<VectorFileManifest> manifests(VectorIndexExecutionContext execution,
@@ -157,6 +173,7 @@ public class VectorIndexWorker {
             manifest.setProjectId(execution.projectId()); manifest.setUserId(execution.userId());
             manifest.setFileId(entry.getKey().getId()); manifest.setFilePath(entry.getKey().getFilePath());
             manifest.setContentHash(entry.getValue().get(0).contentHash()); manifest.setGeneration(execution.generation());
+            manifest.setBuildId(execution.buildId());
             manifest.setEmbeddingModel(embedding.model()); manifest.setChunkCount(entry.getValue().size());
             manifest.setIndexedAt(LocalDateTime.now()); result.add(manifest);
         }
@@ -177,16 +194,10 @@ public class VectorIndexWorker {
             if (hash == null && !chunker.chunk(projectId, file, embedding.model()).isEmpty()) {
                 throw new IllegalStateException("INDEX_SOURCE_CHANGED");
             }
-            if (hash != null && !hash.equals(sha256(file.getContent()))) throw new IllegalStateException("INDEX_SOURCE_CHANGED");
+            if (hash != null && !hash.equals(contentHasher.sha256(file.getContent()))) {
+                throw new IllegalStateException("INDEX_SOURCE_CHANGED");
+            }
         }
-    }
-
-    private String sha256(String value) {
-        try {
-            return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
-                    .digest(value.replace("\r\n", "\n").replace('\r', '\n')
-                            .getBytes(java.nio.charset.StandardCharsets.UTF_8)));
-        } catch (java.security.NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
     }
 
     private String errorCode(Exception error) {

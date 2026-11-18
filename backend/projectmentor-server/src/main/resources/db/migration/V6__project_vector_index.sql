@@ -5,7 +5,11 @@ CREATE TABLE pm_project_vector_index
     user_id             BIGINT       NOT NULL,
     status              VARCHAR(24)  NOT NULL DEFAULT 'NOT_INDEXED',
     active_generation   BIGINT       NULL,
+    active_build_id     VARCHAR(64)  NULL,
     pending_generation  BIGINT       NULL,
+    pending_build_id    VARCHAR(64)  NULL,
+    source_revision     BIGINT       NOT NULL DEFAULT 0,
+    reschedule_required TINYINT(1)   NOT NULL DEFAULT 0,
     collection_name     VARCHAR(128) NOT NULL DEFAULT 'pmai_code_chunks_v1',
     embedding_provider  VARCHAR(64)  NULL,
     embedding_model     VARCHAR(128) NULL,
@@ -23,7 +27,12 @@ CREATE TABLE pm_project_vector_index
     CONSTRAINT chk_vector_index_status CHECK (status IN
         ('NOT_INDEXED', 'PENDING', 'RUNNING', 'READY', 'DEGRADED', 'FAILED', 'DELETING')),
     CONSTRAINT chk_vector_index_generations CHECK
-        (pending_generation IS NULL OR active_generation IS NULL OR pending_generation <> active_generation)
+        (pending_generation IS NULL OR active_generation IS NULL OR pending_generation <> active_generation),
+    CONSTRAINT chk_vector_index_active_build CHECK
+        ((active_generation IS NULL AND active_build_id IS NULL) OR
+         (active_generation IS NOT NULL AND active_build_id IS NOT NULL)),
+    CONSTRAINT chk_vector_index_pending_build CHECK
+        ((pending_generation IS NULL AND pending_build_id IS NULL) OR pending_generation IS NOT NULL)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '项目向量索引事实状态';
 
 CREATE TABLE pm_vector_index_task
@@ -35,6 +44,8 @@ CREATE TABLE pm_vector_index_task
     active_key        VARCHAR(128) NULL,
     correlation_id    VARCHAR(64)  NOT NULL,
     generation        BIGINT       NOT NULL,
+    target_revision   BIGINT       NOT NULL,
+    build_id          VARCHAR(64)  NULL,
     status            VARCHAR(24)  NOT NULL DEFAULT 'PENDING',
     progress          INT          NOT NULL DEFAULT 0,
     worker_id         VARCHAR(128) NULL,
@@ -55,7 +66,7 @@ CREATE TABLE pm_vector_index_task
     INDEX idx_vector_task_owner (user_id, project_id, id),
     INDEX idx_vector_task_lease (status, lease_expires_at, id),
     CONSTRAINT chk_vector_task_status CHECK (status IN
-        ('PENDING', 'RUNNING', 'SUCCEEDED', 'FAILED', 'CANCELLED')),
+        ('PENDING', 'RUNNING', 'SUCCEEDED', 'FAILED', 'CANCELLED', 'SUPERSEDED')),
     CONSTRAINT chk_vector_task_progress CHECK (progress BETWEEN 0 AND 100)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '可靠项目向量索引任务';
 
@@ -68,11 +79,12 @@ CREATE TABLE pm_vector_file_manifest
     file_path          VARCHAR(255) NOT NULL,
     content_hash       CHAR(64)     NOT NULL,
     generation         BIGINT       NOT NULL,
+    build_id           VARCHAR(64)  NOT NULL,
     embedding_model    VARCHAR(128) NOT NULL,
     chunk_count        INT          NOT NULL,
     indexed_at         DATETIME(6)  NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    UNIQUE KEY uk_vector_manifest_file (project_id, generation, file_path),
-    INDEX idx_vector_manifest_generation (user_id, project_id, generation),
+    UNIQUE KEY uk_vector_manifest_file (project_id, generation, build_id, file_path),
+    INDEX idx_vector_manifest_generation (user_id, project_id, generation, build_id),
     INDEX idx_vector_manifest_hash (project_id, content_hash)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '项目向量文件索引清单';
 

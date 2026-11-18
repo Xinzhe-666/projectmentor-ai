@@ -12,6 +12,11 @@ public class VectorIndexStatusVO {
     private String status;
     private String displayStatus;
     private Long activeGeneration;
+    private String activeBuildId;
+    private Long pendingGeneration;
+    private String pendingBuildId;
+    private Long sourceRevision;
+    private Boolean rescheduleRequired;
     private Integer chunkCount;
     private Integer indexedFileCount;
     private String embeddingModel;

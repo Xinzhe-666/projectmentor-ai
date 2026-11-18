@@ -5,11 +5,7 @@ import com.xinzhe.projectmentor.file.entity.ProjectFile;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Matcher;
@@ -31,15 +27,16 @@ public class EvidenceAwareCodeChunker {
     private final VectorIndexProperties properties;
     private final SensitiveContentRedactor redactor;
     private final IndexableFilePolicy filePolicy;
+    private final ProjectContentHasher contentHasher;
 
     public List<CodeChunk> chunk(long projectId, ProjectFile file, String embeddingModel) {
         if (!filePolicy.isIndexable(file)) {
             return List.of();
         }
-        String normalized = normalizeNewlines(file.getContent());
+        String normalized = contentHasher.normalize(file.getContent());
         String[] lines = normalized.split("\\n", -1);
         String language = detectLanguage(file.getFilePath());
-        String fileHash = sha256(normalized);
+        String fileHash = contentHasher.sha256(normalized);
         List<CodeChunk> chunks = new ArrayList<>();
         int start = 0;
         while (start < lines.length) {
@@ -107,7 +104,7 @@ public class EvidenceAwareCodeChunker {
 
     private String stableChunkId(long projectId, ProjectFile file, String contentHash,
                                  int startLine, int endLine, String embeddingModel) {
-        return sha256(projectId + "\n" + (file.getId() == null ? "" : file.getId()) + "\n"
+        return contentHasher.sha256(projectId + "\n" + (file.getId() == null ? "" : file.getId()) + "\n"
                 + file.getFilePath() + "\n" + contentHash + "\n" + startLine + "\n" + endLine + "\n"
                 + CHUNKER_VERSION + "\n" + embeddingModel);
     }
@@ -141,10 +138,6 @@ public class EvidenceAwareCodeChunker {
         return "text";
     }
 
-    private static String normalizeNewlines(String value) {
-        return value.replace("\r\n", "\n").replace('\r', '\n');
-    }
-
     private static String join(String[] lines, int start, int end) {
         return String.join("\n", java.util.Arrays.copyOfRange(lines, start, end));
     }
@@ -155,12 +148,4 @@ public class EvidenceAwareCodeChunker {
         return length;
     }
 
-    private static String sha256(String value) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(value.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 unavailable", e);
-        }
-    }
 }

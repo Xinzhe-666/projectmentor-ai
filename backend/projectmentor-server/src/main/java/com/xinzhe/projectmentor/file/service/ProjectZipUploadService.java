@@ -107,7 +107,7 @@ public class ProjectZipUploadService {
         }
 
         if (!context.savedFiles.isEmpty() && vectorIndexTasks != null) {
-            vectorIndexTasks.scheduleIfEnabled(projectId);
+            vectorIndexTasks.recordContentChange(projectId);
         }
 
         return UploadZipResultVO.builder()

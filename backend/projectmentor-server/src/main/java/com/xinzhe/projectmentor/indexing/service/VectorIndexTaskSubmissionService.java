@@ -55,12 +55,22 @@ public class VectorIndexTaskSubmissionService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void scheduleIfEnabled(long projectId) {
-        if (!embedding.isEnabled() || !milvus.isEnabled()) return;
+    public void recordContentChange(long projectId) {
         long userId = currentUserId();
         requireOwnedProject(projectId, userId);
-        schedule(projectId, userId);
+        indexMapper.ensure(projectId, userId, milvus.getCollection());
+        ProjectVectorIndex state = indexMapper.selectForUpdate(projectId);
+        if (indexMapper.incrementSourceRevision(projectId, userId) != 1) {
+            throw new IllegalStateException("Failed to advance project source revision");
+        }
+        state = indexMapper.selectForUpdate(projectId);
+        if (!embedding.isEnabled() || !milvus.isEnabled()) return;
+        if (taskMapper.selectActive("project:" + projectId) == null) createTaskLocked(state);
     }
+
+    @Deprecated
+    @Transactional(rollbackFor = Exception.class)
+    public void scheduleIfEnabled(long projectId) { recordContentChange(projectId); }
 
     private VectorIndexStatusVO schedule(long projectId, long userId) {
         String activeKey = "project:" + projectId;
@@ -72,14 +82,32 @@ public class VectorIndexTaskSubmissionService {
         existing = taskMapper.selectActive(activeKey);
         if (existing != null) return toStatus(projectId, state, existing);
 
+        return createTaskLocked(state);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public VectorIndexStatusVO scheduleLatestRevision(long projectId, long userId) {
+        ProjectVectorIndex state = indexMapper.selectForUpdate(projectId);
+        VectorIndexTask existing = taskMapper.selectActive("project:" + projectId);
+        if (existing != null) return toStatus(projectId, state, existing);
+        return createTaskLocked(state);
+    }
+
+    private VectorIndexStatusVO createTaskLocked(ProjectVectorIndex state) {
+        long projectId = state.getProjectId();
+        long userId = state.getUserId();
+        long targetRevision = value(state.getSourceRevision());
         long generation = Math.max(value(state.getActiveGeneration()), value(state.getPendingGeneration())) + 1;
+        String activeKey = "project:" + projectId;
         String correlationId = UUID.randomUUID().toString();
         VectorIndexTask task = new VectorIndexTask();
         task.setProjectId(projectId); task.setUserId(userId); task.setTaskType("REBUILD");
         task.setActiveKey(activeKey); task.setCorrelationId(correlationId); task.setGeneration(generation);
+        task.setTargetRevision(targetRevision);
         task.setStatus("PENDING"); task.setProgress(0); task.setExecutionAttempt(0); task.setExecutionVersion(0L);
         if (taskMapper.insert(task) != 1) throw new IllegalStateException("Failed to create vector index task");
-        if (indexMapper.markPending(projectId, userId, generation, embedding.getModel(), embedding.getDimension()) != 1) {
+        if (indexMapper.markPending(projectId, userId, generation, targetRevision,
+                embedding.getModel(), embedding.getDimension()) != 1) {
             throw new IllegalStateException("Failed to reserve vector index generation");
         }
 
@@ -99,7 +127,7 @@ public class VectorIndexTaskSubmissionService {
         return toStatus(projectId, state, taskMapper.selectActive("project:" + projectId));
     }
 
-    private VectorIndexOutboxEvent outbox(long taskId, VectorIndexMessage message) {
+    VectorIndexOutboxEvent outbox(long taskId, VectorIndexMessage message) {
         VectorIndexOutboxEvent event = new VectorIndexOutboxEvent();
         event.setEventId(message.messageId()); event.setTaskId(taskId); event.setEventType(message.eventType());
         event.setSchemaVersion(1); event.setPayload(json(message)); event.setExchangeName(properties.getMainExchange());
@@ -108,7 +136,7 @@ public class VectorIndexTaskSubmissionService {
         return event;
     }
 
-    private String json(VectorIndexMessage message) {
+    String json(VectorIndexMessage message) {
         try { return objectMapper.writeValueAsString(message); }
         catch (JsonProcessingException e) { throw new IllegalStateException("Failed to serialize vector index message", e); }
     }
@@ -129,6 +157,11 @@ public class VectorIndexTaskSubmissionService {
         String status = state == null ? "NOT_INDEXED" : state.getStatus();
         return VectorIndexStatusVO.builder().projectId(projectId)
                 .status(status).displayStatus(display(status)).activeGeneration(state == null ? null : state.getActiveGeneration())
+                .activeBuildId(state == null ? null : state.getActiveBuildId())
+                .pendingGeneration(state == null ? null : state.getPendingGeneration())
+                .pendingBuildId(state == null ? null : state.getPendingBuildId())
+                .sourceRevision(state == null ? null : state.getSourceRevision())
+                .rescheduleRequired(state != null && Boolean.TRUE.equals(state.getRescheduleRequired()))
                 .chunkCount(state == null ? 0 : state.getChunkCount()).indexedFileCount(state == null ? 0 : state.getIndexedFileCount())
                 .embeddingModel(state == null ? null : state.getEmbeddingModel())
                 .lastErrorCode(state == null ? null : state.getLastErrorCode())

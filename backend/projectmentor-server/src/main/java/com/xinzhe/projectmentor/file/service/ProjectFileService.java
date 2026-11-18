@@ -99,7 +99,7 @@ public class ProjectFileService {
     }
 
     private void scheduleVectorIndex(Long projectId) {
-        if (vectorIndexTasks != null) vectorIndexTasks.scheduleIfEnabled(projectId);
+        if (vectorIndexTasks != null) vectorIndexTasks.recordContentChange(projectId);
     }
 
     private void checkProjectOwner(Long projectId) {

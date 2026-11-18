@@ -17,6 +17,8 @@ public class VectorIndexTask {
     private String activeKey;
     private String correlationId;
     private Long generation;
+    private Long targetRevision;
+    private String buildId;
     private String status;
     private Integer progress;
     private String workerId;

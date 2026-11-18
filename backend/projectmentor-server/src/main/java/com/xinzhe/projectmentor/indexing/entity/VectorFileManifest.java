@@ -17,6 +17,7 @@ public class VectorFileManifest {
     private String filePath;
     private String contentHash;
     private Long generation;
+    private String buildId;
     private String embeddingModel;
     private Integer chunkCount;
     private LocalDateTime indexedAt;

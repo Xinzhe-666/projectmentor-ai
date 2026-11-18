@@ -15,7 +15,11 @@ public class ProjectVectorIndex {
     private Long userId;
     private String status;
     private Long activeGeneration;
+    private String activeBuildId;
     private Long pendingGeneration;
+    private String pendingBuildId;
+    private Long sourceRevision;
+    private Boolean rescheduleRequired;
     private String collectionName;
     private String embeddingProvider;
     private String embeddingModel;

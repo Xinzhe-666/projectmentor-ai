@@ -12,7 +12,7 @@ class EvidenceAwareCodeChunkerTests {
     private final VectorIndexProperties properties = properties();
     private final SensitiveContentRedactor redactor = new SensitiveContentRedactor();
     private final EvidenceAwareCodeChunker chunker = new EvidenceAwareCodeChunker(
-            properties, redactor, new IndexableFilePolicy());
+            properties, redactor, new IndexableFilePolicy(), new ProjectContentHasher());
 
     @Test
     void chunkIdsAndLineRangesAreStableAndOverlap() {

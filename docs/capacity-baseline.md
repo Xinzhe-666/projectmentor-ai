@@ -4,12 +4,11 @@
 
 No full container capacity result is claimed for this change. On 2026-11-14 the local Docker engine was unavailable (`dockerDesktopLinuxEngine` pipe missing), so real Rabbit/Milvus concurrency, chunks/s, JVM/GC and container-memory measurements could not be executed safely. This is a release evidence gap, not a fabricated pass. The independent CI jobs provide functional integration gates; they are not a production capacity benchmark.
 
-The completed local evidence is:
+The completed harness evidence is:
 
-- backend unit suite: 158/158 passed before the additional four consistency/fallback tests; final suite must be rerun before push;
 - deterministic retrieval fixture: 3 projects / 24 queries completed;
-- frontend production build and all Compose configuration combinations validated earlier in this branch;
-- localhost-only smoke harness added at `scripts/v7-capacity-smoke.ps1`.
+- localhost-only business-path harness at `scripts/v7-capacity-smoke.ps1` supports parallel rebuilds, multi-project terminal polling, concurrent Q&A, pointer/cross-project invariants, optional Prometheus metrics and Rabbit Management queue/DLQ capture;
+- CI runs a small mock-server harness smoke to validate concurrency, parsing and invariant enforcement. It is a harness test, not a capacity result.
 
 ## Isolated benchmark contract
 
@@ -17,8 +16,9 @@ Use Compose project `pmai-v7-perf`, never production and never `projectmentorai.
 
 ```powershell
 docker compose -p pmai-v7-perf -f docker-compose.yml -f docker-compose.rabbit.yml -f docker-compose.milvus.yml up -d
-pwsh scripts/v7-capacity-smoke.ps1 -Requests 500 -Concurrency 16
-pwsh scripts/v7-capacity-smoke.ps1 -Requests 200 -Concurrency 8 -ProjectId 101 -BearerToken $env:PMAI_PERF_TOKEN -ExerciseDuplicateRebuild
+pwsh scripts/v7-capacity-smoke.ps1 -Requests 200 -Concurrency 8 -ProjectIds 101,102 -BearerToken $env:PMAI_PERF_TOKEN -ExerciseDuplicateRebuild
+pwsh scripts/v7-capacity-smoke.ps1 -Requests 200 -Concurrency 16 -ProjectIds 101,102 -BearerToken $env:PMAI_PERF_TOKEN -ExerciseQa -ExpectedEvidencePrefixes '101=fixture/user-a/project-101/','102=fixture/user-a/project-102/'
+pwsh scripts/v7-capacity-smoke.ps1 -Requests 200 -Concurrency 16 -ProjectIds 101,102 -BearerToken $env:PMAI_PERF_TOKEN -ExerciseDuplicateRebuild -ExerciseQa -MetricsUrl http://127.0.0.1:8080/actuator/prometheus -RabbitManagementUrl http://127.0.0.1:15672 -RabbitUsername pmai_perf -RabbitPassword $env:PMAI_PERF_RABBIT_PASSWORD
 ```
 
 Use fictional fixture users/projects only. Record CPU count, memory, disk, Java version, image digests, dataset files/chunks, embedding double/model and configuration alongside raw output.
@@ -34,7 +34,7 @@ Use fictional fixture users/projects only. Record CPU count, memory, disk, Java 
 7. Observe G1 while G2 is partial, then atomic switch and old-generation cleanup.
 8. Delete a project while residual chunks remain; every API query must fail ownership/existence checks.
 
-Capture index chunks/s, embedding batch latency, project index time, query p50/p95/p99, hybrid p95, Rabbit ready/unacked, maximum outbox backlog, recovery time, heap/GC, Hikari active/waiting, Milvus memory and failure/retry/DLQ totals.
+The script records request success/failure, p50/p95/p99, per-project index completion, final generation/build pointer consistency, duplicate task observations and cross-project evidence checks. With the optional endpoints it also records Rabbit ready/unacked/DLQ and the exported Outbox backlog, active-task, duplicate-project and Milvus-error metrics. A full run must additionally capture index chunks/s, embedding batch latency, maximum backlog over time, recovery time, heap/GC, Hikari active/waiting, container memory and all retry totals.
 
 ## Release blockers
 

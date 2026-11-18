@@ -12,9 +12,9 @@ Require green backend/frontend/repository/database/Rabbit/Milvus CI, a MySQL bac
 2. Start pinned Milvus Standalone with persistent volumes.
 3. Enable authentication, run the one-time RBAC initializer, rotate root and verify the least-privilege app login.
 4. Start RabbitMQ and verify quorum queues, publisher confirm/return and DLQ policy.
-5. Execute immutable V6 through Flyway; validate all four new tables/indexes and retain V1–V5 unchanged.
+5. Execute immutable V6 through Flyway; validate all four new tables, build/revision columns and indexes, and retain V1–V5 unchanged.
 6. Start the backend with `PMAI_RETRIEVAL_MODE=lexical`; keep index consumer concurrency bounded.
-7. Index existing projects in controlled batches; observe outbox, queue, retries, heap, DB pool and Milvus memory.
+7. Index existing projects in controlled batches; observe source revisions, generation/build switches, outbox, queue, retries, heap, DB pool and Milvus memory.
 8. Change to `shadow`; compare latency/fallback/result-delta metrics without changing user answers.
 9. After an observation window and quality review, change to `hybrid` for a controlled cohort/environment.
 10. Deploy the frontend and run desktop/mobile, ownership, generation, delete and Q&A fallback smoke tests.

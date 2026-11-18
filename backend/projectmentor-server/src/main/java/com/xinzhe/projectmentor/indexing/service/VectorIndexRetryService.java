@@ -32,7 +32,8 @@ public class VectorIndexRetryService {
             return false;
         }
         long ttl = retryTtl(task.getExecutionAttempt());
-        VectorIndexMessage next = new VectorIndexMessage(UUID.randomUUID().toString(), 1, "INDEX_RETRY",
+        String eventType = "PROJECT_DELETE".equals(prior.eventType()) ? "PROJECT_DELETE" : "INDEX_RETRY";
+        VectorIndexMessage next = new VectorIndexMessage(UUID.randomUUID().toString(), 1, eventType,
                 task.getId(), task.getUserId(), task.getProjectId(), task.getGeneration(), task.getCorrelationId());
         VectorIndexOutboxEvent event = new VectorIndexOutboxEvent();
         event.setEventId(next.messageId()); event.setTaskId(task.getId()); event.setEventType(next.eventType());

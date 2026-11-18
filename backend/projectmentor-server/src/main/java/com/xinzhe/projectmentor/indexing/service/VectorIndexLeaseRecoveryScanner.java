@@ -32,12 +32,15 @@ public class VectorIndexLeaseRecoveryScanner {
         for (VectorIndexTask task : taskMapper.selectExpiredForUpdate(50)) {
             if (task.getExecutionAttempt() >= properties.getMaximumAttempts()) {
                 if (taskMapper.failTerminal(task.getId(), "INDEX_LEASE_EXHAUSTED", "执行租约过期且已达到最大尝试次数") == 1) {
-                    indexMapper.failPending(task.getProjectId(), task.getUserId(), task.getGeneration(),
-                            "INDEX_LEASE_EXHAUSTED", "执行租约过期且已达到最大尝试次数");
+                    if (!"CLEANUP".equals(task.getTaskType())) {
+                        indexMapper.failPending(task.getProjectId(), task.getUserId(), task.getGeneration(), task.getBuildId(),
+                                "INDEX_LEASE_EXHAUSTED", "执行租约过期且已达到最大尝试次数");
+                    }
                     metrics.counter("pmai.index.task", "result", "recovery-failed").increment();
                 }
             } else if (taskMapper.recoverExpired(task.getId(), task.getExecutionVersion(), "执行租约过期，任务已恢复") == 1) {
-                retries.schedule(new VectorIndexMessage(UUID.randomUUID().toString(), 1, "INDEX_RECOVERY",
+                String eventType = "CLEANUP".equals(task.getTaskType()) ? "PROJECT_DELETE" : "INDEX_RECOVERY";
+                retries.schedule(new VectorIndexMessage(UUID.randomUUID().toString(), 1, eventType,
                         task.getId(), task.getUserId(), task.getProjectId(), task.getGeneration(), task.getCorrelationId()));
                 metrics.counter("pmai.index.task", "result", "recovered").increment();
             }

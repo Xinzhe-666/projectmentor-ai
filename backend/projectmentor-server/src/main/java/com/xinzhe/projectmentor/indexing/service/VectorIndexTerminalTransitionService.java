@@ -23,7 +23,9 @@ public class VectorIndexTerminalTransitionService {
         if (taskMapper.failTerminal(taskId, "INDEX_OUTBOX_EXHAUSTED", "索引消息发布超过最大尝试次数") != 1) {
             throw new IllegalStateException("Failed to terminate index task after outbox exhaustion");
         }
-        indexMapper.failPending(task.getProjectId(), task.getUserId(), task.getGeneration(),
-                "INDEX_OUTBOX_EXHAUSTED", "索引消息发布超过最大尝试次数");
+        if (!"CLEANUP".equals(task.getTaskType())) {
+            indexMapper.failPending(task.getProjectId(), task.getUserId(), task.getGeneration(), task.getBuildId(),
+                    "INDEX_OUTBOX_EXHAUSTED", "索引消息发布超过最大尝试次数");
+        }
     }
 }

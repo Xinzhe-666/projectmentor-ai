@@ -9,6 +9,9 @@ import org.apache.ibatis.annotations.Update;
 import java.util.List;
 
 public interface VectorIndexOutboxMapper extends BaseMapper<VectorIndexOutboxEvent> {
+    @Select("SELECT COUNT(*) FROM pm_vector_index_outbox WHERE status IN ('NEW','CLAIMED')")
+    long countBacklog();
+
     @Select("""
             SELECT * FROM pm_vector_index_outbox
             WHERE (status='NEW' OR (status='CLAIMED' AND claim_expires_at <= NOW(6)))

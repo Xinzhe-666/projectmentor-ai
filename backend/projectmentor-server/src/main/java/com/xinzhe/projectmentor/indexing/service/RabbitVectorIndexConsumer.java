@@ -20,6 +20,7 @@ import org.springframework.stereotype.Component;
 public class RabbitVectorIndexConsumer {
     private final ObjectMapper objectMapper;
     private final VectorIndexWorker worker;
+    private final VectorIndexDeletionService deletionService;
     private final VectorIndexRetryService retries;
 
     @RabbitListener(queues = "${projectmentor.vector-index.main-queue:pmai.index.execute.v1}",
@@ -34,7 +35,8 @@ public class RabbitVectorIndexConsumer {
             return;
         }
         try {
-            VectorIndexWorker.ProcessingResult result = worker.process(message);
+            VectorIndexWorker.ProcessingResult result = "PROJECT_DELETE".equals(message.eventType())
+                    ? deletionService.process(message) : worker.process(message);
             if (result == VectorIndexWorker.ProcessingResult.ACK) channel.basicAck(tag, false);
             else if (result == VectorIndexWorker.ProcessingResult.RETRY_LATER && retries.schedule(message)) {
                 channel.basicAck(tag, false);

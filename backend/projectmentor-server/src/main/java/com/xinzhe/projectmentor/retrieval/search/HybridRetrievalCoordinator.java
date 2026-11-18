@@ -7,6 +7,7 @@ import com.xinzhe.projectmentor.file.mapper.ProjectFileMapper;
 import com.xinzhe.projectmentor.indexing.entity.ProjectVectorIndex;
 import com.xinzhe.projectmentor.indexing.mapper.ProjectVectorIndexMapper;
 import com.xinzhe.projectmentor.qa.vo.ProjectQaEvidenceVO;
+import com.xinzhe.projectmentor.retrieval.chunk.ProjectContentHasher;
 import com.xinzhe.projectmentor.retrieval.embedding.EmbeddingProvider;
 import com.xinzhe.projectmentor.retrieval.milvus.MilvusChunkStore;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -15,11 +16,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -34,6 +32,7 @@ public class HybridRetrievalCoordinator {
     private final ObjectProvider<EmbeddingProvider> embeddingProvider;
     private final ObjectProvider<MilvusChunkStore> chunkStoreProvider;
     private final EvidenceAwareReranker reranker;
+    private final ProjectContentHasher contentHasher;
     private final MeterRegistry metrics;
 
     public Decision retrieve(long userId, long projectId, String query, List<ProjectQaEvidenceVO> lexical) {
@@ -45,7 +44,8 @@ public class HybridRetrievalCoordinator {
         long started = System.nanoTime();
         try {
             ProjectVectorIndex state = indexMapper.selectOwned(projectId, userId);
-            if (state == null || !"READY".equals(state.getStatus()) || state.getActiveGeneration() == null) {
+            if (state == null || !"READY".equals(state.getStatus()) || state.getActiveGeneration() == null
+                    || state.getActiveBuildId() == null) {
                 return fallback(lexical, "项目索引尚未可用");
             }
             EmbeddingProvider embedding = embeddingProvider.getIfAvailable();
@@ -56,9 +56,10 @@ public class HybridRetrievalCoordinator {
                 return fallback(lexical, "查询向量校验失败");
             }
             List<RetrievalCandidate> fused = store.hybridSearch(userId, projectId,
-                    state.getActiveGeneration(), query, queryVectors.get(0));
-            List<RetrievalCandidate> reranked = reranker.rerank(query, fused, properties.getResultLimit());
-            List<ProjectQaEvidenceVO> hybrid = hydrate(projectId, reranked);
+                    state.getActiveGeneration(), state.getActiveBuildId(), query, queryVectors.get(0));
+            List<RetrievalCandidate> canonical = canonicalize(projectId, fused);
+            List<RetrievalCandidate> reranked = reranker.rerank(query, canonical, properties.getResultLimit());
+            List<ProjectQaEvidenceVO> hybrid = hydrate(reranked);
             if (hybrid.isEmpty()) return fallback(lexical, "混合检索未返回可核验证据");
             if (properties.getMode() == RetrievalProperties.Mode.SHADOW) {
                 metrics.summary("pmai.retrieval.shadow.result.delta").record(hybrid.size() - lexical.size());
@@ -81,7 +82,7 @@ public class HybridRetrievalCoordinator {
         return new Decision(lexical, "fallback/lexical", notice);
     }
 
-    private List<ProjectQaEvidenceVO> hydrate(long projectId, List<RetrievalCandidate> candidates) {
+    private List<RetrievalCandidate> canonicalize(long projectId, List<RetrievalCandidate> candidates) {
         List<Long> ids = candidates.stream().map(RetrievalCandidate::fileId).distinct().toList();
         Map<Long, ProjectFile> files = new HashMap<>();
         if (!ids.isEmpty()) {
@@ -90,17 +91,32 @@ public class HybridRetrievalCoordinator {
                 files.put(file.getId(), file);
             }
         }
-        List<ProjectQaEvidenceVO> result = new ArrayList<>();
+        List<RetrievalCandidate> result = new ArrayList<>();
         for (RetrievalCandidate candidate : candidates) {
             ProjectFile canonical = files.get(candidate.fileId());
-            if (canonical == null) continue;
-            String snippet = sha256(canonical.getContent()).equals(candidate.contentHash())
-                    ? lines(canonical.getContent(), candidate.startLine(), candidate.endLine()) : candidate.content();
+            if (canonical == null || !contentHasher.sha256(canonical.getContent()).equals(candidate.contentHash())) {
+                metrics.counter("pmai.retrieval.stale_evidence", "reason",
+                        canonical == null ? "file-missing" : "hash-mismatch").increment();
+                continue;
+            }
+            String snippet = lines(canonical.getContent(), candidate.startLine(), candidate.endLine());
             if (snippet == null || snippet.isBlank()) continue;
+            result.add(new RetrievalCandidate(candidate.chunkId(), candidate.fileId(), canonical.getFilePath(),
+                    candidate.language(), candidate.chunkType(), candidate.symbolName(), candidate.startLine(),
+                    candidate.endLine(), candidate.contentHash(), snippet, candidate.denseRank(), candidate.denseScore(),
+                    candidate.bm25Rank(), candidate.bm25Score(), candidate.rrfRank(), candidate.rrfScore(),
+                    candidate.evidenceBoost(), candidate.finalRank(), candidate.matchedTerms(), candidate.matchReasons()));
+        }
+        return result;
+    }
+
+    private List<ProjectQaEvidenceVO> hydrate(List<RetrievalCandidate> candidates) {
+        List<ProjectQaEvidenceVO> result = new ArrayList<>();
+        for (RetrievalCandidate candidate : candidates) {
             String explanation = String.join("; ", candidate.matchReasons());
             result.add(ProjectQaEvidenceVO.builder().filePath(candidate.filePath())
                     .reason(explanation.isBlank() ? "Dense + BM25 经 RRF 融合命中" : explanation)
-                    .snippet(snippet).startLine(candidate.startLine()).endLine(candidate.endLine())
+                    .snippet(candidate.content()).startLine(candidate.startLine()).endLine(candidate.endLine())
                     .chunkType(candidate.chunkType()).language(candidate.language())
                     .matchedTerms(candidate.matchedTerms()).retrievalMode("hybrid")
                     .retrievalExplanation(explanation).denseRank(candidate.denseRank()).denseScore(candidate.denseScore())
@@ -111,19 +127,15 @@ public class HybridRetrievalCoordinator {
     }
 
     private String lines(String content, int startLine, int endLine) {
-        String[] lines = content.replace("\r\n", "\n").replace('\r', '\n').split("\n", -1);
-        int from = Math.max(0, startLine - 1);
-        int to = Math.min(lines.length, Math.max(from, endLine));
+        String[] lines = contentHasher.normalize(content).split("\n", -1);
+        if (startLine < 1 || startLine > lines.length || endLine < startLine) return null;
+        int from = startLine - 1;
+        int to = Math.min(lines.length, endLine);
         return String.join("\n", java.util.Arrays.copyOfRange(lines, from, to));
     }
 
     private void stamp(List<ProjectQaEvidenceVO> evidences, String mode) {
         for (ProjectQaEvidenceVO evidence : evidences) evidence.setRetrievalMode(mode);
-    }
-    private String sha256(String value) {
-        try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                .digest(value.getBytes(StandardCharsets.UTF_8))); }
-        catch (Exception e) { throw new IllegalStateException(e); }
     }
     private String safeReason(Exception e) { return e.getClass().getSimpleName(); }
     private String lowCardinality(String notice) {

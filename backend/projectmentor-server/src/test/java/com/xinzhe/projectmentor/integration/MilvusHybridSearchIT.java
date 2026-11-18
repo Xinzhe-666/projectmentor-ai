@@ -4,9 +4,9 @@ import com.xinzhe.projectmentor.config.EmbeddingProperties;
 import com.xinzhe.projectmentor.config.MilvusProperties;
 import com.xinzhe.projectmentor.config.RetrievalProperties;
 import com.xinzhe.projectmentor.retrieval.chunk.CodeChunk;
+import com.xinzhe.projectmentor.retrieval.chunk.SensitiveContentRedactor;
 import com.xinzhe.projectmentor.retrieval.milvus.MilvusChunkStore;
 import com.xinzhe.projectmentor.retrieval.milvus.MilvusCollectionManager;
-import com.xinzhe.projectmentor.retrieval.search.ReciprocalRankFusion;
 import com.xinzhe.projectmentor.retrieval.search.RetrievalCandidate;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.milvus.v2.client.ConnectConfig;
@@ -32,6 +32,7 @@ class MilvusHybridSearchIT {
     private static final long PROJECT = 8001L;
     private static final long OTHER_PROJECT = 8002L;
     private static final long GENERATION = 11L;
+    private static final String BUILD = "milvus-it-build";
 
     @BeforeAll
     static void setup() {
@@ -55,13 +56,13 @@ class MilvusHybridSearchIT {
                 chunk("a-config", 2L, "application.yml", "yaml", "CONFIG", "security", "hash-b",
                         "security:\n  jwt-expire: 3600", "application yml security jwt expire")
         );
-        assertThat(store.insert(USER_A, PROJECT, GENERATION, a,
+        assertThat(store.insert(USER_A, PROJECT, GENERATION, BUILD, a,
                 List.of(new float[]{1, 0, 0, 0}, new float[]{0.8f, 0.2f, 0, 0}))).isEqualTo(2);
-        assertThat(store.insert(USER_B, PROJECT, GENERATION,
+        assertThat(store.insert(USER_B, PROJECT, GENERATION, BUILD,
                 List.of(chunk("b-secret", 3L, "src/Other.java", "java", "CODE", "Other", "hash-c",
                         "class Other { void jwt() {} }", "jwt other tenant")),
                 List.of(new float[]{1, 0, 0, 0}))).isEqualTo(1);
-        assertThat(store.insert(USER_A, OTHER_PROJECT, GENERATION,
+        assertThat(store.insert(USER_A, OTHER_PROJECT, GENERATION, BUILD,
                 List.of(chunk("a-other-project", 4L, "src/CrossProject.java", "java", "CODE",
                         "CrossProject", "hash-d", "class CrossProject { void issueJwtToken() {} }",
                         "Cross Project issue Jwt Token authentication")),
@@ -71,16 +72,16 @@ class MilvusHybridSearchIT {
     @AfterAll
     static void cleanup() {
         if (store != null) {
-            store.deleteGeneration(USER_A, PROJECT, GENERATION);
-            store.deleteGeneration(USER_B, PROJECT, GENERATION);
-            store.deleteGeneration(USER_A, OTHER_PROJECT, GENERATION);
+            store.deleteBuild(USER_A, PROJECT, GENERATION, BUILD);
+            store.deleteBuild(USER_B, PROJECT, GENERATION, BUILD);
+            store.deleteBuild(USER_A, OTHER_PROJECT, GENERATION, BUILD);
         }
         if (client != null) client.close();
     }
 
     @Test
     void denseBm25HybridRrfAndTenantGenerationFiltersAreReal() {
-        List<RetrievalCandidate> hits = store.hybridSearch(USER_A, PROJECT, GENERATION,
+        List<RetrievalCandidate> hits = store.hybridSearch(USER_A, PROJECT, GENERATION, BUILD,
                 "AuthService jwt-expire", new float[]{1, 0, 0, 0});
         assertThat(hits).isNotEmpty();
         assertThat(hits).allSatisfy(hit -> assertThat(hit.filePath())
@@ -91,34 +92,34 @@ class MilvusHybridSearchIT {
             assertThat(hit.bm25Rank()).isNotNull();
             assertThat(hit.rrfRank()).isPositive();
         });
-        assertThat(store.hybridSearch(USER_A, PROJECT, GENERATION + 1,
+        assertThat(store.hybridSearch(USER_A, PROJECT, GENERATION + 1, BUILD,
                 "AuthService", new float[]{1, 0, 0, 0})).isEmpty();
 
         MilvusClientV2 reconnected = newClient();
         try {
-            assertThat(newStore(reconnected).hybridSearch(USER_A, PROJECT, GENERATION,
+            assertThat(newStore(reconnected).hybridSearch(USER_A, PROJECT, GENERATION, BUILD,
                     "AuthService", new float[]{1, 0, 0, 0})).isNotEmpty();
         } finally {
             reconnected.close();
         }
 
-        assertThat(store.insert(USER_A, PROJECT, GENERATION,
+        assertThat(store.insert(USER_A, PROJECT, GENERATION, BUILD,
                 List.of(chunk("a-auth", 1L, "src/AuthService.java", "java", "TYPE", "AuthService",
                         "hash-a2", "class AuthService { void issueJwtTokenV2() {} }",
                         "Auth Service issue Jwt Token V2 authentication")),
                 List.of(new float[]{1, 0, 0, 0}))).isEqualTo(1);
-        assertThat(store.hybridSearch(USER_A, PROJECT, GENERATION,
+        assertThat(store.hybridSearch(USER_A, PROJECT, GENERATION, BUILD,
                 "issueJwtTokenV2", new float[]{1, 0, 0, 0}))
                 .anySatisfy(hit -> assertThat(hit.content()).contains("issueJwtTokenV2"));
 
-        assertThat(store.hybridSearch(USER_A, OTHER_PROJECT, GENERATION,
+        assertThat(store.hybridSearch(USER_A, OTHER_PROJECT, GENERATION, BUILD,
                 "CrossProject", new float[]{1, 0, 0, 0})).isNotEmpty();
         store.deleteProject(USER_A, OTHER_PROJECT);
-        assertThat(store.hybridSearch(USER_A, OTHER_PROJECT, GENERATION,
+        assertThat(store.hybridSearch(USER_A, OTHER_PROJECT, GENERATION, BUILD,
                 "CrossProject", new float[]{1, 0, 0, 0})).isEmpty();
 
-        store.deleteGeneration(USER_A, PROJECT, GENERATION);
-        assertThat(store.hybridSearch(USER_A, PROJECT, GENERATION,
+        store.deleteBuild(USER_A, PROJECT, GENERATION, BUILD);
+        assertThat(store.hybridSearch(USER_A, PROJECT, GENERATION, BUILD,
                 "AuthService", new float[]{1, 0, 0, 0})).isEmpty();
     }
 
@@ -133,8 +134,9 @@ class MilvusHybridSearchIT {
         milvus.setDatabase(database); milvus.setCollection(collection); milvus.setTimeoutSeconds(30);
         RetrievalProperties retrieval = new RetrievalProperties();
         retrieval.setCandidateLimit(10); retrieval.setResultLimit(5); retrieval.setRrfK(60);
+        retrieval.setPerPathDiagnosticsEnabled(true);
         return new MilvusChunkStore(targetClient, milvus, retrieval,
-                new ReciprocalRankFusion(), new SimpleMeterRegistry());
+                new SensitiveContentRedactor(), new SimpleMeterRegistry());
     }
 
     private static CodeChunk chunk(String id, long fileId, String path, String language, String type,

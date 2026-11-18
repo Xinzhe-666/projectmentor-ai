@@ -45,6 +45,7 @@ public class MilvusCollectionManager {
         CreateCollectionReq.FieldSchema dense = response.getCollectionSchema().getField("dense_vector");
         CreateCollectionReq.FieldSchema sparse = response.getCollectionSchema().getField("sparse_vector");
         CreateCollectionReq.FieldSchema user = response.getCollectionSchema().getField("user_id");
+        CreateCollectionReq.FieldSchema build = response.getCollectionSchema().getField("build_id");
         if (dense == null || dense.getDataType() != DataType.FloatVector
                 || !Integer.valueOf(embedding.getDimension()).equals(dense.getDimension())) {
             throw new IllegalStateException("Milvus dense_vector dimension/schema mismatch");
@@ -54,6 +55,9 @@ public class MilvusCollectionManager {
         }
         if (user == null || !Boolean.TRUE.equals(user.getIsPartitionKey())) {
             throw new IllegalStateException("Milvus user_id partition key is missing");
+        }
+        if (build == null || build.getDataType() != DataType.VarChar) {
+            throw new IllegalStateException("Milvus build_id schema mismatch");
         }
     }
 
@@ -65,6 +69,7 @@ public class MilvusCollectionManager {
         schema.addField(field("project_id", DataType.Int64, null, false, false));
         schema.addField(field("file_id", DataType.Int64, null, false, false));
         schema.addField(field("generation", DataType.Int64, null, false, false));
+        schema.addField(field("build_id", DataType.VarChar, 64, false, false));
         schema.addField(field("file_path", DataType.VarChar, milvus.getMaxFilePathLength(), false, false));
         schema.addField(field("language", DataType.VarChar, 32, false, false));
         schema.addField(field("chunk_type", DataType.VarChar, 32, false, false));
@@ -91,7 +96,7 @@ public class MilvusCollectionManager {
                         .extraParams(Map.of("M", milvus.getHnswM(), "efConstruction", milvus.getHnswEfConstruction())).build(),
                 IndexParam.builder().fieldName("sparse_vector").indexName("sparse_bm25")
                         .indexType(IndexParam.IndexType.SPARSE_INVERTED_INDEX).metricType(IndexParam.MetricType.BM25).build(),
-                scalarIndex("project_id"), scalarIndex("generation"), scalarIndex("file_id")
+                scalarIndex("project_id"), scalarIndex("generation"), scalarIndex("build_id"), scalarIndex("file_id")
         );
         client.createCollection(CreateCollectionReq.builder()
                 .databaseName(milvus.getDatabase()).collectionName(milvus.getCollection())

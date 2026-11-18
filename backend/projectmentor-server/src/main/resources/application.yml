@@ -111,6 +111,7 @@ projectmentor:
     candidate-limit: ${PMAI_RETRIEVAL_CANDIDATE_LIMIT:40}
     result-limit: ${PMAI_RETRIEVAL_RESULT_LIMIT:8}
     rrf-k: ${PMAI_RETRIEVAL_RRF_K:60}
+    per-path-diagnostics-enabled: ${PMAI_RETRIEVAL_PER_PATH_DIAGNOSTICS_ENABLED:false}
     timeout-millis: ${PMAI_RETRIEVAL_TIMEOUT_MILLIS:3000}
   vector-index:
     dispatch-mode: ${INDEX_DISPATCH_MODE:local}

@@ -18,6 +18,7 @@ public class RetrievalProperties {
     private int resultLimit = 8;
     @Min(1) @Max(16383)
     private int rrfK = 60;
+    private boolean perPathDiagnosticsEnabled = false;
     @Min(100) @Max(30000)
     private int timeoutMillis = 3000;
 }

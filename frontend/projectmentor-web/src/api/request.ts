@@ -77,7 +77,7 @@ service.interceptors.response.use(
 )
 
 export function request<T>(config: RequestConfig): Promise<T> {
-  return service.request<unknown, T>(config)
+  return service.request(config) as Promise<T>
 }
 
 export default service

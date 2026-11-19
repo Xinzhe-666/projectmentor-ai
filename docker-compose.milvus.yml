@@ -1,0 +1,102 @@
+services:
+  milvus-etcd:
+    image: quay.io/coreos/etcd:v3.5.25
+    container_name: projectmentor-milvus-etcd
+    restart: unless-stopped
+    environment:
+      ETCD_AUTO_COMPACTION_MODE: revision
+      ETCD_AUTO_COMPACTION_RETENTION: "1000"
+      ETCD_QUOTA_BACKEND_BYTES: "4294967296"
+      ETCD_SNAPSHOT_COUNT: "50000"
+    volumes:
+      - milvus_etcd_data:/etcd
+    command: etcd -advertise-client-urls=http://milvus-etcd:2379 -listen-client-urls=http://0.0.0.0:2379 --data-dir=/etcd
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  milvus-minio:
+    image: milvusdb/minio:RELEASE.2024-12-18T13-15-44Z
+    container_name: projectmentor-milvus-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ACCESS_KEY: ${MILVUS_MINIO_ACCESS_KEY:?MILVUS_MINIO_ACCESS_KEY is required}
+      MINIO_SECRET_KEY: ${MILVUS_MINIO_SECRET_KEY:?MILVUS_MINIO_SECRET_KEY is required}
+    volumes:
+      - milvus_minio_data:/minio_data
+    command: minio server /minio_data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    ports:
+      - "127.0.0.1:${MILVUS_MINIO_CONSOLE_PORT:-9001}:9001"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  milvus-standalone:
+    image: milvusdb/milvus:v2.6.26
+    container_name: projectmentor-milvus-standalone
+    restart: unless-stopped
+    command: ["milvus", "run", "standalone"]
+    security_opt:
+      - seccomp:unconfined
+    environment:
+      ETCD_ENDPOINTS: milvus-etcd:2379
+      MINIO_ADDRESS: milvus-minio:9000
+      MINIO_ACCESS_KEY_ID: ${MILVUS_MINIO_ACCESS_KEY:?MILVUS_MINIO_ACCESS_KEY is required}
+      MINIO_SECRET_ACCESS_KEY: ${MILVUS_MINIO_SECRET_KEY:?MILVUS_MINIO_SECRET_KEY is required}
+      MINIO_REGION: us-east-1
+    volumes:
+      - milvus_data:/var/lib/milvus
+      - ./deploy/milvus/milvus.yaml:/milvus/configs/user.yaml:ro
+    depends_on:
+      milvus-etcd:
+        condition: service_healthy
+      milvus-minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 15s
+      start_period: 90s
+      timeout: 10s
+      retries: 12
+    ports:
+      - "127.0.0.1:${MILVUS_GRPC_PORT:-19530}:19530"
+      - "127.0.0.1:${MILVUS_METRICS_PORT:-9091}:9091"
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+
+  backend:
+    depends_on:
+      milvus-standalone:
+        condition: service_healthy
+    environment:
+      MILVUS_ENABLED: ${MILVUS_ENABLED:-false}
+      MILVUS_URI: http://milvus-standalone:19530
+      MILVUS_TOKEN: ${MILVUS_APP_USERNAME:?MILVUS_APP_USERNAME is required}:${MILVUS_APP_PASSWORD:?MILVUS_APP_PASSWORD is required}
+      MILVUS_DATABASE: ${MILVUS_DATABASE:-pmai}
+      MILVUS_COLLECTION: ${MILVUS_COLLECTION:-pmai_code_chunks_v1}
+      EMBEDDING_ENABLED: ${EMBEDDING_ENABLED:-false}
+      EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-https://api.openai.com/v1}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+      EMBEDDING_DIMENSION: ${EMBEDDING_DIMENSION:-1536}
+      PMAI_RETRIEVAL_MODE: ${PMAI_RETRIEVAL_MODE:-lexical}
+      INDEX_DISPATCH_MODE: ${INDEX_DISPATCH_MODE:-local}
+
+volumes:
+  milvus_etcd_data:
+  milvus_minio_data:
+  milvus_data:

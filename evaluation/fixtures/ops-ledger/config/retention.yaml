@@ -1,0 +1,5 @@
+ledger:
+  retention-days: 365
+  reconciliation:
+    batch-size: 500
+    schedule: "0 */15 * * * *"

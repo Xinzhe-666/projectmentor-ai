@@ -138,6 +138,9 @@ html[data-experience="classic"] .sidebar-footnote {
 }
 
 html[data-experience="classic"] .app-header {
+  position: sticky;
+  z-index: 20;
+  top: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -146,6 +149,20 @@ html[data-experience="classic"] .app-header {
   border-bottom: 1px solid rgba(223, 230, 240, 0.82);
   background: rgba(255, 255, 255, 0.76);
   backdrop-filter: blur(18px);
+}
+
+html[data-experience="classic"] .classic-header-main,
+html[data-experience="classic"] .classic-sidebar-brand-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+html[data-experience="classic"] .workspace-nav-toggle,
+html[data-experience="classic"] .sidebar-close,
+html[data-experience="classic"] .workspace-nav-scrim {
+  display: none;
 }
 
 html[data-experience="classic"] .app-header h1 {
@@ -449,13 +466,59 @@ html[data-experience="classic"] .chat-role {
     display: block;
   }
 
-  html[data-experience="classic"] .app-sidebar {
-    position: static;
-    width: 100%;
-    height: auto;
+  html[data-experience="classic"].workspace-nav-open {
+    overflow: hidden;
   }
 
-  html[data-experience="classic"] .app-header,
+  html[data-experience="classic"] .app-sidebar {
+    position: fixed;
+    z-index: 60;
+    inset: var(--pmai-version-switcher-height) auto 0 0;
+    width: min(304px, calc(100vw - 48px));
+    height: calc(100dvh - var(--pmai-version-switcher-height));
+    overflow-y: auto;
+    transform: translateX(-102%);
+    transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  html[data-experience="classic"] .app-sidebar.is-mobile-open {
+    transform: translateX(0);
+  }
+
+  html[data-experience="classic"] .workspace-nav-toggle,
+  html[data-experience="classic"] .sidebar-close {
+    display: inline-flex;
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid var(--pm-border);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--pm-ink);
+  }
+
+  html[data-experience="classic"] .classic-sidebar-brand-row {
+    justify-content: space-between;
+  }
+
+  html[data-experience="classic"] .workspace-nav-scrim {
+    position: fixed;
+    z-index: 50;
+    inset: var(--pmai-version-switcher-height) 0 0;
+    display: block;
+    background: rgba(11, 18, 32, 0.48);
+  }
+
+  html[data-experience="classic"] .app-header {
+    min-height: 72px;
+    align-items: center;
+    flex-direction: row;
+    padding: 10px 18px;
+  }
+
   html[data-experience="classic"] .page-title {
     align-items: flex-start;
     flex-direction: column;
@@ -468,6 +531,27 @@ html[data-experience="classic"] .chat-role {
 }
 
 @media (max-width: 620px) {
+  html[data-experience="classic"] .app-header {
+    gap: 10px;
+    padding: 8px 12px;
+  }
+
+  html[data-experience="classic"] .app-header .eyebrow,
+  html[data-experience="classic"] .user-pill span,
+  html[data-experience="classic"] .header-actions .el-button span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  html[data-experience="classic"] .app-header h1 { margin: 0; font-size: 18px; }
+  html[data-experience="classic"] .header-actions { gap: 4px; flex-wrap: nowrap; }
+  html[data-experience="classic"] .header-actions .el-button { width: 40px; min-width: 40px; padding: 0; }
+  html[data-experience="classic"] .header-actions .el-tag { max-width: 76px; overflow: hidden; text-overflow: ellipsis; }
+  html[data-experience="classic"] .user-pill { padding-right: 6px; }
   html[data-experience="classic"] .page-container {
     padding: 20px 16px 32px;
   }

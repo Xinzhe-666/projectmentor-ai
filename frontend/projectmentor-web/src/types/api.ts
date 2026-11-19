@@ -74,6 +74,13 @@ export interface ProjectQaEvidence {
   filePath: string
   reason: string
   snippet: string
+  startLine?: number
+  endLine?: number
+  chunkType?: string
+  language?: string
+  matchedTerms?: string[]
+  retrievalMode?: string
+  retrievalExplanation?: string
 }
 
 export interface ProjectQaResponse {
@@ -88,6 +95,28 @@ export interface ProjectQaResponse {
   interviewAnswer?: string
   resumeRisk?: string
   confidenceScore?: number
+  retrievalMode?: 'lexical' | 'shadow/lexical' | 'hybrid' | 'fallback/lexical' | string
+  retrievalNotice?: string
+}
+
+export interface VectorIndexStatus {
+  projectId?: number
+  status: 'NOT_INDEXED' | 'PENDING' | 'RUNNING' | 'READY' | 'DEGRADED' | 'FAILED' | 'DELETING' | string
+  displayStatus: string
+  activeGeneration?: number
+  activeBuildId?: string
+  pendingGeneration?: number
+  pendingBuildId?: string
+  sourceRevision?: number
+  rescheduleRequired?: boolean
+  chunkCount: number
+  indexedFileCount: number
+  embeddingModel?: string
+  lastErrorCode?: string
+  lastErrorMessage?: string
+  lastIndexedAt?: string
+  activeTaskId?: number
+  progress?: number
 }
 
 export interface ProjectQaHistoryRecord extends ProjectQaResponse {

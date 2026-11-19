@@ -22,6 +22,8 @@ import com.xinzhe.projectmentor.qa.mapper.ProjectQaRecordMapper;
 import com.xinzhe.projectmentor.share.entity.ReportShare;
 import com.xinzhe.projectmentor.share.mapper.ReportShareMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import com.xinzhe.projectmentor.indexing.service.VectorIndexDeletionService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,6 +42,9 @@ public class ProjectService {
     private final ReportShareMapper reportShareMapper;
     private final InterviewSessionMapper interviewSessionMapper;
     private final InterviewMessageMapper interviewMessageMapper;
+
+    @Autowired(required = false)
+    private VectorIndexDeletionService vectorIndexDeletion;
 
     public ProjectVO createProject(CreateProjectRequest request) {
         Long userId = getCurrentUserId();
@@ -152,6 +157,7 @@ public class ProjectService {
         if (projectMapper.deleteById(projectId) != 1) {
             throw new BusinessException(ErrorCode.OPERATION_ERROR, "项目删除失败，请稍后重试");
         }
+        if (vectorIndexDeletion != null) vectorIndexDeletion.request(userId, projectId);
     }
 
     private List<Long> listReportIds(Long projectId) {

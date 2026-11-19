@@ -21,8 +21,10 @@ import com.xinzhe.projectmentor.qa.mapper.ProjectQaRecordMapper;
 import com.xinzhe.projectmentor.qa.vo.ProjectQaEvidenceVO;
 import com.xinzhe.projectmentor.qa.vo.ProjectQaHistoryVO;
 import com.xinzhe.projectmentor.qa.vo.ProjectQaResponseVO;
+import com.xinzhe.projectmentor.retrieval.search.HybridRetrievalCoordinator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -188,6 +190,9 @@ public class ProjectQaService {
 
     private final ObjectMapper objectMapper;
 
+    @Autowired(required = false)
+    private HybridRetrievalCoordinator hybridRetrievalCoordinator;
+
     public ProjectQaResponseVO ask(Long projectId, String question) {
         Long userId = getCurrentUserId();
         checkProjectOwner(projectId, userId);
@@ -197,6 +202,15 @@ public class ProjectQaService {
         Map<String, Integer> keywords = extractKeywords(normalizedQuestion);
         List<ScoredFile> scoredFiles = scoreFiles(files, keywords);
         List<ProjectQaEvidenceVO> evidences = buildEvidences(scoredFiles, keywords);
+        String retrievalMode = "lexical";
+        String retrievalNotice = null;
+        if (hybridRetrievalCoordinator != null) {
+            HybridRetrievalCoordinator.Decision decision = hybridRetrievalCoordinator.retrieve(
+                    userId, projectId, normalizedQuestion, evidences);
+            evidences = decision.evidences();
+            retrievalMode = decision.mode();
+            retrievalNotice = decision.notice();
+        }
         List<String> suggestedFollowUps = buildSuggestedFollowUps(keywords, evidences);
         EvidenceAssessment assessment = buildEvidenceAssessment(normalizedQuestion, evidences, scoredFiles);
 
@@ -256,6 +270,8 @@ public class ProjectQaService {
                 .interviewAnswer(assessment.interviewAnswer())
                 .resumeRisk(assessment.resumeRisk())
                 .confidenceScore(assessment.confidenceScore())
+                .retrievalMode(retrievalMode)
+                .retrievalNotice(retrievalNotice)
                 .build();
     }
 

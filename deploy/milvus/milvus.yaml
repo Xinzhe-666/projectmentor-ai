@@ -1,0 +1,7 @@
+common:
+  security:
+    authorizationEnabled: true
+
+proxy:
+  http:
+    enabled: true

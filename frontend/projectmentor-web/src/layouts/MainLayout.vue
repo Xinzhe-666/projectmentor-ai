@@ -18,42 +18,15 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import AppHeader from '@/components/AppHeader.vue'
 import AppSidebar from '@/components/AppSidebar.vue'
 import ExperienceFallbackNotice from '@/components/ExperienceFallbackNotice.vue'
+import { useNavigationDrawer } from '@/composables/useNavigationDrawer'
 
 const route = useRoute()
-const navigationOpen = ref(false)
-
-function openNavigation() {
-  navigationOpen.value = true
-  nextTick(() => document.querySelector<HTMLButtonElement>('.sidebar-close')?.focus())
-}
-
-function closeNavigation(restoreFocus = true) {
-  const wasOpen = navigationOpen.value
-  navigationOpen.value = false
-
-  if (wasOpen && restoreFocus) {
-    nextTick(() => document.querySelector<HTMLButtonElement>('.workspace-nav-toggle')?.focus())
-  }
-}
-
-watch(
-  () => route.fullPath,
-  () => closeNavigation(false)
-)
-
-watch(navigationOpen, (open) => {
-  document.documentElement.classList.toggle('workspace-nav-open', open)
-})
-
-onBeforeUnmount(() => {
-  document.documentElement.classList.remove('workspace-nav-open')
-})
+const { navigationOpen, openNavigation, closeNavigation } = useNavigationDrawer(route)
 </script>
 
 <style scoped>

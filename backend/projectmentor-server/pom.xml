@@ -19,6 +19,7 @@
         <mybatis-plus.version>3.5.16</mybatis-plus.version>
         <knife4j.version>4.4.0</knife4j.version>
         <jjwt.version>0.13.0</jjwt.version>
+        <milvus-sdk.version>2.6.27</milvus-sdk.version>
     </properties>
 
     <dependencies>
@@ -56,6 +57,13 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- Milvus v2 API. Pinned to the SDK version listed for Milvus Server 2.6.26. -->
+        <dependency>
+            <groupId>io.milvus</groupId>
+            <artifactId>milvus-sdk-java</artifactId>
+            <version>${milvus-sdk.version}</version>
         </dependency>
 
         <!-- 邮箱验证码：用于注册邮箱校验 -->

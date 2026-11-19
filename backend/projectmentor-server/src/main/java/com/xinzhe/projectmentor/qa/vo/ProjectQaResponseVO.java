@@ -30,4 +30,8 @@ public class ProjectQaResponseVO {
     private String resumeRisk;
 
     private Integer confidenceScore;
+
+    private String retrievalMode;
+
+    private String retrievalNotice;
 }

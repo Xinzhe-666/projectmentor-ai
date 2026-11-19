@@ -1,0 +1,8 @@
+server:
+  port: 8090
+orders:
+  cancellation-window-minutes: 30
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: 12

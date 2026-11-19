@@ -1,8 +1,13 @@
 <template>
   <header class="app-header">
-    <div>
+    <div class="classic-header-main">
+      <button class="workspace-nav-toggle" type="button" :aria-label="t('shellV5.openNavigation')" @click="emit('toggle-navigation')">
+        <el-icon><Expand /></el-icon>
+      </button>
+      <div>
       <p class="eyebrow">ProjectMentor AI</p>
       <h1>{{ title }}</h1>
+      </div>
     </div>
 
     <div class="header-actions">
@@ -26,7 +31,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { Coffee, Message, SwitchButton } from '@element-plus/icons-vue'
+import { Coffee, Expand, Message, SwitchButton } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 import { logout as logoutApi } from '@/v46/api/auth'
@@ -42,6 +47,7 @@ const { t } = useI18n()
 const userStore = useUserStore()
 const donateVisible = ref(false)
 const feedbackVisible = ref(false)
+const emit = defineEmits<{ (event: 'toggle-navigation'): void }>()
 
 const title = computed(() => {
   const titleMap: Record<string, string> = {

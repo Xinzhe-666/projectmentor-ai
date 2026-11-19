@@ -21,7 +21,9 @@ public enum ErrorCode {
 
     CREDIT_NOT_ENOUGH(60001, "额度不足"),
 
-    AI_SERVICE_ERROR(70001, "AI 服务调用失败");
+    AI_SERVICE_ERROR(70001, "AI 服务调用失败"),
+
+    VECTOR_INDEX_UNAVAILABLE(71001, "向量索引服务未启用或暂不可用");
 
     private final int code;
 

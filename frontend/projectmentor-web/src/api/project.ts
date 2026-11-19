@@ -1,5 +1,5 @@
 import { request } from './request'
-import type { Project, ProjectFile, UploadZipResult } from '@/types/api'
+import type { Project, ProjectFile, UploadZipResult, VectorIndexStatus } from '@/types/api'
 
 export interface CreateProjectParams {
   name: string
@@ -66,4 +66,12 @@ export function uploadZip(projectId: number, file: File) {
       'Content-Type': 'multipart/form-data'
     }
   })
+}
+
+export function getVectorIndexStatus(projectId: number) {
+  return request<VectorIndexStatus>({ url: `/api/projects/${projectId}/vector-index`, method: 'get' })
+}
+
+export function rebuildVectorIndex(projectId: number) {
+  return request<VectorIndexStatus>({ url: `/api/projects/${projectId}/vector-index/rebuild`, method: 'post' })
 }

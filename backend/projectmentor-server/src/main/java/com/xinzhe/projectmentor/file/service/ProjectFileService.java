@@ -11,7 +11,9 @@ import com.xinzhe.projectmentor.file.vo.ProjectFileDetailVO;
 import com.xinzhe.projectmentor.file.vo.ProjectFileVO;
 import com.xinzhe.projectmentor.project.entity.Project;
 import com.xinzhe.projectmentor.project.mapper.ProjectMapper;
+import com.xinzhe.projectmentor.indexing.service.VectorIndexTaskSubmissionService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +27,9 @@ public class ProjectFileService {
 
     private final ProjectMapper projectMapper;
 
+    @Autowired(required = false)
+    private VectorIndexTaskSubmissionService vectorIndexTasks;
+
     @Transactional(rollbackFor = Exception.class)
     public ProjectFileDetailVO saveReadme(Long projectId, SaveReadmeRequest request) {
         checkProjectOwner(projectId);
@@ -37,6 +42,8 @@ public class ProjectFileService {
 
         projectFileMapper.upsertProjectFile(readme);
         ProjectFile updatedFile = projectFileMapper.selectByProjectIdAndFilePath(projectId, "README.md");
+
+        scheduleVectorIndex(projectId);
 
         return toDetailVO(updatedFile);
     }
@@ -72,6 +79,7 @@ public class ProjectFileService {
         return toDetailVO(file);
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public void deleteFile(Long projectId, Long fileId) {
         checkProjectOwner(projectId);
 
@@ -87,6 +95,11 @@ public class ProjectFileService {
         }
 
         projectFileMapper.deleteById(fileId);
+        scheduleVectorIndex(projectId);
+    }
+
+    private void scheduleVectorIndex(Long projectId) {
+        if (vectorIndexTasks != null) vectorIndexTasks.recordContentChange(projectId);
     }
 
     private void checkProjectOwner(Long projectId) {

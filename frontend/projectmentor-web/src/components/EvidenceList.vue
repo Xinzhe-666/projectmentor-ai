@@ -10,7 +10,11 @@
         <dl>
           <div>
             <dt>{{ t('qa.v6.source') }}</dt>
-            <dd><code>{{ evidence.filePath || '—' }}</code></dd>
+            <dd>
+              <code>{{ evidence.filePath || '—' }}</code>
+              <span v-if="evidence.startLine" class="qa-line-range">L{{ evidence.startLine }}–L{{ evidence.endLine || evidence.startLine }}</span>
+              <span v-if="evidence.chunkType" class="qa-chunk-type">{{ evidence.chunkType }}</span>
+            </dd>
           </div>
           <div>
             <dt>{{ t('qa.v6.reason') }}</dt>
@@ -75,6 +79,10 @@ interface QaEvidenceReference {
   reason: string
   snippet: string
   sourceType?: string
+  startLine?: number
+  endLine?: number
+  chunkType?: string
+  matchedTerms?: string[]
 }
 
 type EvidenceInput = string | RuleScanEvidence[] | QaEvidenceReference[] | Record<string, unknown>[] | null | undefined
@@ -212,6 +220,15 @@ function riskLevelLabel(level?: string) {
   color: var(--pm-primary-deep);
   font-size: 11px;
   overflow-wrap: anywhere;
+}
+
+.qa-line-range,
+.qa-chunk-type {
+  display: inline-block;
+  margin-left: 10px;
+  color: var(--pm-muted);
+  font-family: var(--pm-font-mono);
+  font-size: 10px;
 }
 
 .qa-snippet-row dd {

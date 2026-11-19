@@ -9,6 +9,7 @@ import com.xinzhe.projectmentor.file.mapper.ProjectFileMapper;
 import com.xinzhe.projectmentor.indexing.entity.ProjectVectorIndex;
 import com.xinzhe.projectmentor.indexing.entity.VectorFileManifest;
 import com.xinzhe.projectmentor.indexing.entity.VectorIndexTask;
+import com.xinzhe.projectmentor.indexing.entity.VectorIndexTaskStatus;
 import com.xinzhe.projectmentor.indexing.mapper.ProjectVectorIndexMapper;
 import com.xinzhe.projectmentor.indexing.mapper.VectorIndexTaskMapper;
 import com.xinzhe.projectmentor.indexing.message.VectorIndexMessage;
@@ -62,7 +63,7 @@ public class VectorIndexWorker {
                 workerId, buildId, message.messageId(), properties.getLeaseSeconds(), properties.getMaximumAttempts());
         VectorIndexTask task = taskMapper.selectById(message.taskId());
         if (claimed != 1) {
-            if (task == null || "SUCCEEDED".equals(task.getStatus()) || "FAILED".equals(task.getStatus())) {
+            if (task == null || VectorIndexTaskStatus.isTerminal(task.getStatus())) {
                 return ProcessingResult.ACK;
             }
             return ProcessingResult.RETRY_LATER;

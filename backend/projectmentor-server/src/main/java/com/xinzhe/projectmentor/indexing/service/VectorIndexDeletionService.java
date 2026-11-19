@@ -5,6 +5,7 @@ import com.xinzhe.projectmentor.analysis.service.SafePipelineError;
 import com.xinzhe.projectmentor.config.VectorIndexProperties;
 import com.xinzhe.projectmentor.indexing.entity.VectorIndexOutboxEvent;
 import com.xinzhe.projectmentor.indexing.entity.VectorIndexTask;
+import com.xinzhe.projectmentor.indexing.entity.VectorIndexTaskStatus;
 import com.xinzhe.projectmentor.indexing.entity.ProjectVectorIndex;
 import com.xinzhe.projectmentor.indexing.mapper.ProjectVectorIndexMapper;
 import com.xinzhe.projectmentor.indexing.mapper.VectorFileManifestMapper;
@@ -72,7 +73,7 @@ public class VectorIndexDeletionService {
                 workerId, buildId, message.messageId(), properties.getLeaseSeconds(), properties.getMaximumAttempts());
         VectorIndexTask task = taskMapper.selectById(message.taskId());
         if (claimed != 1) {
-            if (task == null || "SUCCEEDED".equals(task.getStatus()) || "FAILED".equals(task.getStatus())) {
+            if (task == null || VectorIndexTaskStatus.isTerminal(task.getStatus())) {
                 return VectorIndexWorker.ProcessingResult.ACK;
             }
             return VectorIndexWorker.ProcessingResult.RETRY_LATER;

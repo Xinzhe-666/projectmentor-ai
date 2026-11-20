@@ -22,9 +22,9 @@ export default {
     note: 'Rule scans are free; AI deep review uses credits.'
   },
   audit: {
-    title: 'PROJECT AUTHENTICITY AUDIT / PMAI-WEB',
+    title: 'PROJECT AUTHENTICITY AUDIT / CAMPUSHUB-DEMO',
     illustrative: 'ILLUSTRATIVE AUDIT',
-    illustrativeNote: 'This interface uses real paths from the repository; it is not a project certification.',
+    illustrativeNote: 'The following content is fictional demo data; file paths and audit verdicts only illustrate how PMAI works.',
     phase: {
       searching: 'LOCATING EVIDENCE',
       found: 'SOURCE FOUND',
@@ -46,8 +46,8 @@ export default {
       scale: 'The system supports high-concurrency production load'
     },
     paths: {
-      jwt: 'backend/.../util/JwtUtil.java',
-      async: 'backend/.../analysis/service/AnalysisTaskAsyncExecutor.java',
+      jwt: 'backend/src/main/java/demo/campushub/security/JwtService.java',
+      async: 'backend/src/main/java/demo/campushub/audit/AuditTaskExecutor.java',
       preview: 'README.md',
       redis: 'No Redis configuration or implementation found',
       scale: 'No load-test or deployment evidence supplied'

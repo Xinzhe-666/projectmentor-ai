@@ -22,9 +22,9 @@ export default {
     note: '规则扫描免费；AI 深度解读按 credits 使用。'
   },
   audit: {
-    title: '项目真实性审计 / PMAI-WEB',
+    title: '项目真实性审计 / CAMPUSHUB-DEMO',
     illustrative: '示意审计',
-    illustrativeNote: '界面示例使用本仓库真实路径，不构成项目认证。',
+    illustrativeNote: '以下内容为虚构项目的演示数据；文件路径与审计结论仅用于说明 PMAI 的工作方式。',
     phase: {
       searching: '正在定位证据',
       found: '已找到来源',
@@ -46,8 +46,8 @@ export default {
       scale: '系统可支撑高并发生产负载'
     },
     paths: {
-      jwt: 'backend/.../util/JwtUtil.java',
-      async: 'backend/.../analysis/service/AnalysisTaskAsyncExecutor.java',
+      jwt: 'backend/src/main/java/demo/campushub/security/JwtService.java',
+      async: 'backend/src/main/java/demo/campushub/audit/AuditTaskExecutor.java',
       preview: 'README.md',
       redis: '未找到 Redis 配置或实现',
       scale: '未提供压测或部署证据'

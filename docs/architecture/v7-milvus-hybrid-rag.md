@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-PMAI v7 keeps the modular monolith and adds an optional retrieval/indexing subsystem. MySQL remains the authority for users, project ownership, files, index state and generations. RabbitMQ transports durable business work. Milvus stores derived, rebuildable code chunks. The default retrieval mode remains `lexical`; this code has not been deployed to production.
+PMAI v7 keeps the modular monolith and adds an optional retrieval/indexing subsystem. MySQL remains the authority for users, project ownership, files, index state and generations. RabbitMQ transports durable business work. Milvus stores derived, rebuildable code chunks. The v7 application and V1–V6 migrations were deployed to production on 2026-11-20. Production remains in `lexical` mode; Milvus, Embedding and RabbitMQ dispatch are implemented and integration-tested but are not enabled in production.
 
 ## Data flow
 

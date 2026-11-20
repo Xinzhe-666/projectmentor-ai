@@ -10,7 +10,7 @@ PMAI 的目标不是替用户“包装项目”，而是帮助用户基于真实
 
 ## Public Preview / 公开内测
 
-当前版本：**PMAI v7 · Public Preview**。v7 代码、测试和部署材料正在 Draft PR 阶段，尚未合并或部署生产。
+当前版本：**PMAI v7 · Public Preview**。v7 前后端已于 2026-11-20 部署生产，当前生产检索保持 `lexical`；Milvus Hybrid、Embedding 与 RabbitMQ 调度已实现并通过独立集成测试，但尚未在生产启用。
 
 核心能力：
 
@@ -88,8 +88,8 @@ v7 增加 Milvus Evidence-aware Hybrid RAG 与可靠异步项目索引，同时�
 | 已实现 | V6 schema、索引/检索代码、RBAC 初始化、Compose、前端状态与移动适配、评测/容量脚本 |
 | 可配置 | Milvus、Embedding、Rabbit index dispatch、三种 retrieval mode；默认全部不会强制开启 Hybrid |
 | 已测试 | 后端单测、前端构建、Compose config、确定性 24-query 流程评测；真实 Milvus/Rabbit/MySQL 由独立 CI job 门禁 |
-| 尚未部署 | 本分支没有合并、没有生产部署、没有执行生产迁移或创建 Tag/Release |
-| 限制 | 当前机器没有可用 Docker engine 与合法付费 Embedding Key，因此真实 Dense 质量和完整容器容量基线尚未执行 |
+| 生产状态 | v7 前后端与 Flyway V1–V6 已部署；生产保持 `lexical`，未启用 Milvus、Embedding 或 RabbitMQ 调度 |
+| 限制 | 尚未完成真实 Embedding 语义质量评测和正式隔离容量基线，因此不宣称 Hybrid 生产效果或高并发容量 |
 
 V1–V5 保持不可变；v7 只新增 `V6__project_vector_index.sql`。生产顺序和回滚见 [v7 部署手册](docs/deployment-v7.md)。
 
@@ -134,7 +134,7 @@ Claim-Evidence 的核心价值，是把项目描述拆成可核对的主张，�
 - 当前不是商业安全审计系统；
 - 当前不承诺 AI 结论完全准确；
 - 当前未接入真实支付系统；
-- Hybrid 尚未部署生产，默认 lexical；真实语义质量仍取决于合法配置的 Embedding 模型和评测；
+- v7 应用代码已部署生产，但生产检索仍使用 `lexical`；Milvus、Embedding 与 RabbitMQ 调度尚未启用，真实语义质量仍需合法 Embedding 模型评测；
 - 当前主要用于学习、项目复盘、简历表达检查和答辩 / 面试准备。
 
 完整已知边界见：[docs/known-limitations.md](docs/known-limitations.md)。
@@ -172,7 +172,7 @@ PMAI 面向需要验证项目真实性的开发者，适用人群包括计算机
 | 作者支持入口 | 轻量版 | “请作者喝咖啡”仅展示本地二维码，自愿支持，不影响任何功能使用，不是支付系统 |
 | 反馈入口 | 已完成 | 登录用户可站内提交反馈，管理员可筛选和更新反馈状态；保留 GitHub Issues 作为备用入口，不做复杂工单系统 |
 | 异步任务 | 已完成 | 分析与向量索引使用独立 RabbitMQ 拓扑；MySQL 是任务/Outbox 事实源，Redis 只缓存分析进度 |
-| Docker 部署 | 已完成 / v7 待部署 | 现有栈已支持；v7 增加固定版本的 Milvus/etcd/MinIO Compose 与认证初始化材料，尚未用于生产 |
+| Docker 部署 | v7 已部署 | 当前生产运行 v7 前后端、MySQL、Redis 与 Nginx；Milvus/etcd/MinIO 和 RabbitMQ Compose 材料已完成，但受服务器资源与发布门禁约束，尚未在生产启用 |
 | 线上备份与恢复 | 已完成 | V4.4-1 提供 MySQL 备份、恢复和线上状态检查脚本，便于服务器迁移和故障排查 |
 | Nginx 安全收口 | V4.8-3 | HTTPS 下拦截 `.env`、数据库备份、压缩文件、Swagger / Actuator / GraphQL、调试入口和常见扫描特征，并提供部署后回归脚本；不替代后端鉴权或完整 WAF |
 
@@ -721,7 +721,7 @@ bash scripts/check-nginx-security.sh https://projectmentorai.com
 - 审计报告只读分享当前为基础版能力，不包含访问统计和密码保护。
 - 反馈入口支持登录用户站内提交，并保留模板复制和 GitHub Issues 备用入口；当前不是正式工单系统。
 - 还需要真实用户测试，用于调整规则、文案和演示流程。
-- v7 Hybrid 尚未生产部署；真实 Dense 质量评测和完整容器容量基线仍是上线阻塞证据。
+- v7 已部署生产并保持 `lexical`；真实 Dense 质量评测和完整隔离容量基线仍是启用 Hybrid 的阻塞证据。
 - Milvus Standalone 不是高可用集群；启用前必须完成资源核算、认证初始化和 lexical -> shadow -> hybrid 灰度。
 
 ## 后续路线
@@ -731,7 +731,7 @@ bash scripts/check-nginx-security.sh https://projectmentorai.com
 - V4.2：项目问答。V4.2-4 已完成轻量检索增强问答、问答历史、证据可信度、面试讲法、简历风险提示、面试版复制、关键词扩展、文件权重、snippet 优化和检索解释；后续 V4.2-5 或 V4.3 可评估向量检索升级或管理员后台。
 - V4.3：管理员后台 / 用户反馈。V4.5-4 已在原有看板上补充 AI 用量统计、额度发放 / 扣除和流水管理。
 - V4.4：更正式的部署和用户体系。
-- PMAI v7：Milvus Hybrid RAG、可靠索引、移动端与发布材料（Draft PR，尚未部署）。
+- PMAI v7：前后端、V1–V6 迁移与移动端修复已部署生产；Milvus Hybrid、Embedding 与 RabbitMQ 调度保留为通过测试的可选能力，完成发布门禁后再灰度启用。
 - V4.9-2：credits 并发安全。
 
 详细路线见 [docs/roadmap.md](docs/roadmap.md)。

@@ -100,7 +100,14 @@ def main() -> int:
     results = {name: [] for name in ("lexical", "dense_mock", "bm25", "hybrid_rrf", "hybrid_evidence")}
     latencies = {name: [] for name in results}
     for case in labels:
-        docs = cache.setdefault(case["project"], documents(case["project"])); query = tokens(case["query"])
+        project = case["project"]
+        if project not in cache:
+            cache[project] = documents(project)
+        docs = cache[project]
+        missing = set(case["relevant"]) - docs.keys()
+        if not docs or missing or bool(case.get("noAnswer")) == bool(case["relevant"]):
+            raise ValueError(f"Invalid fixture/label for {project}: {case['query']}; missing paths: {sorted(missing)}")
+        query = tokens(case["query"])
         started = time.perf_counter_ns(); lexical_scores = lexical(query, docs); latencies["lexical"].append((time.perf_counter_ns()-started)/1e6)
         started = time.perf_counter_ns(); dense_scores = dense(query, docs); latencies["dense_mock"].append((time.perf_counter_ns()-started)/1e6)
         started = time.perf_counter_ns(); bm25_scores = bm25(query, docs); latencies["bm25"].append((time.perf_counter_ns()-started)/1e6)
@@ -110,7 +117,7 @@ def main() -> int:
                              ("hybrid_rrf", hybrid_scores), ("hybrid_evidence", evidence_scores)):
             results[name].append(ranked(scores))
 
-    output = {"dataset": {"projects": 3, "queries": len(labels), "no_answer_queries": sum(bool(x.get("noAnswer")) for x in labels)},
+    output = {"dataset": {"projects": len(cache), "queries": len(labels), "no_answer_queries": sum(bool(x.get("noAnswer")) for x in labels)},
               "warning": "dense_mock validates evaluation plumbing only; no real embedding quality claim is permitted", "variants": {}}
     for name, rankings in results.items():
         answer_cases = [(case, ranking) for case, ranking in zip(labels, rankings) if not case.get("noAnswer")]

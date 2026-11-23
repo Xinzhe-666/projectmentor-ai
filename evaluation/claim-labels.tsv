@@ -1,0 +1,51 @@
+project	scope	expected	category	claim	rationale
+spring-orders	all	SUPPORTED	REPORT	OrderService delegates cancellation to OrderRepository	OrderService calls markCancelled with the order ID
+spring-orders	all	SUPPORTED	DATABASE	OrderRepository declares markCancelled with a long order ID	The interface declares the contract; no persistence claim is made
+spring-orders	all	SUPPORTED	AUTH	The filter checks whether an Authorization value starts with Bearer	The filter checks the prefix only
+spring-orders	all	SUPPORTED	DEPLOYMENT	The server port is configured as 8090	application.yml sets server.port
+spring-orders	all	SUPPORTED	DATABASE	Hikari maximum pool size is configured as 12	application.yml sets the exact value
+spring-orders	all	SUPPORTED	GENERAL	The configuration declares a 30-minute cancellation window	The property exists; enforcement is a separate claim
+spring-orders	all	PARTIAL	AUTH	JWT authentication checks the Bearer prefix and verifies signatures	Prefix check exists; cryptographic verification does not
+spring-orders	all	PARTIAL	GENERAL	Cancellation invokes the repository and enforces the configured deadline	The call and property exist but deadline enforcement is absent
+spring-orders	all	PARTIAL	DATABASE	OrderRepository declares cancellation and persists the cancelled state	Repository interface exists with no implementation
+spring-orders	all	NO_EVIDENCE	AUTH	Refresh tokens are stored and rotated	No refresh token lifecycle code or docs
+spring-orders	all	NO_EVIDENCE	AUTH	The filter rejects expired JWTs	No expiry parsing or validation; finding the filter is not support
+spring-orders	all	NO_EVIDENCE	GENERAL	OrderService retries cancellation when the repository throws	No retry control flow
+spring-orders	all	NO_EVIDENCE	GENERAL	An event publishes after order cancellation	No event publisher or event wiring
+spring-orders	readme	DOC_ONLY	AUTH	The service uses bearer-token authentication	Mentioned in the provided README; implementation was not included
+spring-orders	readme	DOC_ONLY	GENERAL	The project supports order cancellation	README describes cancellation with no included implementation files
+spring-orders	all	RISKY	PERFORMANCE	订单服务已经验证 10 万 QPS	Fixture contains no resulting load-test data
+spring-orders	all	RISKY	PERFORMANCE	订单服务具有生产级高可用能力	No HA topology, SLO or failure test evidence
+vue-incident-board	all	SUPPORTED	FRONTEND	loadIncidents URL-encodes the status query parameter	The caller uses encodeURIComponent on status
+vue-incident-board	all	SUPPORTED	FRONTEND	The drawer emits a close event on button click	Template binds the button click to the close emit
+vue-incident-board	all	SUPPORTED	FRONTEND	Vite development server uses port 5178	Exact port is defined in Vite config
+vue-incident-board	all	SUPPORTED	FRONTEND	The selected severity defaults to all	Composable initializes selectedSeverity with all
+vue-incident-board	all	SUPPORTED	FRONTEND	The active filter count uses severity and whether query is nonempty	Computed value adds the two boolean predicates
+vue-incident-board	all	PARTIAL	FRONTEND	IncidentDrawer has an accessible label and traps keyboard focus	ARIA label exists; focus trapping is absent
+vue-incident-board	all	PARTIAL	FRONTEND	The API loads filtered incidents and retries on transient errors	The filtered fetch exists; retry is absent
+vue-incident-board	all	PARTIAL	FRONTEND	The composable stores filter state and persists it across reloads	In-memory state exists; persistence does not
+vue-incident-board	all	NO_EVIDENCE	FRONTEND	The drawer restores focus to its trigger when closed	No focus restore path is present
+vue-incident-board	all	NO_EVIDENCE	FRONTEND	The client uses WebSocket reconnection	No WebSocket client is present
+vue-incident-board	all	NO_EVIDENCE	FRONTEND	Users can delete incidents from the dashboard	No delete call or UI is present
+vue-incident-board	all	NO_EVIDENCE	FRONTEND	Dashboard supports Japanese localization	No translation catalog or locale switching is present
+vue-incident-board	readme	DOC_ONLY	FRONTEND	The dashboard has severity filters	Described only in the supplied README slice
+vue-incident-board	readme	DOC_ONLY	FRONTEND	The application has an accessible details drawer	Described only in the supplied README slice
+vue-incident-board	all	RISKY	PERFORMANCE	看板已验证可以服务百万用户	No representative load or usage data is supplied
+vue-incident-board	all	RISKY	PERFORMANCE	事件看板达到企业级高并发	No results support the workload claim
+ops-ledger	all	SUPPORTED	DEPLOYMENT	The Dockerfile sets the runtime user to app	Dockerfile uses a non-root USER app directive
+ops-ledger	all	SUPPORTED	DEPLOYMENT	The Postgres health check runs pg_isready	Compose contains the exact health-check command
+ops-ledger	all	SUPPORTED	DATABASE	The SQL schema makes idempotency_key unique	The SQL declares a unique constraint
+ops-ledger	all	SUPPORTED	DATABASE	The ledger table is indexed by account and creation time	The migration defines the corresponding composite index
+ops-ledger	all	SUPPORTED	GENERAL	Ledger retention is configured to 365 days	retention.yaml specifies the exact value without claiming enforcement
+ops-ledger	all	SUPPORTED	GENERAL	Reconciliation batch size is configured to 500	retention.yaml contains batch-size 500
+ops-ledger	all	PARTIAL	GENERAL	Ledger retention is configured and enforced by an automatic cleanup worker	The retention value exists; worker enforcement is absent
+ops-ledger	all	PARTIAL	GENERAL	Reconciliation defines a schedule and a worker executes it	Schedule is declared; no worker is included
+ops-ledger	all	PARTIAL	DEPLOYMENT	Compose checks Postgres health and automatically promotes read replicas	Health check exists; no replicas or promotion code
+ops-ledger	all	NO_EVIDENCE	DEPLOYMENT	A Terraform module deploys the service to Kubernetes	No Terraform or Kubernetes manifests are present
+ops-ledger	all	NO_EVIDENCE	DEPLOYMENT	Docker build output is signed with cosign	No signature step or signing configuration exists
+ops-ledger	all	NO_EVIDENCE	GENERAL	Encrypted backup snapshots are written to S3	No backup job or target configuration exists
+ops-ledger	all	NO_EVIDENCE	DATABASE	The database rejects SQL updates to existing ledger rows	Append-only wording exists but no SQL rule or grant enforces it
+ops-ledger	readme	DOC_ONLY	DATABASE	Idempotency is enforced in SQL	The scoped input is a README that mentions SQL; no schema is included
+ops-ledger	readme	DOC_ONLY	DEPLOYMENT	Docker runs the service as a non-root user	The scoped README states it; no Dockerfile included
+ops-ledger	all	RISKY	PERFORMANCE	账本系统具备生产级高可用故障转移	Single DB service and no failover measurements
+ops-ledger	all	RISKY	BUSINESS_OR_PRODUCT	账本系统已完成商业化和真实支付	No payment integration, transactions with payment providers, or customers

@@ -22,5 +22,17 @@
   {"project":"ops-ledger","query":"database idempotency and runtime least privilege","relevant":["db/migration/V1__ledger.sql","Dockerfile"]},
   {"project":"spring-orders","query":"where is the Kafka producer configured","relevant":[],"noAnswer":true},
   {"project":"vue-incident-board","query":"how is WebSocket reconnection implemented","relevant":[],"noAnswer":true},
-  {"project":"ops-ledger","query":"which Terraform module creates the Kubernetes cluster","relevant":[],"noAnswer":true}
+  {"project":"ops-ledger","query":"which Terraform module creates the Kubernetes cluster","relevant":[],"noAnswer":true},
+  {"project":"spring-orders","query":"where is the JWT signature verified against a public key","relevant":[],"noAnswer":true},
+  {"project":"spring-orders","query":"where does cancelOrder enforce the configured cancellation window","relevant":[],"noAnswer":true},
+  {"project":"spring-orders","query":"what is the retry policy when OrderRepository fails","relevant":[],"noAnswer":true},
+  {"project":"spring-orders","query":"which OAuth token refresh endpoint is implemented","relevant":[],"noAnswer":true},
+  {"project":"vue-incident-board","query":"where does IncidentDrawer trap focus and restore focus on close","relevant":[],"noAnswer":true},
+  {"project":"vue-incident-board","query":"which method deletes an incident using the API","relevant":[],"noAnswer":true},
+  {"project":"vue-incident-board","query":"where is selected severity persisted to localStorage","relevant":[],"noAnswer":true},
+  {"project":"vue-incident-board","query":"how does the API retry loading incidents after an HTTP 503","relevant":[],"noAnswer":true},
+  {"project":"ops-ledger","query":"which Compose service replicates Postgres to a read replica","relevant":[],"noAnswer":true},
+  {"project":"ops-ledger","query":"where is the worker that executes the reconciliation schedule","relevant":[],"noAnswer":true},
+  {"project":"ops-ledger","query":"where is the Docker image signed with cosign","relevant":[],"noAnswer":true},
+  {"project":"ops-ledger","query":"which S3 bucket stores encrypted snapshots","relevant":[],"noAnswer":true}
 ]

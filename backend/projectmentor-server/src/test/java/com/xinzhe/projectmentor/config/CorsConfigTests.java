@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.mock.web.MockServletContext;
+import org.springframework.mock.env.MockEnvironment;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -114,14 +115,11 @@ class CorsConfigTests {
             return new CorsConfig(new String[]{
                     "https://projectmentorai.com",
                     "https://www.projectmentorai.com",
-                    "http://projectmentorai.com",
-                    "http://www.projectmentorai.com",
-                    "http://8.218.121.30",
                     "http://localhost:5173",
                     "http://127.0.0.1:5173",
                     "http://localhost:3000",
                     "http://127.0.0.1:3000"
-            });
+            }, new MockEnvironment());
         }
 
         @Bean

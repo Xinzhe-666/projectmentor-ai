@@ -24,8 +24,10 @@ public class JwtUtil {
 
     @PostConstruct
     public void init() {
-        if (secret == null || secret.length() < 32) {
-            throw new IllegalArgumentException("JWT secret 长度不能小于 32 个字符，请检查 application.yml 或环境变量 JWT_SECRET");
+        if (secret == null || secret.length() < 32 || secret.chars().anyMatch(Character::isWhitespace)
+                || secret.equalsIgnoreCase("projectmentor-ai-local-dev-secret-must-be-at-least-32-chars")
+                || secret.regionMatches(true, 0, "replace-with-", 0, "replace-with-".length())) {
+            throw new IllegalArgumentException("JWT_SECRET must be an explicit, non-example secret of at least 32 characters without whitespace");
         }
         this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }

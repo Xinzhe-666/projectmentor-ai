@@ -24,6 +24,7 @@ backups/
 *.sql
 !backend/projectmentor-server/src/main/resources/db/migration/
 !backend/projectmentor-server/src/main/resources/db/migration/*.sql
+!evaluation/fixtures/ops-ledger/db/migration/V1__ledger.sql
 
 # Local config and secrets
 .env

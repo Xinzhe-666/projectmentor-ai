@@ -6,11 +6,11 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health
 
 app:
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://projectmentorai.com,https://www.projectmentorai.com,http://projectmentorai.com,http://www.projectmentorai.com,http://8.218.121.30,http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000}
 
 spring:
   application:
@@ -199,7 +199,7 @@ projectmentor:
     max-verify-attempts: ${EMAIL_VERIFICATION_MAX_VERIFY_ATTEMPTS:5}
 
   jwt:
-    secret: ${JWT_SECRET:projectmentor-ai-local-dev-secret-must-be-at-least-32-chars}
+    secret: ${JWT_SECRET:}
     expire-hours: 24
 
   ai:
@@ -210,3 +210,17 @@ projectmentor:
     max-prompt-chars: ${AI_MAX_PROMPT_CHARS:12000}
     max-response-tokens: ${AI_MAX_RESPONSE_TOKENS:1600}
     timeout-seconds: 60
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:}
+management:
+  endpoints:
+    web:
+      exposure:
+        exclude: info,metrics,prometheus

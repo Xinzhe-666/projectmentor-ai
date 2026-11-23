@@ -19,7 +19,8 @@ cp .env.example .env
 修改 `.env` 中的敏感配置：
 
 - `MYSQL_ROOT_PASSWORD`：改成开发或部署环境自己的 MySQL root 密码。
-- `JWT_SECRET`：改成足够长的随机字符串，建议不少于 32 位。
+- `JWT_SECRET`：显式设置，建议以至少 32 个随机字节生成。历史默认值、示例占位、含空白或短于 32 字符的值会阻止后端启动。
+- `SPRING_PROFILES_ACTIVE=prod`：Compose 默认生产模式；`CORS_ALLOWED_ORIGINS` 必须显式填写 HTTPS 域名。仅在隔离的本地开发环境使用 `SPRING_PROFILES_ACTIVE=dev`，并按实际前端端口配置 loopback origin，例如 `http://localhost:5173`。直接启动 Java 时未选 prod 则默认仅允许本地前端端口，仍需要自己的 JWT 密钥。
 - `KNIFE4J_ENABLED`：控制 Knife4j API 文档开关，生产环境保持 `false`；本地开发需要时可设为 `true`。
 - `FLYWAY_ENABLED=true`：默认启用数据库 migration。
 - `FLYWAY_BASELINE_ON_MIGRATE=false`：全新数据库和完成接入后的环境保持 `false`；只允许 legacy 非空数据库首次接入时临时设为 `true`。

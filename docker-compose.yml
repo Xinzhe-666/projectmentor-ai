@@ -45,6 +45,7 @@ services:
       redis:
         condition: service_healthy
     environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
       DB_HOST: mysql
       DB_PORT: 3306
       DB_NAME: projectmentor_ai
@@ -57,7 +58,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
       KNIFE4J_ENABLED: ${KNIFE4J_ENABLED:-false}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://projectmentorai.com,https://www.projectmentorai.com}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
       EMAIL_VERIFICATION_ENABLED: ${EMAIL_VERIFICATION_ENABLED:-false}
       MAIL_HOST: ${MAIL_HOST:-}
       MAIL_PORT: ${MAIL_PORT:-587}

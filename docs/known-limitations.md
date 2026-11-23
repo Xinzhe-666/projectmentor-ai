@@ -31,7 +31,7 @@ AI enhancement is an optional interpretation layer. It should be used to improve
 
 当前项目问答是 lightweight evidence-retrieval MVP，基于关键词提取、同义词扩展、文件角色权重、证据片段和可选 AI 解释，帮助用户定位“某个能力可能在哪里被实现”或“哪些文件可以作为面试证据”。
 
-当前不使用 Milvus、PgVector、embedding-based retrieval、semantic vector search 或成熟 RAG pipeline。项目问答不应被介绍为完整语义检索系统或成熟向量数据库 RAG 产品。
+生产预览使用 `lexical`。代码中提供可选 Milvus + Embedding 混合检索，并在真实服务集成测试中验证了检索链路，但尚未上线该模式，也没有真实 Embedding 质量或生产容量数据。
 
 ## Credits Limitations / Credits 边界
 
